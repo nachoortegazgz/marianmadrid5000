@@ -1,38 +1,22 @@
 /*
 =============================================================================
 MODULE: backend/fiscalAggregator.web.js
-VERSION: marianmadrid4002 (v21.1.2-LTS-remediated-phase3-chunked-queries)
-RESPONSIBILITY: Produces tax-review summaries and an internal supporting
-            ledger extract from the immutable financial ledger with chunked bounded queries.
-STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+RESPONSIBILITY: Memory-efficient tax review summaries and internal ledger extracts.
+STANDARDS: G10 ASCII Strict, Stream Accumulator Pattern, Velo Native.
 =============================================================================
 */
 
 import { webMethod, Permissions } from "wix-web-module";
 import wixData from "wix-data";
-import {
-    COLLECTIONS,
-    SDK_CONFIG,
-    TIPO_MOVIMIENTO,
-} from "backend/internalConfig";
-import {
-    makeTraceId,
-    withTimeout,
-    _safeTrim,
-    _roundMoney,
-} from "public/mmUtils";
-import {
-    requireAdmin,
-    requireCajero,
-    rateLimiter,
-} from "backend/security";
+import { COLLECTIONS, SDK_CONFIG, TIPO_MOVIMIENTO } from "backend/internalConfig";
+import { makeTraceId, _safeTrim, _roundMoney } from "public/mmUtils";
+import { requireAdmin, requireCajero, rateLimiter } from "backend/security";
 import { logger } from "backend/booking/bookingCore";
 import { _toPublicError } from "backend/responseUtils";
 
 const log = logger;
-const CMS_TIMEOUT_MS = Number(SDK_CONFIG?.TIMEOUTS?.CMS_MS) || 15000;
 const CHUNK_PAGE_SIZE = 100;
-const MAX_PAGES = Number(SDK_CONFIG?.JOBS?.FISCAL_DAILY_MAX_PAGES) || 50;
+const MAX_PAGES = SDK_CONFIG?.JOBS?.FISCAL_DAILY_MAX_PAGES || 50;
 
 function _rateLimitOrThrow(surface, key, traceId) {
     const rl = rateLimiter({ surface, key });
@@ -59,33 +43,93 @@ function _getQuarterMonths(year, quarter) {
     return monthMap[q].map((m) => `${y}-${m}`);
 }
 
-async function _queryAllQuarterMovements(months, traceId) {
-    if (!Array.isArray(months) || months.length === 0) return [];
+function _initTaxAccumulator(months) {
+    const breakdownByMonth = {};
+    months.forEach((m) => {
+        breakdownByMonth[m] = { baseImponible: 0, cuotaIva: 0, total: 0, count: 0 };
+    });
 
-    let allItems = [];
-    const query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
-        .hasSome("mesKey", months)
-        .ascending("seqGlobal")
-        .limit(CHUNK_PAGE_SIZE);
+    return {
+        totalBaseImponible: 0,
+        totalCuotaIva: 0,
+        totalFacturado: 0,
+        totalVentas: 0,
+        totalReembolsos: 0,
+        totalPropinas: 0,
+        totalAjustes: 0,
+        countVentas: 0,
+        countReembolsos: 0,
+        countPropinas: 0,
+        countAjustes: 0,
+        countFiscal: 0,
+        totalOperaciones: 0,
+        breakdownByPaymentMethod: { efectivo: 0, tarjeta: 0, bizum: 0, online: 0 },
+        breakdownByMonth,
+        breakdownByVatRate: {},
+    };
+}
 
-    let res = await withTimeout(query.find({ suppressAuth: true, consistentRead: true }), CMS_TIMEOUT_MS, "queryQuarterMovements_p1");
-    allItems = allItems.concat(res?.items || []);
+function _accumulatePage(items, state) {
+    for (const m of items) {
+        state.totalOperaciones++;
+        const importeContable = Number(m.importeContable) || 0;
+        const base = Number(m.baseImponible) || 0;
+        const cuota = Number(m.cuotaIva) || 0;
+        const mes = _safeTrim(m.mesKey);
+        const formaPago = _safeTrim(m.formaPago).toLowerCase();
+        const tasaIva = Number(m.tasaIva) || 0;
+        const tasaIvaKey = String(tasaIva);
+        const tipoMovimiento = _safeTrim(m.tipoMovimiento).toUpperCase();
+        
+        const naturaleza = _safeTrim(m.naturalezaOperacion).toUpperCase() || (
+            tipoMovimiento === TIPO_MOVIMIENTO.PROPINA ? "PROPINA" :
+            tipoMovimiento === TIPO_MOVIMIENTO.REEMBOLSO || importeContable < 0 ? "DEVOLUCION" :
+            tipoMovimiento === TIPO_MOVIMIENTO.AJUSTE ? "AJUSTE" : "VENTA"
+        );
 
-    let page = 2;
-    while (res && res.hasNext() && page <= MAX_PAGES) {
-        res = await withTimeout(res.next({ suppressAuth: true, consistentRead: true }), CMS_TIMEOUT_MS, `queryQuarterMovements_p${page}`);
-        allItems = allItems.concat(res?.items || []);
-        page++;
+        if (state.breakdownByPaymentMethod[formaPago] !== undefined) {
+            state.breakdownByPaymentMethod[formaPago] += importeContable;
+        }
+
+        if (naturaleza === "PROPINA") {
+            state.totalPropinas += importeContable;
+            state.countPropinas++;
+            continue;
+        }
+        if (naturaleza === "AJUSTE") {
+            state.totalAjustes += importeContable;
+            state.countAjustes++;
+            continue;
+        }
+
+        state.countFiscal++;
+        state.totalBaseImponible += base;
+        state.totalCuotaIva += cuota;
+        state.totalFacturado += importeContable;
+
+        if (naturaleza === "VENTA") {
+            state.totalVentas += importeContable;
+            state.countVentas++;
+        } else {
+            state.totalReembolsos += importeContable;
+            state.countReembolsos++;
+        }
+
+        if (state.breakdownByMonth[mes]) {
+            state.breakdownByMonth[mes].baseImponible += base;
+            state.breakdownByMonth[mes].cuotaIva += cuota;
+            state.breakdownByMonth[mes].total += importeContable;
+            state.breakdownByMonth[mes].count++;
+        }
+
+        if (!state.breakdownByVatRate[tasaIvaKey]) {
+            state.breakdownByVatRate[tasaIvaKey] = { tasaIva, baseImponible: 0, cuotaIva: 0, total: 0, operaciones: 0 };
+        }
+        state.breakdownByVatRate[tasaIvaKey].baseImponible += base;
+        state.breakdownByVatRate[tasaIvaKey].cuotaIva += cuota;
+        state.breakdownByVatRate[tasaIvaKey].total += importeContable;
+        state.breakdownByVatRate[tasaIvaKey].operaciones++;
     }
-
-    if (res?.hasNext()) {
-        const error = new Error("Quarterly fiscal movement query reached configured page cap");
-        error.code = "FISCAL_RESULT_TRUNCATED";
-        error.meta = { maxPages: MAX_PAGES, itemCount: allItems.length, traceId };
-        throw error;
-    }
-
-    return allItems;
 }
 
 export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (year, quarter, options = {}) => {
@@ -101,90 +145,21 @@ export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (y
         }
 
         const months = _getQuarterMonths(y, q);
-        const items = await _queryAllQuarterMovements(months, traceId);
+        const state = _initTaxAccumulator(months);
 
-        let totalBaseImponible = 0;
-        let totalCuotaIva = 0;
-        let totalFacturado = 0;
-        let totalVentas = 0;
-        let totalReembolsos = 0;
-        let totalPropinas = 0;
-        let totalAjustes = 0;
-        let countVentas = 0;
-        let countReembolsos = 0;
-        let countPropinas = 0;
-        let countAjustes = 0;
-        let countFiscal = 0;
+        let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
+            .hasSome("mesKey", months)
+            .ascending("seqGlobal")
+            .limit(CHUNK_PAGE_SIZE);
 
-        const breakdownByPaymentMethod = {
-            efectivo: 0,
-            tarjeta: 0,
-            bizum: 0,
-            online: 0,
-        };
+        let res = await query.find({ suppressAuth: true, consistentRead: false });
+        if (res?.items) _accumulatePage(res.items, state);
 
-        const breakdownByMonth = {};
-        const breakdownByVatRate = {};
-        months.forEach((m) => {
-            breakdownByMonth[m] = { baseImponible: 0, cuotaIva: 0, total: 0, count: 0 };
-        });
-
-        for (const m of items) {
-            const importeContable = Number(m.importeContable) || 0;
-            const base = Number(m.baseImponible) || 0;
-            const cuota = Number(m.cuotaIva) || 0;
-            const mes = _safeTrim(m.mesKey);
-            const formaPago = _safeTrim(m.formaPago).toLowerCase();
-            const tasaIva = Number(m.tasaIva) || 0;
-            const tasaIvaKey = String(tasaIva);
-            const tipoMovimiento = _safeTrim(m.tipoMovimiento).toUpperCase();
-            const naturaleza = _safeTrim(m.naturalezaOperacion).toUpperCase() || (
-                tipoMovimiento === TIPO_MOVIMIENTO.PROPINA ? "PROPINA" :
-                tipoMovimiento === TIPO_MOVIMIENTO.REEMBOLSO || importeContable < 0 ? "DEVOLUCION" :
-                tipoMovimiento === TIPO_MOVIMIENTO.AJUSTE ? "AJUSTE" : "VENTA"
-            );
-
-            if (breakdownByPaymentMethod[formaPago] !== undefined) {
-                breakdownByPaymentMethod[formaPago] += importeContable;
-            }
-            if (naturaleza === "PROPINA") {
-                totalPropinas += importeContable;
-                countPropinas++;
-                continue;
-            }
-            if (naturaleza === "AJUSTE") {
-                totalAjustes += importeContable;
-                countAjustes++;
-                continue;
-            }
-
-            countFiscal++;
-            totalBaseImponible += base;
-            totalCuotaIva += cuota;
-            totalFacturado += importeContable;
-
-            if (naturaleza === "VENTA") {
-                totalVentas += importeContable;
-                countVentas++;
-            } else {
-                totalReembolsos += importeContable;
-                countReembolsos++;
-            }
-
-            if (breakdownByMonth[mes]) {
-                breakdownByMonth[mes].baseImponible += base;
-                breakdownByMonth[mes].cuotaIva += cuota;
-                breakdownByMonth[mes].total += importeContable;
-                breakdownByMonth[mes].count++;
-            }
-
-            if (!breakdownByVatRate[tasaIvaKey]) {
-                breakdownByVatRate[tasaIvaKey] = { tasaIva, baseImponible: 0, cuotaIva: 0, total: 0, operaciones: 0 };
-            }
-            breakdownByVatRate[tasaIvaKey].baseImponible += base;
-            breakdownByVatRate[tasaIvaKey].cuotaIva += cuota;
-            breakdownByVatRate[tasaIvaKey].total += importeContable;
-            breakdownByVatRate[tasaIvaKey].operaciones++;
+        let page = 2;
+        while (res && res.hasNext() && page <= MAX_PAGES) {
+            res = await res.next({ suppressAuth: true, consistentRead: false });
+            if (res?.items) _accumulatePage(res.items, state);
+            page++;
         }
 
         return {
@@ -193,46 +168,46 @@ export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (y
                 ejercicio: y,
                 trimestre: q,
                 periodoMeses: months,
-                totalOperaciones: items.length,
-                totalOperacionesFiscales: countFiscal,
+                totalOperaciones: state.totalOperaciones,
+                totalOperacionesFiscales: state.countFiscal,
                 conteo: {
-                    ventas: countVentas,
-                    reembolsos: countReembolsos,
-                    propinas: countPropinas,
-                    ajustes: countAjustes,
+                    ventas: state.countVentas,
+                    reembolsos: state.countReembolsos,
+                    propinas: state.countPropinas,
+                    ajustes: state.countAjustes,
                 },
                 borradorIva: {
                     estado: "REVISION_PROFESIONAL_REQUERIDA",
-                    baseImponibleRegistrada: _roundMoney(totalBaseImponible),
-                    cuotaIvaRegistrada: _roundMoney(totalCuotaIva),
+                    baseImponibleRegistrada: _roundMoney(state.totalBaseImponible),
+                    cuotaIvaRegistrada: _roundMoney(state.totalCuotaIva),
                     nota: "No es un Modelo 303 oficial. Requiere validacion previa por gestoria.",
                 },
                 borradorIngresos: {
                     estado: "REVISION_PROFESIONAL_REQUERIDA",
-                    ingresosRegistrados: _roundMoney(totalBaseImponible),
+                    ingresosRegistrados: _roundMoney(state.totalBaseImponible),
                     nota: "No es un Modelo 130 oficial. Requiere validacion previa por gestoria.",
                 },
                 totales: {
-                    totalVentasBrutas: _roundMoney(totalVentas),
-                    totalReembolsos: _roundMoney(totalReembolsos),
-                    totalFacturadoNeto: _roundMoney(totalFacturado),
-                    totalPropinasSeparadas: _roundMoney(totalPropinas),
-                    totalAjustesSeparados: _roundMoney(totalAjustes),
+                    totalVentasBrutas: _roundMoney(state.totalVentas),
+                    totalReembolsos: _roundMoney(state.totalReembolsos),
+                    totalFacturadoNeto: _roundMoney(state.totalFacturado),
+                    totalPropinasSeparadas: _roundMoney(state.totalPropinas),
+                    totalAjustesSeparados: _roundMoney(state.totalAjustes),
                 },
                 desgloseFormaPago: {
-                    efectivo: _roundMoney(breakdownByPaymentMethod.efectivo),
-                    tarjeta: _roundMoney(breakdownByPaymentMethod.tarjeta),
-                    bizum: _roundMoney(breakdownByPaymentMethod.bizum),
-                    online: _roundMoney(breakdownByPaymentMethod.online),
+                    efectivo: _roundMoney(state.breakdownByPaymentMethod.efectivo),
+                    tarjeta: _roundMoney(state.breakdownByPaymentMethod.tarjeta),
+                    bizum: _roundMoney(state.breakdownByPaymentMethod.bizum),
+                    online: _roundMoney(state.breakdownByPaymentMethod.online),
                 },
-                desgloseMensual: Object.keys(breakdownByMonth).map((mesKey) => ({
+                desgloseMensual: Object.keys(state.breakdownByMonth).map((mesKey) => ({
                     mesKey,
-                    baseImponible: _roundMoney(breakdownByMonth[mesKey].baseImponible),
-                    cuotaIva: _roundMoney(breakdownByMonth[mesKey].cuotaIva),
-                    total: _roundMoney(breakdownByMonth[mesKey].total),
-                    operaciones: breakdownByMonth[mesKey].count,
+                    baseImponible: _roundMoney(state.breakdownByMonth[mesKey].baseImponible),
+                    cuotaIva: _roundMoney(state.breakdownByMonth[mesKey].cuotaIva),
+                    total: _roundMoney(state.breakdownByMonth[mesKey].total),
+                    operaciones: state.breakdownByMonth[mesKey].count,
                 })),
-                desgloseTipoIva: Object.values(breakdownByVatRate).map((item) => ({
+                desgloseTipoIva: Object.values(state.breakdownByVatRate).map((item) => ({
                     tasaIva: item.tasaIva,
                     baseImponible: _roundMoney(item.baseImponible),
                     cuotaIva: _roundMoney(item.cuotaIva),
@@ -261,33 +236,54 @@ export const getLibroRegistroFacturasExpedidas = webMethod(Permissions.Admin, as
         }
 
         const months = _getQuarterMonths(y, q);
-        const items = await _queryAllQuarterMovements(months, traceId);
+        let libroFilas = [];
+        let orderIndex = 1;
 
-        const libroFilas = items.map((m, idx) => ({
-            orden: idx + 1,
-            numTicketFactura: _safeTrim(m.numTicketFactura || m.numeroTicket),
-            fechaExpedicion: _safeTrim(m.diaKey),
-            tipoFactura: m.tipoMovimiento === "REEMBOLSO" || Number(m.importeContable) < 0 ? "R1" : "BORRADOR_INTERNO",
-            tipoMovimiento: _safeTrim(m.tipoMovimiento),
-            naturalezaOperacion: _safeTrim(m.naturalezaOperacion) || "VENTA",
-            tratamientoIva: _safeTrim(m.tratamientoIva) || "PENDIENTE_VALIDACION",
-            incluidoEnBorradorIva: _safeTrim(m.naturalezaOperacion).toUpperCase() !== "PROPINA" && _safeTrim(m.naturalezaOperacion).toUpperCase() !== "AJUSTE",
-            referenciaRectificativa: _safeTrim(m.referenciaRectificativa) || null,
-            formaPago: _safeTrim(m.formaPago),
-            baseImponible: _roundMoney(m.baseImponible),
-            tipoIva: `${Math.round((Number(m.tasaIva) || 0) * 100)}%`,
-            cuotaIva: _roundMoney(m.cuotaIva),
-            importeTotal: _roundMoney(m.importeContable),
-            concepto: _safeTrim(m.concepto),
-            origen: _safeTrim(m.origen),
-            orderId: _safeTrim(m.orderId) || null,
-            refundId: _safeTrim(m.refundId) || null,
-            fechaHoraRegistro: m.fechaCreacion || null,
-            huellaSha256: _safeTrim(m.hashCadena).slice(0, 8).toUpperCase(),
-            hashCompleto: _safeTrim(m.hashCadena),
-            reservaVinculada: _safeTrim(m.reservaIdVinculada) || null,
-            transactionId: _safeTrim(m.transactionId),
-        }));
+        let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
+            .hasSome("mesKey", months)
+            .ascending("seqGlobal")
+            .limit(CHUNK_PAGE_SIZE);
+
+        let res = await query.find({ suppressAuth: true, consistentRead: false });
+        
+        const mapItems = (items) => {
+            for (const m of items) {
+                libroFilas.push({
+                    orden: orderIndex++,
+                    numTicketFactura: _safeTrim(m.numTicketFactura || m.numeroTicket),
+                    fechaExpedicion: _safeTrim(m.diaKey),
+                    tipoFactura: m.tipoMovimiento === "REEMBOLSO" || Number(m.importeContable) < 0 ? "R1" : "BORRADOR_INTERNO",
+                    tipoMovimiento: _safeTrim(m.tipoMovimiento),
+                    naturalezaOperacion: _safeTrim(m.naturalezaOperacion) || "VENTA",
+                    tratamientoIva: _safeTrim(m.tratamientoIva) || "PENDIENTE_VALIDACION",
+                    incluidoEnBorradorIva: _safeTrim(m.naturalezaOperacion).toUpperCase() !== "PROPINA" && _safeTrim(m.naturalezaOperacion).toUpperCase() !== "AJUSTE",
+                    referenciaRectificativa: _safeTrim(m.referenciaRectificativa) || null,
+                    formaPago: _safeTrim(m.formaPago),
+                    baseImponible: _roundMoney(m.baseImponible),
+                    tipoIva: `${Math.round((Number(m.tasaIva) || 0) * 100)}%`,
+                    cuotaIva: _roundMoney(m.cuotaIva),
+                    importeTotal: _roundMoney(m.importeContable),
+                    concepto: _safeTrim(m.concepto),
+                    origen: _safeTrim(m.origen),
+                    orderId: _safeTrim(m.orderId) || null,
+                    refundId: _safeTrim(m.refundId) || null,
+                    fechaHoraRegistro: m.fechaCreacion || null,
+                    huellaSha256: _safeTrim(m.hashCadena).slice(0, 8).toUpperCase(),
+                    hashCompleto: _safeTrim(m.hashCadena),
+                    reservaVinculada: _safeTrim(m.reservaIdVinculada) || null,
+                    transactionId: _safeTrim(m.transactionId),
+                });
+            }
+        };
+
+        if (res?.items) mapItems(res.items);
+
+        let page = 2;
+        while (res && res.hasNext() && page <= MAX_PAGES) {
+            res = await res.next({ suppressAuth: true, consistentRead: false });
+            if (res?.items) mapItems(res.items);
+            page++;
+        }
 
         return {
             status: "SUCCESS",

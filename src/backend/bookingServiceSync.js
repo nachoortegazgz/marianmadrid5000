@@ -1,9 +1,8 @@
 /*
 =============================================================================
 MODULE: backend/bookingsServiceSync.js
-VERSION: marianmadrid4001 (v21.0.0-LTS-canonical-sync)
 RESPONSIBILITY: Queue-driven one-way projection from SERVICIOS_RESERVA to Wix
-            Bookings Services V2.
+                Bookings Services V2.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 =============================================================================
 */
@@ -11,19 +10,17 @@ STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 import wixData from "wix-data";
 import { elevate } from "wix-auth";
 import { services } from "wix-bookings.v2";
-import { makeTraceId, _looksLikeGuid, _safeTrim, withTimeout, _extractRelationalId } from "public/mmUtils";
+import { makeTraceId, _looksLikeGuid, _safeTrim, _extractRelationalId } from "public/mmUtils";
 import { hashSHA256 } from "backend/securityEngine";
-import { _lockSlotKeyOrFail, _unlockSlotKey, logger } from "backend/booking/bookingCore";
+import { logger } from "backend/booking/bookingCore";
 import { COLLECTIONS, SDK_CONFIG, SERVICE_CATALOG } from "backend/internalConfig";
 
 const log = logger;
 const QUEUE_COL = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE;
-const SERVICES_COL = COLLECTIONS.SERVICIOS_RESERVA;
-const MAX_ATTEMPTS = SDK_CONFIG.JOBS.BOOKINGS_SERVICE_SYNC_MAX_ATTEMPTS;
-const BATCH_SIZE = SDK_CONFIG.JOBS.BOOKINGS_SERVICE_SYNC_BATCH_SIZE;
-const BACKOFF_MS = SDK_CONFIG.JOBS.BOOKINGS_SERVICE_SYNC_BACKOFF_MS;
-const LOCK_TTL_MS = 120000;
-const VALID_STATUS = new Set(["PENDING", "RETRY"]);
+const MAX_ATTEMPTS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_MAX_ATTEMPTS || 5;
+const BATCH_SIZE = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BATCH_SIZE || 20;
+const BACKOFF_MS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BACKOFF_MS || 300000;
+const VALID_STATUS = ["PENDING", "RETRY"];
 
 const getServiceElevated = elevate(services.getService);
 const updateServiceElevated = elevate(services.updateService);
@@ -108,11 +105,7 @@ export async function enqueueBookingsServiceSync(serviceItem) {
         updatedAt: new Date(),
     };
 
-    return await withTimeout(
-        wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true }),
-        SDK_CONFIG.TIMEOUTS.CMS_MS,
-        "enqueueBookingsServiceSync"
-    );
+    return await wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true });
 }
 
 export async function processBookingsServiceSyncQueue(options = {}) {
@@ -120,7 +113,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
     const now = new Date();
 
     const pending = await wixData.query(QUEUE_COL)
-        .in("status", [...VALID_STATUS])
+        .hasSome("status", VALID_STATUS)
         .le("nextAttemptAt", now)
         .limit(BATCH_SIZE)
         .find({ suppressAuth: true, consistentRead: true });
@@ -129,11 +122,6 @@ export async function processBookingsServiceSyncQueue(options = {}) {
     let failed = 0;
 
     for (const item of pending?.items || []) {
-        const lockKey = `lock:sync:${item.serviceId}`;
-        const lockOwner = `${traceId}:${item.serviceId}`;
-        const lock = await _lockSlotKeyOrFail(lockKey, lockOwner, LOCK_TTL_MS);
-        if (!lock?.ok) continue;
-
         try {
             const currentService = await getServiceElevated(item.serviceId);
             if (currentService?.service) {
@@ -169,8 +157,6 @@ export async function processBookingsServiceSyncQueue(options = {}) {
                 updatedAt: new Date(),
             }, { suppressAuth: true });
             failed++;
-        } finally {
-            await _unlockSlotKey(lockKey, lockOwner).catch(() => null);
         }
     }
     return { status: "SUCCESS", data: { scanned: pending?.items?.length || 0, completed, failed }, error: null };

@@ -51,87 +51,10 @@ $w.onReady(async () => {
         return;
     }
 
-<<<<<<< HEAD
-    let resolvedService = null;
-
-    createWidgetBridge(widget, {
-      slug: lookup.value,
-      traceId,
-      handshakeTimeoutMs:
-        CONFIG.HANDSHAKE_TIMEOUT_MS,
-      contextTimeoutMs:
-        CONFIG.CONTEXT_TIMEOUT_MS,
-
-      onContextReady: async () => {
-        resolvedService =
-          await fetchServiceFromBackend(
-            lookup
-          );
-
-        return buildContext(
-          resolvedService,
-          traceId
-        );
-      },
-
-      onWidgetMessage: async (message) => {
-        const type = _normType(
-          message?.type
-        );
-
-        const payload =
-          message?.payload || {};
-
-        if (!resolvedService) {
-          showError(
-            "El servicio todavia esta cargando."
-          );
-          return;
-        }
-
-        if (
-          type === _normType(
-            MESSAGE_TYPES.BOOK
-          )
-        ) {
-          const addonIds =
-            sanitizeAddonIds(
-              payload.addons,
-              resolvedService
-            );
-
-          goToCalendar(
-            resolvedService,
-            addonIds
-          );
-
-          return;
-        }
-
-        if (
-          type === _normType(
-            MESSAGE_TYPES.NAV
-          )
-        ) {
-          const target = String(
-            payload.target || ""
-          )
-            .trim()
-            .toUpperCase();
-
-          if (
-            target === "CALENDARIO2" ||
-            target.includes("CALENDAR")
-          ) {
-            goToCalendar(
-              resolvedService
-            );
-=======
     try {
         const lookupValue = await resolveServiceLookup();
         if (!lookupValue) {
             showError("No se pudo localizar el servicio en la URL.");
->>>>>>> 5e575e90c56998cb2ba7cfe7469c9ca872bcda08
             return;
         }
 

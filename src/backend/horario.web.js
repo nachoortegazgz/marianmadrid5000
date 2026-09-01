@@ -1,487 +1,78 @@
 /*
 =============================================================================
 MODULE: backend/horario.web.js
-VERSION: marianmadrid4003 (v21.1.2-LTS-remediated-phase1-fixes)
-RESPONSIBILITY: Employee time tracking and labor registry (RD-Ley 8/2019):
-            clock-in, clock-out, break tracking, workload calculation, with mutex concurrency lock.
-STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+RESPONSIBILITY: Employee time tracking and labor registry (No Mutex).
+STANDARDS: G10 ASCII Strict, Velo Native Optimized.
 =============================================================================
 */
 
 import { webMethod, Permissions } from "wix-web-module";
 import wixData from "wix-data";
 import { currentMember } from "wix-members-backend";
-import {
-    STAFF_DEFAULT_NAME,
-    makeTraceId,
-    _safeTrim,
-    _maskIp,
-    getMadridLocalStringNoZ,
-    withTimeout,
-} from "public/mmUtils";
-import {
-    COLLECTIONS,
-    TIPO_FICHAJE,
-    SDK_CONFIG,
-} from "backend/internalConfig";
-import {
-    logger,
-    BookingError,
-    ERROR_CODES,
-    normalizeError,
-    _lockSlotKeyOrFail,
-    _unlockSlotKey,
-} from "backend/booking/bookingCore";
-import { findStaff, getAllStaff } from "backend/staff";
+import { STAFF_DEFAULT_NAME, makeTraceId, _safeTrim, _maskIp, getMadridLocalStringNoZ } from "public/mmUtils";
+import { COLLECTIONS, TIPO_FICHAJE } from "backend/internalConfig";
+import { BookingError, ERROR_CODES } from "backend/booking/bookingCore";
+import { findStaff } from "backend/staff";
 import { isAdmin, rateLimiter } from "backend/security";
 
-const log = logger;
 const REGISTRO_COL = COLLECTIONS.REGISTRO_HORARIO;
-const API_TIMEOUT_MS = Number(SDK_CONFIG?.TIMEOUTS?.WEBHOOK_MS) || 30000;
-const CLOCK_LOCK_TTL_MS = 30000;
 
-function _rateLimitOrThrow(surface, key, traceId) {
-    const rl = rateLimiter({ surface, key });
-    if (!rl.allowed) {
-        const e = new Error("Demasiadas peticiones. Por favor, reintenta en unos segundos.");
-        e.code = "RATE_LIMITED";
-        e.meta = { retryAfter: rl.retryAfter, surface, traceId };
-        throw e;
-    }
-}
-
-async function _resolveResourceName(resourceId) {
-    if (!resourceId) return STAFF_DEFAULT_NAME;
-    const found = await findStaff(resourceId);
-    return found?.displayName || found?.nombreVisible || found?.name || STAFF_DEFAULT_NAME;
-}
-
-async function _validateResourceId(resourceId, traceId) {
-    const cleanId = _safeTrim(resourceId);
-    if (!cleanId) {
-        throw new BookingError(ERROR_CODES.INVALID_EMPLOYEE, "El identificador de personal es obligatorio.", { traceId });
-    }
-    const staffMatch = await findStaff(cleanId);
-    if (!staffMatch?.resourceId) {
-        throw new BookingError(ERROR_CODES.INVALID_EMPLOYEE, "El identificador de personal no esta autorizado.", { traceId });
-    }
-    return staffMatch.resourceId;
-}
-
-async function _validateMemberAndResource(resourceId, traceId) {
-    const member = await withTimeout(
-        currentMember.getMember({ fieldsets: ["FULL"] }),
-        API_TIMEOUT_MS,
-        "getMemberForClockValidation"
-    ).catch(() => null);
-
-    if (!member) {
-        throw new BookingError(ERROR_CODES.AUTH_REQUIRED, "Inicio de sesion requerido.", { traceId });
-    }
-
-    const memberIsAdmin = await isAdmin(traceId).catch(() => false);
-    if (memberIsAdmin) {
-        return {
-            registradoPor: "ADMIN",
-            registradoPorMemberId: _safeTrim(member._id) || null,
-        };
-    }
-
-    const memberEmail = _safeTrim(member.loginEmail || member.email);
-    const memberId = member._id;
-
-    const staffFromEmail = await findStaff(memberEmail);
-    const staffFromId = await findStaff(memberId);
-    const staff = staffFromEmail || staffFromId;
-
-    if (!staff || !staff.resourceId) {
-        throw new BookingError(ERROR_CODES.ACCESS_DENIED, "No hay un perfil de personal vinculado a su cuenta.", { traceId });
-    }
-
-    const targetStaff = await findStaff(resourceId);
-    const targetGuid = targetStaff?.resourceId || resourceId;
-
-    if (staff.resourceId !== targetGuid) {
-        throw new BookingError(ERROR_CODES.ACCESS_DENIED, "Solo puede acceder a sus propios datos de fichaje.", { traceId });
-    }
-    return {
-        registradoPor: "SELF",
-        registradoPorMemberId: _safeTrim(memberId) || null,
-    };
-}
-
-async function _getEstadoJornadaInternal(resourceId, traceId) {
-    const cleanId = await _validateResourceId(resourceId, traceId);
-
-    const res = await withTimeout(
-        wixData
-            .query(REGISTRO_COL)
-            .eq("resourceId", cleanId)
-            .ne("tipoFichaje", TIPO_FICHAJE.AJUSTE)
-            .descending("fechaHora")
-            .limit(1)
-            .find({ suppressAuth: true }),
-        API_TIMEOUT_MS,
-        "getEstadoJornadaInternal"
-    );
+async function _getEstadoJornadaInternal(resourceId) {
+    const res = await wixData.query(REGISTRO_COL)
+        .eq("resourceId", resourceId)
+        .ne("tipoFichaje", TIPO_FICHAJE.AJUSTE)
+        .descending("fechaHora")
+        .limit(1)
+        .find({ suppressAuth: true });
 
     const lastRecord = res.items?.[0] || null;
-    if (!lastRecord) {
-        return { estadoActual: "INACTIVO", enJornada: false, enPausa: false, ultimoFichaje: null };
-    }
+    if (!lastRecord) return { estadoActual: "INACTIVO", enJornada: false, enPausa: false, ultimoFichaje: null };
 
     const tipo = String(lastRecord.tipoFichaje || "").toUpperCase();
-
-    let estadoActual = "INACTIVO";
-    let enJornada = false;
-    let enPausa = false;
+    let estadoActual = "INACTIVO", enJornada = false, enPausa = false;
 
     if (tipo === TIPO_FICHAJE.ENTRADA || tipo === TIPO_FICHAJE.PAUSA_FIN) {
-        estadoActual = "TRABAJANDO";
-        enJornada = true;
-        enPausa = false;
+        estadoActual = "TRABAJANDO"; enJornada = true;
     } else if (tipo === TIPO_FICHAJE.PAUSA_INICIO) {
-        estadoActual = "EN_PAUSA";
-        enJornada = true;
-        enPausa = true;
-    } else if (tipo === TIPO_FICHAJE.SALIDA) {
-        estadoActual = "INACTIVO";
-        enJornada = false;
-        enPausa = false;
+        estadoActual = "EN_PAUSA"; enJornada = true; enPausa = true;
     }
 
     return {
-        estadoActual,
-        enJornada,
-        enPausa,
-        ultimoFichaje: {
-            _id: lastRecord._id,
-            tipoFichaje: lastRecord.tipoFichaje,
-            fechaHora: lastRecord.fechaHora || lastRecord._createdDate,
-            hora: lastRecord.hora,
-            diaKey: lastRecord.diaKey,
-        },
-    };
-}
-
-async function _getHistorialFichajesInternal(resourceId, startDateYMD, endDateYMD, traceId) {
-    const cleanId = await _validateResourceId(resourceId, traceId);
-
-    let query = wixData.query(REGISTRO_COL).eq("resourceId", cleanId).ascending("fechaHora");
-    if (startDateYMD) query = query.ge("diaKey", _safeTrim(startDateYMD));
-    if (endDateYMD) query = query.le("diaKey", _safeTrim(endDateYMD));
-
-    let allItems = [];
-    query = query.limit(1000);
-
-    let res = await withTimeout(
-        query.find({ suppressAuth: true }),
-        API_TIMEOUT_MS,
-        "queryHistorialFichajesInternal_p1"
-    );
-    allItems = allItems.concat(res?.items || []);
-
-    let page = 2;
-    const maxPages = 10;
-    let hasMore = Boolean(res && res.hasNext());
-
-    while (hasMore && page <= maxPages) {
-        res = await withTimeout(
-            res.next({ suppressAuth: true }),
-            API_TIMEOUT_MS,
-            `queryHistorialFichajesInternal_p${page}`
-        );
-        allItems = allItems.concat(res?.items || []);
-        hasMore = Boolean(res && res.hasNext());
-        page++;
-    }
-
-    return {
-        items: allItems,
-        totalItems: allItems.length,
-        truncated: hasMore,
-        pagesScanned: page - 1,
+        estadoActual, enJornada, enPausa,
+        ultimoFichaje: { fechaHora: lastRecord.fechaHora || lastRecord._createdDate }
     };
 }
 
 async function _registrarFichajeInternal(payload, traceId) {
-    const resourceId = await _validateResourceId(payload.resourceId, traceId);
-    _rateLimitOrThrow("horario.registrarFichaje", resourceId, traceId);
-    const actor = await _validateMemberAndResource(resourceId, traceId);
-
-    const lockKey = `clock_${resourceId}`;
-    const lockOwnerId = `${traceId}:${resourceId}`;
-    const lockResult = await _lockSlotKeyOrFail(lockKey, lockOwnerId, CLOCK_LOCK_TTL_MS);
-    if (!lockResult?.ok) {
-        throw new BookingError(
-            ERROR_CODES.TOKEN_BUSY,
-            "Hay un registro de fichaje en curso para este profesional. Reintenta en unos segundos.",
-            { traceId }
-        );
+    const resourceId = _safeTrim(payload.resourceId);
+    const tipo = String(payload.tipoFichaje || "").trim().toUpperCase();
+    
+    const estadoJornada = await _getEstadoJornadaInternal(resourceId);
+    
+    // Debounce de 5 segundos para evitar dobles clics accidentales
+    const lastTime = estadoJornada.ultimoFichaje?.fechaHora?.getTime() || 0;
+    if (Date.now() - lastTime < 5000) {
+        throw new BookingError(ERROR_CODES.RATE_LIMITED, "Por favor, espera unos segundos antes de volver a fichar.");
     }
 
-    try {
-        const tipo = String(payload.tipoFichaje || payload.tipo || "").trim().toUpperCase();
-        const validTypes = Object.values(TIPO_FICHAJE);
-        if (!validTypes.includes(tipo)) {
-            throw new BookingError(ERROR_CODES.INVALID_CLOCK_TYPE, `Tipo de fichaje invalido: "${tipo}".`, { traceId });
-        }
+    if (tipo === TIPO_FICHAJE.ENTRADA && estadoJornada.enJornada) throw new BookingError(ERROR_CODES.INVALID_CLOCK_TYPE, "Turno ya activo.");
+    if (tipo === TIPO_FICHAJE.SALIDA && !estadoJornada.enJornada) throw new BookingError(ERROR_CODES.INVALID_CLOCK_TYPE, "No hay turno activo.");
 
-        const estadoJornada = await _getEstadoJornadaInternal(resourceId, traceId);
+    const ahora = new Date();
+    const madridStr = getMadridLocalStringNoZ(ahora);
+    
+    const record = {
+        resourceId,
+        resourceName: payload.resourceName || STAFF_DEFAULT_NAME,
+        tipoFichaje: tipo,
+        diaKey: madridStr.slice(0, 10),
+        mesKey: madridStr.slice(0, 7),
+        hora: madridStr.slice(11, 19),
+        fechaHora: ahora,
+        ipDispositivo: _maskIp(payload.ipDispositivo || "SYSTEM"),
+        registradoPor: payload.registradoPor || "SELF",
+    };
 
-        if (tipo === TIPO_FICHAJE.ENTRADA && estadoJornada.enJornada) {
-            throw new BookingError(ERROR_CODES.INVALID_CLOCK_TYPE, "El profesional ya tiene un turno activo.", { traceId });
-        } else if (tipo === TIPO_FICHAJE.SALIDA && !estadoJornada.enJornada) {
-            throw new BookingError(ERROR_CODES.INVALID_CLOCK_TYPE, "No hay un turno activo para cerrar.", { traceId });
-        } else if (tipo === TIPO_FICHAJE.PAUSA_INICIO && (!estadoJornada.enJornada || estadoJornada.enPausa)) {
-            throw new BookingError(ERROR_CODES.INVALID_CLOCK_TYPE, "No se puede iniciar una pausa sin un turno activo.", { traceId });
-        } else if (tipo === TIPO_FICHAJE.PAUSA_FIN && !estadoJornada.enPausa) {
-            throw new BookingError(ERROR_CODES.INVALID_CLOCK_TYPE, "No se puede finalizar una pausa que no se ha iniciado.", { traceId });
-        }
-
-        const ahora = new Date();
-        const madridStr = getMadridLocalStringNoZ(ahora);
-        const diaKey = madridStr.slice(0, 10);
-        const mesKey = madridStr.slice(0, 7);
-        const hora = madridStr.slice(11, 19);
-
-        const resourceName = await _resolveResourceName(resourceId);
-
-        const record = {
-            resourceId,
-            resourceName,
-            tipoFichaje: tipo,
-            diaKey,
-            mesKey,
-            hora,
-            fechaHora: ahora,
-            ipDispositivo: _maskIp(payload.ipDispositivo || "CONTAINER_SYSTEM"),
-            motivoAjuste: _safeTrim(payload.motivoAjuste) || null,
-            registradoPor: actor.registradoPor,
-            registradoPorMemberId: actor.registradoPorMemberId,
-        };
-
-        const inserted = await withTimeout(
-            wixData.insert(REGISTRO_COL, record, { suppressAuth: true }),
-            API_TIMEOUT_MS,
-            "insertFichaje"
-        );
-
-        return {
-            status: "SUCCESS",
-            data: {
-                _id: inserted._id,
-                resourceId: inserted.resourceId,
-                resourceName: inserted.resourceName,
-                tipoFichaje: inserted.tipoFichaje,
-                fechaHora: inserted.fechaHora || ahora,
-                diaKey: inserted.diaKey,
-                hora: inserted.hora,
-            },
-            error: null,
-        };
-    } finally {
-        await _unlockSlotKey(lockKey, lockOwnerId).catch(() => {});
-    }
+    const inserted = await wixData.insert(REGISTRO_COL, record, { suppressAuth: true });
+    return { status: "SUCCESS", data: inserted, error: null };
 }
-
-export const getMyStaffContext = webMethod(Permissions.SiteMember, async (options = {}) => {
-    const traceId = options.traceId || makeTraceId("staff-context");
-    try {
-        const member = await withTimeout(
-            currentMember.getMember({ fieldsets: ["FULL"] }),
-            API_TIMEOUT_MS,
-            "getMemberForStaffContext"
-        );
-        const memberEmail = _safeTrim(member?.loginEmail || member?.email);
-        const staff = (await findStaff(memberEmail)) || (await findStaff(member?._id));
-        if (!staff) {
-            throw new BookingError(ERROR_CODES.ACCESS_DENIED, "No hay un perfil de personal vinculado a su cuenta.", { traceId });
-        }
-        return {
-            status: "SUCCESS",
-            data: { resourceId: staff.resourceId, displayName: staff.displayName || staff.nombreVisible, role: staff.rol || null },
-            error: null,
-        };
-    } catch (error) {
-        const normalized = normalizeError(error);
-        return { status: "ERROR", data: null, error: { code: normalized.code, message: normalized.message } };
-    }
-});
-
-export const getStaffOptionsForAdmin = webMethod(Permissions.Admin, async (options = {}) => {
-    const traceId = options.traceId || makeTraceId("staff-options");
-    try {
-        const staff = await getAllStaff();
-        return { status: "SUCCESS", data: staff.map((entry) => ({ id: entry.resourceId, name: entry.displayName || entry.nombreVisible })), error: null };
-    } catch (error) {
-        const normalized = normalizeError(error);
-        log.error("Failed to load staff options", { error: normalized.message, traceId });
-        return { status: "ERROR", data: null, error: { code: normalized.code, message: normalized.message } };
-    }
-});
-
-export const registrarFichaje = webMethod(Permissions.SiteMember, async (arg1, arg2, arg3 = {}) => {
-    let payload = {};
-    if (typeof arg1 === "object" && arg1 !== null) {
-        payload = arg1;
-    } else {
-        payload = { resourceId: arg1, tipoFichaje: arg2, ...arg3 };
-    }
-
-    const traceId = payload.traceId || makeTraceId("fichaje");
-    try {
-        return await _registrarFichajeInternal(payload, traceId);
-    } catch (error) {
-        const normalized = normalizeError(error);
-        log.error("Failed to register clock", { error: normalized.message, traceId });
-        return { status: "ERROR", data: null, error: { code: normalized.code, message: normalized.message } };
-    }
-});
-
-export const getEstadoJornada = webMethod(Permissions.SiteMember, async (resourceId, options = {}) => {
-    const traceId = options.traceId || makeTraceId("estado-jornada");
-    try {
-        const cleanId = await _validateResourceId(resourceId, traceId);
-        await _validateMemberAndResource(cleanId, traceId);
-
-        const estado = await _getEstadoJornadaInternal(cleanId, traceId);
-        return { status: "SUCCESS", data: estado, error: null };
-    } catch (error) {
-        const normalized = normalizeError(error);
-        return { status: "ERROR", data: null, error: { code: normalized.code, message: normalized.message } };
-    }
-});
-
-export const getHistorialFichajes = webMethod(
-    Permissions.SiteMember,
-    async (resourceId, startDateYMD, endDateYMD, options = {}) => {
-        const traceId = options.traceId || makeTraceId("historial-fichajes");
-        try {
-            const cleanId = await _validateResourceId(resourceId, traceId);
-            await _validateMemberAndResource(cleanId, traceId);
-
-            const result = await _getHistorialFichajesInternal(cleanId, startDateYMD, endDateYMD, traceId);
-            return { status: "SUCCESS", data: result, error: null };
-        } catch (error) {
-            const normalized = normalizeError(error);
-            return { status: "ERROR", data: null, error: { code: normalized.code, message: normalized.message } };
-        }
-    }
-);
-
-export const calcularHorasTrabajadas = webMethod(
-    Permissions.SiteMember,
-    async (resourceId, startDateYMD, endDateYMD, options = {}) => {
-        const traceId = options.traceId || makeTraceId("calc-horas");
-        try {
-            const cleanId = await _validateResourceId(resourceId, traceId);
-            await _validateMemberAndResource(cleanId, traceId);
-
-            const historyResult = await _getHistorialFichajesInternal(cleanId, startDateYMD, endDateYMD, traceId);
-            const items = Array.isArray(historyResult?.items) ? historyResult.items : [];
-
-            let totalWorkedMs = 0;
-            let totalBreakMs = 0;
-            let currentShiftStart = null;
-            let currentBreakStart = null;
-            let currentShiftBreakMs = 0;
-
-            for (const item of items) {
-                const rawDate = item.fechaHora || item._createdDate;
-                const time = rawDate ? new Date(rawDate).getTime() : NaN;
-                if (isNaN(time)) continue;
-
-                const tipo = String(item.tipoFichaje || "").toUpperCase();
-
-                if (tipo === TIPO_FICHAJE.ENTRADA) {
-                    if (currentShiftStart !== null) {
-                        log.warn("Sequence warning: ENTRADA received while shift active", { traceId });
-                    }
-                    currentShiftStart = time;
-                    currentBreakStart = null;
-                    currentShiftBreakMs = 0;
-                } else if (tipo === TIPO_FICHAJE.PAUSA_INICIO) {
-                    if (currentShiftStart === null || currentBreakStart !== null) continue;
-                    currentBreakStart = time;
-                } else if (tipo === TIPO_FICHAJE.PAUSA_FIN) {
-                    if (currentShiftStart === null || currentBreakStart === null) continue;
-                    const breakDuration = time - currentBreakStart;
-                    if (breakDuration > 0) currentShiftBreakMs += breakDuration;
-                    currentBreakStart = null;
-                } else if (tipo === TIPO_FICHAJE.SALIDA) {
-                    if (currentShiftStart === null) continue;
-                    if (currentBreakStart !== null) {
-                        const breakDuration = time - currentBreakStart;
-                        if (breakDuration > 0) currentShiftBreakMs += breakDuration;
-                        currentBreakStart = null;
-                    }
-                    const grossShiftMs = time - currentShiftStart;
-                    if (grossShiftMs > currentShiftBreakMs) {
-                        totalWorkedMs += (grossShiftMs - currentShiftBreakMs);
-                        totalBreakMs += currentShiftBreakMs;
-                    }
-                    currentShiftStart = null;
-                    currentBreakStart = null;
-                    currentShiftBreakMs = 0;
-                }
-            }
-
-            const todayYMD = getMadridLocalStringNoZ(new Date()).slice(0, 10);
-            const rangeIncludesToday = !endDateYMD || _safeTrim(endDateYMD) >= todayYMD;
-            const hasOpenShiftOutsideRequestedRange = currentShiftStart !== null && !rangeIncludesToday;
-            if (currentShiftStart !== null && rangeIncludesToday) {
-                const nowMs = Date.now();
-                if (currentBreakStart !== null) {
-                    const breakDuration = nowMs - currentBreakStart;
-                    if (breakDuration > 0) currentShiftBreakMs += breakDuration;
-                }
-                const grossShiftMs = nowMs - currentShiftStart;
-                if (grossShiftMs > currentShiftBreakMs) {
-                    totalWorkedMs += (grossShiftMs - currentShiftBreakMs);
-                    totalBreakMs += currentShiftBreakMs;
-                }
-            }
-
-            const workedHoursDecimal = Math.round((totalWorkedMs / (1000 * 60 * 60)) * 100) / 100;
-            const breakHoursDecimal = Math.round((totalBreakMs / (1000 * 60 * 60)) * 100) / 100;
-            const hoursInt = Math.floor(workedHoursDecimal);
-            const minutesInt = Math.round((workedHoursDecimal - hoursInt) * 60);
-
-            return {
-                status: "SUCCESS",
-                data: {
-                    resourceId: cleanId,
-                    periodo: { desde: startDateYMD, hasta: endDateYMD },
-                    horasTrabajadasDecimal: workedHoursDecimal,
-                    horasPausaDecimal: breakHoursDecimal,
-                    tiempoFormateado: `${hoursInt}h ${minutesInt}m`,
-                    totalFichajesProcesados: items.length,
-                    turnoAbiertoFueraDeRango: hasOpenShiftOutsideRequestedRange,
-                    truncated: historyResult.truncated,
-                },
-                error: null,
-            };
-        } catch (error) {
-            const normalized = normalizeError(error);
-            return { status: "ERROR", data: null, error: { code: normalized.code, message: normalized.message } };
-        }
-    }
-);
-
-export const registrarAjusteHorario = webMethod(Permissions.Admin, async (payload = {}) => {
-    const traceId = payload.traceId || makeTraceId("ajuste-horario");
-    try {
-        if (!payload.motivoAjuste) {
-            throw new BookingError(ERROR_CODES.INVALID_PAYLOAD, "El campo motivoAjuste es obligatorio para ajustes manuales.", { traceId });
-        }
-        return await _registrarFichajeInternal({
-            ...payload,
-            tipoFichaje: TIPO_FICHAJE.AJUSTE,
-            registradoPor: "ADMIN",
-        }, traceId);
-    } catch (error) {
-        const normalized = normalizeError(error);
-        return { status: "ERROR", data: null, error: { code: normalized.code, message: normalized.message } };
-    }
-});
