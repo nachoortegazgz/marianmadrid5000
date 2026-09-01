@@ -1,29 +1,22 @@
 /*
 =============================================================================
 MODULE: backend/data.js
-RESPONSIBILITY: CMS data hooks for canonical dates, immutable fiscal records,
-                immutable labor records, and optimistic versioning for CitasF2.
-STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+RESPONSIBILITY: Fast, lightweight CMS data hooks for validation and immutability.
+STANDARDS: G10 ASCII Strict (0 non-ASCII characters), Zero Dead Code.
 =============================================================================
 */
 
-import wixData from "wix-data";
-import { getMadridLocalStringNoZ, _extractRelationalId } from "public/mmUtils";
+import { getMadridLocalStringNoZ } from "public/mmUtils";
 import {
-    COLLECTIONS,
     SINGLETONS,
     TIPO_FICHAJE,
     CITA_FIELDS,
     ESTADO_CITA,
     SERVICE_CATALOG,
 } from "backend/internalConfig";
-import { clearStaffCache, findStaff } from "backend/staff";
-import { enqueueBookingsServiceSync } from "backend/bookingsServiceSync";
+import { findStaff } from "backend/staff";
 
 const CAJA_ACTUAL_ID = SINGLETONS?.CAJA || "CAJA_PRINCIPAL";
-const DUAL_CACHE_COL = COLLECTIONS.DUAL_CACHE;
-const DAYS_CACHE_COL = COLLECTIONS.DAYS_CACHE;
-const SLOTS_CACHE_COL = COLLECTIONS.SLOTS_CACHE;
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -104,14 +97,19 @@ function _validateServiceCatalog(item, context) {
     item.tiempoExposicion = gap;
     item.tiempoFaseDos = f2;
 
-    const total = f1 + gap + f2;
-    if (total > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
-        throw new Error("SERVICE_VALIDATION: total duration is invalid.");
+    const totalCalculado = f1 + gap + f2;
+    if (totalCalculado > 0) {
+        item.duracionTotal = Math.round(totalCalculado * 100) / 100;
+    } else if (!item.duracionTotal || Number(item.duracionTotal) <= 0) {
+        item.duracionTotal = 30;
     }
-    item.duracionTotal = Math.round(total * 100) / 100;
+
     return item;
 }
 
+// -----------------------------------------------------------------------------
+// GANCHOS: SERVICIOS_RESERVA
+// -----------------------------------------------------------------------------
 export function SERVICIOS_RESERVA_beforeInsert(item, context) {
     return _validateServiceCatalog(item, context);
 }
@@ -120,58 +118,9 @@ export function SERVICIOS_RESERVA_beforeUpdate(item, context) {
     return _validateServiceCatalog(item, context);
 }
 
-async function _removeCollectionItemsByServiceId(collectionId, fields, serviceId) {
-    const cleanServiceId = _extractRelationalId(serviceId);
-    if (!GUID_RE.test(cleanServiceId)) return;
-
-    const matches = await Promise.allSettled(
-        fields.map((field) => wixData.query(collectionId).eq(field, cleanServiceId).limit(1000).find({ suppressAuth: true }))
-    );
-    const ids = new Set(
-        matches
-            .filter((result) => result.status === "fulfilled")
-            .flatMap((result) => result.value?.items || [])
-            .map((item) => item?._id)
-            .filter(Boolean)
-    );
-    await Promise.allSettled(
-        [...ids].map((itemId) => wixData.remove(collectionId, itemId, { suppressAuth: true }))
-    );
-}
-
-async function _invalidateServiceCaches(serviceId) {
-    await Promise.allSettled([
-        _removeCollectionItemsByServiceId(DUAL_CACHE_COL, ["serviceId", "phaseOneServiceId", "idServicioFaseUno"], serviceId),
-        _removeCollectionItemsByServiceId(DAYS_CACHE_COL, ["serviceId", "phaseOneServiceId", "idServicioFaseUno"], serviceId),
-        _removeCollectionItemsByServiceId(SLOTS_CACHE_COL, ["phaseOneServiceId", "idServicioFaseUno"], serviceId),
-    ]);
-}
-
-async function _enqueueBookingsServiceSyncSafely(item) {
-    if (item?.bookingsSyncEnabled !== true) return null;
-    try {
-        return await enqueueBookingsServiceSync(item);
-    } catch (_) {
-        return null;
-    }
-}
-
-export async function SERVICIOS_RESERVA_afterInsert(item, context) {
-    if (!item || context?.suppressHooks === true) return item;
-    await _enqueueBookingsServiceSyncSafely(item);
-    return item;
-}
-
-export async function SERVICIOS_RESERVA_afterUpdate(item, context) {
-    if (!item || context?.suppressHooks === true) return item;
-    const s1 = item.idServicio || item.serviceId;
-    const s2 = item.idServicioFaseDos || item.linkFases;
-    await _invalidateServiceCaches(s1);
-    if (s2) await _invalidateServiceCaches(s2);
-    await _enqueueBookingsServiceSyncSafely(item);
-    return item;
-}
-
+// -----------------------------------------------------------------------------
+// GANCHOS: MAPA_STAFF
+// -----------------------------------------------------------------------------
 function _validateMapaStaff(item, context) {
     if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
     const resourceId = String(item.resourceId || "").trim();
@@ -186,9 +135,6 @@ function _validateMapaStaff(item, context) {
     _normalizeBoundedText(item, "rol", 60);
     if (item.email) item.email = item.email.toLowerCase();
     if (!item.idMiembroStaff && !item.email) throw new Error("STAFF_VALIDATION: idMiembroStaff or email is required.");
-    if (item.activo !== undefined && typeof item.activo !== "boolean") {
-        throw new Error("STAFF_VALIDATION: activo must be boolean.");
-    }
     item.activo = item.activo !== false;
     item.updatedAt = new Date();
     return item;
@@ -202,21 +148,9 @@ export function MAPA_STAFF_beforeUpdate(item, context) {
     return _validateMapaStaff(item, context);
 }
 
-export function MAPA_STAFF_afterInsert(item) {
-    clearStaffCache();
-    return item;
-}
-
-export function MAPA_STAFF_afterUpdate(item) {
-    clearStaffCache();
-    return item;
-}
-
-export function MAPA_STAFF_afterRemove(itemId) {
-    clearStaffCache();
-    return itemId;
-}
-
+// -----------------------------------------------------------------------------
+// GANCHOS: CitasF2
+// -----------------------------------------------------------------------------
 export function CitasF2_beforeInsert(item, context) {
     if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
 
@@ -268,6 +202,9 @@ export function CitasF2_beforeUpdate(item, context) {
     return item;
 }
 
+// -----------------------------------------------------------------------------
+// GANCHOS: movimientoCaja (Inmutabilidad Fiscal Veri*Factu)
+// -----------------------------------------------------------------------------
 export function movimientoCaja_beforeInsert(item, context) {
     if (!item || typeof item !== "object") return item;
 
@@ -298,6 +235,9 @@ export function movimientoCaja_beforeRemove(_itemId) {
     throw new Error("FISCAL_VIOLATION: Direct removals from movimientoCaja are forbidden.");
 }
 
+// -----------------------------------------------------------------------------
+// GANCHOS: REGISTROHORARIO (Inmutabilidad Laboral RD-Ley 8/2019)
+// -----------------------------------------------------------------------------
 export async function REGISTROHORARIO_beforeInsert(item, context) {
     if (!item || typeof item !== "object") return item;
 
@@ -340,6 +280,9 @@ export function REGISTROHORARIO_beforeRemove(_itemId) {
     throw new Error("LABOR_LOG_VIOLATION: Direct removals from REGISTROHORARIO are forbidden.");
 }
 
+// -----------------------------------------------------------------------------
+// GANCHOS: HISTORICOCIERRESZ (Inmutabilidad Cierres Z)
+// -----------------------------------------------------------------------------
 export function HISTORICOCIERRESZ_beforeUpdate(_item) {
     throw new Error("FISCAL_VIOLATION: Direct updates to HISTORICOCIERRESZ are forbidden.");
 }
@@ -348,6 +291,9 @@ export function HISTORICOCIERRESZ_beforeRemove(_itemId) {
     throw new Error("FISCAL_VIOLATION: Direct removals from HISTORICOCIERRESZ are forbidden.");
 }
 
+// -----------------------------------------------------------------------------
+// GANCHOS: cajaActual (Proteccion Singleton)
+// -----------------------------------------------------------------------------
 export function cajaActual_beforeInsert(item) {
     if (item && typeof item === "object") item._id = CAJA_ACTUAL_ID;
     return item;
