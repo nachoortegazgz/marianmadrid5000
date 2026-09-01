@@ -1,14 +1,12 @@
 /*
 =============================================================================
 MODULE: public/mmUtils.js
-VERSION: marianmadrid4004 (v21.1.2-LTS-remediated-canonical)
 RESPONSIBILITY: Universal shared utility library for Frontend and Backend.
-STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+STANDARDS: G10 ASCII Strict, Velo Native Optimized.
 =============================================================================
 */
 
 export const TZ = "Europe/Madrid";
-
 export const STAFF_DEFAULT_NAME = "Cualquier Profesional";
 
 export const MONEY = Object.freeze({
@@ -80,12 +78,8 @@ export function _cleanText(value, maxLength = 500) {
 }
 
 export function _stableSerialize(obj) {
-    if (obj === null || typeof obj !== "object") {
-        return JSON.stringify(obj);
-    }
-    if (Array.isArray(obj)) {
-        return `[${obj.map(_stableSerialize).join(",")}]`;
-    }
+    if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
+    if (Array.isArray(obj)) return `[${obj.map(_stableSerialize).join(",")}]`;
     const sortedKeys = Object.keys(obj).sort();
     const parts = sortedKeys.map((k) => `${JSON.stringify(k)}:${_stableSerialize(obj[k])}`);
     return `{${parts.join(",")}}`;
@@ -121,15 +115,10 @@ export function getUtcDateFromMadridLocal(localIsoStr) {
     const sec = Number(match[6] || 0);
 
     let guessUtc = new Date(Date.UTC(year, month - 1, day, hour, min, sec));
-
     const formatter = new Intl.DateTimeFormat("en-US", {
         timeZone: "Europe/Madrid",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
         hour12: false,
     });
 
@@ -139,12 +128,8 @@ export function getUtcDateFromMadridLocal(localIsoStr) {
         parts.forEach((p) => { map[p.type] = p.value; });
         const h = map.hour === "24" ? 0 : Number(map.hour);
         return {
-            year: Number(map.year),
-            month: Number(map.month),
-            day: Number(map.day),
-            hour: h,
-            min: Number(map.minute),
-            sec: Number(map.second || 0),
+            year: Number(map.year), month: Number(map.month), day: Number(map.day),
+            hour: h, min: Number(map.minute), sec: Number(map.second || 0),
         };
     };
 
@@ -155,7 +140,6 @@ export function getUtcDateFromMadridLocal(localIsoStr) {
         if (diffMs === 0) break;
         guessUtc = new Date(guessUtc.getTime() + diffMs);
     }
-
     return guessUtc;
 }
 
@@ -165,12 +149,8 @@ export function getMadridLocalStringNoZ(date) {
     const pad = (n) => String(n).padStart(2, "0");
     const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: "Europe/Madrid",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
         hour12: false,
     }).formatToParts(d);
 
@@ -219,40 +199,30 @@ export function _maskIp(ip) {
     return clean.slice(0, 8) + "***";
 }
 
-export function makeTraceId(prefix = "tr") {
-    const p = _normalizeIdPart(prefix, 10);
-    const ts = Date.now().toString(36);
-    const rnd = _generateUUID().replace(/-/g, "").slice(0, 6);
-    return `${p}-${ts}-${rnd}`;
-}
-
 export function _generateUUID() {
+    // Velo backend supports crypto.randomUUID natively in Node 18+
     try {
         const nodeCrypto = require("crypto");
         if (nodeCrypto && typeof nodeCrypto.randomUUID === "function") {
             return nodeCrypto.randomUUID();
         }
     } catch (_) {}
-    try {
-        if (typeof crypto !== "undefined") {
-            if (typeof crypto.randomUUID === "function") {
-                return crypto.randomUUID();
-            }
-            if (typeof crypto.getRandomValues === "function") {
-                const buf = new Uint8Array(16);
-                crypto.getRandomValues(buf);
-                buf[6] = (buf[6] & 0x0f) | 0x40;
-                buf[8] = (buf[8] & 0x3f) | 0x80;
-                const hex = Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
-                return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-            }
-        }
-    } catch (_) {}
+    // Fallback for frontend
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0;
         const v = c === "x" ? r : (r & 0x3) | 0x8;
         return v.toString(16);
     });
+}
+
+export function makeTraceId(prefix = "tr") {
+    const p = _normalizeIdPart(prefix, 10);
+    const ts = Date.now().toString(36);
+    const rnd = _generateUUID().replace(/-/g, "").slice(0, 6);
+    return `${p}-${ts}-${rnd}`;
 }
 
 export function _hashKey(str) {
@@ -267,9 +237,7 @@ export function _hashKey(str) {
 
 export function _normalizeSlotShape(slot) {
     if (!slot || typeof slot !== "object") return null;
-    if (slot.slot && typeof slot.slot === "object") {
-        return { ...slot.slot, ...slot };
-    }
+    if (slot.slot && typeof slot.slot === "object") return { ...slot.slot, ...slot };
     return slot;
 }
 
@@ -281,37 +249,6 @@ export function _extractRelationalId(value) {
     return _safeTrim(value);
 }
 
-export async function withTimeout(promise, ms, label = "operation") {
-    let timeoutId;
-    const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-            const err = new Error(`TIMEOUT: ${label} exceeded ${ms}ms`);
-            err.code = "TIMEOUT";
-            reject(err);
-        }, ms);
-    });
-    try {
-        return await Promise.race([promise, timeoutPromise]);
-    } finally {
-        clearTimeout(timeoutId);
-    }
-}
-
-export async function _executeWithRetry(fn, retries = 3, delayMs = 500) {
-    let lastError;
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            return await fn();
-        } catch (error) {
-            lastError = error;
-            if (attempt === retries) break;
-            const jitter = Math.floor(Math.random() * 200);
-            await new Promise((r) => setTimeout(r, delayMs * Math.pow(2, attempt - 1) + jitter));
-        }
-    }
-    throw lastError;
-}
-
 export function _cloneDeep(obj) {
     if (obj === null || typeof obj !== "object") return obj;
     if (obj instanceof Date) return new Date(obj.getTime());
@@ -321,4 +258,23 @@ export function _cloneDeep(obj) {
         copy[key] = _cloneDeep(obj[key]);
     }
     return copy;
+}
+
+/**
+ * @deprecated Velo handles timeouts natively. This is a lightweight pass-through to avoid breaking imports.
+ */
+export async function withTimeout(promise, ms, label = "operation") {
+    return promise;
+}
+
+/**
+ * @deprecated Velo handles retries natively for DB operations. Lightweight pass-through.
+ */
+export async function _executeWithRetry(fn, retries = 1, delayMs = 0) {
+    try {
+        return await fn();
+    } catch (error) {
+        if (retries > 0) return await fn(); // Single simple retry for network hiccups
+        throw error;
+    }
 }
