@@ -1,35 +1,22 @@
 /*
 =============================================================================
 MODULE: backend/internalConfig.js
-VERSION: marianmadrid4004 (v21.1.2-LTS-canonical-unified-ssot)
-RESPONSIBILITY: Single Source of Truth for all backend configuration:
-            collection IDs, app IDs, SDK settings, concurrency limits,
-            cache TTLs, enums, and feature flags.
-STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+RESPONSIBILITY: Single Source of Truth for backend configuration.
+STANDARDS: G10 ASCII Strict, 100% Velo Native.
 =============================================================================
 */
 
 export const COLLECTIONS = Object.freeze({
     SERVICIOS_RESERVA: "SERVICIOS_RESERVA",
-    /** @deprecated Usar COLLECTIONS.SERVICIOS_RESERVA */
-    SERVICIOS_CITA: "SERVICIOS_RESERVA",
     ADDONS_CATALOGO: "ADDONS_CATALOGO",
-    /** @deprecated Usar COLLECTIONS.ADDONS_CATALOGO */
-    EXTRAS_CATALOGO: "ADDONS_CATALOGO",
-    /** @deprecated Usar COLLECTIONS.ADDONS_CATALOGO */
-    SERVICIOS_OPCIONES_ADDON: "ADDONS_CATALOGO",
     MAPA_STAFF: "MAPA_STAFF",
     CATEGORIAS_SERVICIO: "CATEGORIAS_SERVICIO",
     LOCALIZACIONES_SALON: "LOCALIZACIONES_SALON",
-
     INVENTARIO_PRODUCTO: "INVENTARIO_PRODUCTO",
-    /** @deprecated Usar COLLECTIONS.INVENTARIO_PRODUCTO */
-    INVENTARIO_PRODUCTOS: "INVENTARIO_PRODUCTO",
     PRODUCTOS_VENTA: "PRODUCTOS_VENTA",
     MOVIMIENTO_INVENTARIO: "movimientoInventario",
     CONCILIACION_STOCK_WIX: "ConciliacionStockWix",
     PROVEEDORES_INVENTARIO: "ProveedoresInventario",
-
     DUAL_CACHE: "DualSlotCache",
     DAYS_CACHE: "AvailabilityDaysCache",
     SLOTS_CACHE: "AvailabilitySlotsCache",
@@ -37,22 +24,17 @@ export const COLLECTIONS = Object.freeze({
     TRANSACTIONS: "BookingTransactions",
     LOCKS: "MM_LOCKS",
     COMPENSATIONS: "PendingCompensations",
-
     MOVIMIENTOS_CAJA: "movimientoCaja",
     CAJA_ACTUAL: "cajaActual",
     HISTORICO_CIERRES_Z: "HISTORICOCIERRESZ",
     CONTEOS_X: "RESUMENCONTEO_X",
     CONTADORES_FISCALES: "SecuenciaTickets",
-
     REGISTRO_HORARIO: "REGISTROHORARIO",
-
     AUDIT_LOG: "MMAUDIT_LOG",
     SYNC_LOG: "m365SyncLog",
     BOOKINGS_SERVICE_SYNC_QUEUE: "BookingsServiceSyncQueue",
     M365_GRAPH_SYNC_QUEUE: "M365GraphSyncQueue",
-
     ALERTAS_OPERATIVAS: "AlertasOperativas",
-
     CONFIGURACION_FISCAL: "CONFIGURACIONFISCAL",
     EVENTOS_SISTEMA_FACTURACION: "EVENTOSSISTEMAFACTURACION",
     LIBRO_IVA_FACTURAS_EXPEDIDAS: "LIBROIVAFACTURASEXPEDIDAS",
