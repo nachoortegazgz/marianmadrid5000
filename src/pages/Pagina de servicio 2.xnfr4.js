@@ -491,7 +491,7 @@ $w.onReady(async () => {
 
         if (!resolvedService) {
           showError(
-            "El servicio todavía está cargando."
+            "El servicio todavia esta cargando."
           );
           return;
         }
