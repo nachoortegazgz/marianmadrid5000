@@ -1,9 +1,8 @@
 /*
 =============================================================================
 MODULE: backend/data.js
-VERSION: marianmadrid4003 (v21.1.2-LTS-remediated-cas-hooks-guard)
 RESPONSIBILITY: CMS data hooks for canonical dates, immutable fiscal records,
-            immutable labor records, and optimistic versioning for CitasF2.
+                immutable labor records, and optimistic versioning for CitasF2.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 =============================================================================
 */
@@ -21,7 +20,7 @@ import {
 import { clearStaffCache, findStaff } from "backend/staff";
 import { enqueueBookingsServiceSync } from "backend/bookingsServiceSync";
 
-const CAJA_ACTUAL_ID = SINGLETONS.CAJA;
+const CAJA_ACTUAL_ID = SINGLETONS?.CAJA || "CAJA_PRINCIPAL";
 const DUAL_CACHE_COL = COLLECTIONS.DUAL_CACHE;
 const DAYS_CACHE_COL = COLLECTIONS.DAYS_CACHE;
 const SLOTS_CACHE_COL = COLLECTIONS.SLOTS_CACHE;
@@ -39,7 +38,7 @@ function _normalizeDateField(item, field, fallback) {
     item[field] = date || fallback;
 }
 
-const SERVICE_STATES = new Set(SERVICE_CATALOG.STATES);
+const SERVICE_STATES = new Set(SERVICE_CATALOG?.STATES || ["ACTIVO", "INACTIVO", "BORRADOR"]);
 
 function _normalizeCatalogReference(value) {
     const candidate = value && typeof value === "object" ? (value.nombreCategoria || value._id || value.id) : value;
@@ -59,8 +58,8 @@ function _readDuration(item, field) {
     const raw = item[field];
     if (raw === undefined || raw === null || raw === "") return 0;
     const value = Number(raw);
-    if (!Number.isFinite(value) || value < 0 || value > SERVICE_CATALOG.MAX_DURATION_MINUTES) {
-        throw new Error(`SERVICE_VALIDATION: ${field} must be between 0 and ${SERVICE_CATALOG.MAX_DURATION_MINUTES}.`);
+    if (!Number.isFinite(value) || value < 0 || value > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
+        throw new Error(`SERVICE_VALIDATION: ${field} must be between 0 and ${SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440}.`);
     }
     return value;
 }
@@ -68,9 +67,9 @@ function _readDuration(item, field) {
 function _validateServiceCatalog(item, context) {
     if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
 
-    _normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG.MAX_TITLE_LENGTH);
-    _normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG.MAX_SUMMARY_LENGTH);
-    _normalizeBoundedText(item, "descripcionLarga", SERVICE_CATALOG.MAX_DESCRIPTION_LENGTH);
+    _normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
+    _normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
+    _normalizeBoundedText(item, "descripcionLarga", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
 
     const estado = _normalizeCatalogReference(item.estado);
     if (estado) {
@@ -86,7 +85,7 @@ function _validateServiceCatalog(item, context) {
     }
 
     const moneda = _normalizeCatalogReference(item.moneda || item.monedaCatalogo);
-    if (moneda && moneda !== SERVICE_CATALOG.CURRENCY) {
+    if (moneda && moneda !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
         throw new Error("SERVICE_VALIDATION: only EUR is supported by this catalog.");
     }
 
@@ -106,7 +105,7 @@ function _validateServiceCatalog(item, context) {
     item.tiempoFaseDos = f2;
 
     const total = f1 + gap + f2;
-    if (total > SERVICE_CATALOG.MAX_DURATION_MINUTES) {
+    if (total > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
         throw new Error("SERVICE_VALIDATION: total duration is invalid.");
     }
     item.duracionTotal = Math.round(total * 100) / 100;
