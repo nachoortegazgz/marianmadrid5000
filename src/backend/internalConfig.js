@@ -1,40 +1,73 @@
 /*
 =============================================================================
 MODULE: backend/internalConfig.js
-RESPONSIBILITY: Single Source of Truth for backend configuration.
-STANDARDS: G10 ASCII Strict, 100% Velo Native.
+VERSION: marianmadrid5000 (v21.2.0-LTS-canonical-ssot)
+RESPONSIBILITY: Single Source of Truth (SSOT) for backend configuration,
+                canonical collection IDs, SDK settings, enums, and constants.
+STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 =============================================================================
 */
 
 export const COLLECTIONS = Object.freeze({
+    // Catalogo y salon
     SERVICIOS_RESERVA: "SERVICIOS_RESERVA",
     ADDONS_CATALOGO: "ADDONS_CATALOGO",
-    MAPA_STAFF: "MAPA_STAFF",
     CATEGORIAS_SERVICIO: "CATEGORIAS_SERVICIO",
     LOCALIZACIONES_SALON: "LOCALIZACIONES_SALON",
+    MAPA_STAFF: "MAPA_STAFF",
+
+    // Citas y reservas
+    CITAS: "CitasF2",
+    CitasF2: "CitasF2",
+    TRANSACTIONS: "BookingTransactions",
+    BookingTransactions: "BookingTransactions",
+    COMPENSATIONS: "PendingCompensations",
+    PendingCompensations: "PendingCompensations",
+    DUAL_CACHE: "DualSlotCache",
+    DualSlotCache: "DualSlotCache",
+    DAYS_CACHE: "AvailabilityDaysCache",
+    SLOTS_CACHE: "AvailabilitySlotsCache",
+    LOCKS: "MM_LOCKS",
+    MM_LOCKS: "MM_LOCKS",
+
+    // Inventario
     INVENTARIO_PRODUCTO: "INVENTARIO_PRODUCTO",
     PRODUCTOS_VENTA: "PRODUCTOS_VENTA",
     MOVIMIENTO_INVENTARIO: "movimientoInventario",
+    movimientoInventario: "movimientoInventario",
     CONCILIACION_STOCK_WIX: "ConciliacionStockWix",
+    ConciliacionStockWix: "ConciliacionStockWix",
     PROVEEDORES_INVENTARIO: "ProveedoresInventario",
-    DUAL_CACHE: "DualSlotCache",
-    DAYS_CACHE: "AvailabilityDaysCache",
-    SLOTS_CACHE: "AvailabilitySlotsCache",
-    CITAS: "CitasF2",
-    TRANSACTIONS: "BookingTransactions",
-    LOCKS: "MM_LOCKS",
-    COMPENSATIONS: "PendingCompensations",
+
+    // Caja y contadores fiscales
     MOVIMIENTOS_CAJA: "movimientoCaja",
+    movimientoCaja: "movimientoCaja",
     CAJA_ACTUAL: "cajaActual",
+    cajaActual: "cajaActual",
     HISTORICO_CIERRES_Z: "HISTORICOCIERRESZ",
+    HISTORICOCIERRESZ: "HISTORICOCIERRESZ",
     CONTEOS_X: "RESUMENCONTEO_X",
+    RESUMENCONTEO_X: "RESUMENCONTEO_X",
     CONTADORES_FISCALES: "SecuenciaTickets",
+    SecuenciaTickets: "SecuenciaTickets",
+
+    // Control horario
     REGISTRO_HORARIO: "REGISTROHORARIO",
+    REGISTROHORARIO: "REGISTROHORARIO",
+
+    // Auditoria, logs y colas
     AUDIT_LOG: "MMAUDIT_LOG",
+    MMAUDIT_LOG: "MMAUDIT_LOG",
     SYNC_LOG: "m365SyncLog",
+    m365SyncLog: "m365SyncLog",
     BOOKINGS_SERVICE_SYNC_QUEUE: "BookingsServiceSyncQueue",
+    BookingsServiceSyncQueue: "BookingsServiceSyncQueue",
+    BOOKINGS_SERVICE_SYNC_QUEUE_UPPER: "BOOKINGS_SERVICE_SYNC_QUEUE",
     M365_GRAPH_SYNC_QUEUE: "M365GraphSyncQueue",
+    M365GraphSyncQueue: "M365GraphSyncQueue",
     ALERTAS_OPERATIVAS: "AlertasOperativas",
+
+    // Fiscalidad y contabilidad avanzada
     CONFIGURACION_FISCAL: "CONFIGURACIONFISCAL",
     EVENTOS_SISTEMA_FACTURACION: "EVENTOSSISTEMAFACTURACION",
     LIBRO_IVA_FACTURAS_EXPEDIDAS: "LIBROIVAFACTURASEXPEDIDAS",
@@ -42,9 +75,13 @@ export const COLLECTIONS = Object.freeze({
     LIBRO_IVA_BIENES_INVERSION: "LIBROIVABIENESINVERSION",
     LIBRO_IVA_INTRACOMUNITARIO: "LIBROIVAINTRACOMUNITARIO",
     LIBRO_INVENTARIO_CIERRE: "LIBROINVENTARIOCIERRE",
+    LIBROINVENTARIOCIERRE: "LIBROINVENTARIOCIERRE",
     ASIENTOS_CONTABLES: "ASIENTOSCONTABLES",
+    ASIENTOSCONTABLES: "ASIENTOSCONTABLES",
     LINEAS_ASIENTO_CONTABLE: "LINEASASIENTOCONTABLE",
+    LINEASASIENTOCONTABLE: "LINEASASIENTOCONTABLE",
     PLAN_CUENTAS_CONTABLES: "PLANCUENTASCONTABLES",
+    PLANCUENTASCONTABLES: "PLANCUENTASCONTABLES",
     MAYOR_CONTABLE_SALDOS: "MAYORCONTABLESALDOS",
 });
 
@@ -227,4 +264,16 @@ export const SERVICE_CATALOG = Object.freeze({
     MAX_SUMMARY_LENGTH: 120,
     MAX_DESCRIPTION_LENGTH: 6000,
     MAX_DURATION_MINUTES: 1440,
+});
+
+export const MONEY = Object.freeze({
+    DISPLAY_CURRENCY: "EUR",
+    DECIMAL_SEPARATOR: ",",
+    THOUSANDS_SEPARATOR: ".",
+});
+
+export const STAFF_DEFAULT_NAME = "Cualquier Profesional";
+
+export const BOOKINGS_ADDON_CONFIG = Object.freeze({
+    MAX_PER_BOOKING: 5,
 });
