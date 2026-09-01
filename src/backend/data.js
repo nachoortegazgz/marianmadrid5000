@@ -1,9 +1,8 @@
 /*
 =============================================================================
 MODULE: backend/data.js
-VERSION: marianmadrid4003 (v21.1.2-LTS-remediated-cas-hooks-guard)
 RESPONSIBILITY: CMS data hooks for canonical dates, immutable fiscal records,
-            immutable labor records, and optimistic versioning for CitasF2.
+                immutable labor records, and optimistic versioning for CitasF2.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 =============================================================================
 */
@@ -21,7 +20,7 @@ import {
 import { clearStaffCache, findStaff } from "backend/staff";
 import { enqueueBookingsServiceSync } from "backend/bookingsServiceSync";
 
-const CAJA_ACTUAL_ID = SINGLETONS.CAJA;
+const CAJA_ACTUAL_ID = SINGLETONS?.CAJA || "CAJA_PRINCIPAL";
 const DUAL_CACHE_COL = COLLECTIONS.DUAL_CACHE;
 const DAYS_CACHE_COL = COLLECTIONS.DAYS_CACHE;
 const SLOTS_CACHE_COL = COLLECTIONS.SLOTS_CACHE;
@@ -39,7 +38,7 @@ function _normalizeDateField(item, field, fallback) {
     item[field] = date || fallback;
 }
 
-const SERVICE_STATES = new Set(SERVICE_CATALOG.STATES);
+const SERVICE_STATES = new Set(SERVICE_CATALOG?.STATES || ["ACTIVO", "INACTIVO", "BORRADOR"]);
 
 function _normalizeCatalogReference(value) {
     const candidate = value && typeof value === "object" ? (value.nombreCategoria || value._id || value.id) : value;
@@ -59,8 +58,8 @@ function _readDuration(item, field) {
     const raw = item[field];
     if (raw === undefined || raw === null || raw === "") return 0;
     const value = Number(raw);
-    if (!Number.isFinite(value) || value < 0 || value > SERVICE_CATALOG.MAX_DURATION_MINUTES) {
-        throw new Error(`SERVICE_VALIDATION: ${field} must be between 0 and ${SERVICE_CATALOG.MAX_DURATION_MINUTES}.`);
+    if (!Number.isFinite(value) || value < 0 || value > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
+        throw new Error(`SERVICE_VALIDATION: ${field} must be between 0 and ${SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440}.`);
     }
     return value;
 }
@@ -68,9 +67,9 @@ function _readDuration(item, field) {
 function _validateServiceCatalog(item, context) {
     if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
 
-    _normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG.MAX_TITLE_LENGTH);
-    _normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG.MAX_SUMMARY_LENGTH);
-    _normalizeBoundedText(item, "descripcionLarga", SERVICE_CATALOG.MAX_DESCRIPTION_LENGTH);
+    _normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
+    _normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
+    _normalizeBoundedText(item, "descripcionLarga", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
 
     const estado = _normalizeCatalogReference(item.estado);
     if (estado) {
@@ -86,7 +85,7 @@ function _validateServiceCatalog(item, context) {
     }
 
     const moneda = _normalizeCatalogReference(item.moneda || item.monedaCatalogo);
-    if (moneda && moneda !== SERVICE_CATALOG.CURRENCY) {
+    if (moneda && moneda !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
         throw new Error("SERVICE_VALIDATION: only EUR is supported by this catalog.");
     }
 
@@ -106,7 +105,7 @@ function _validateServiceCatalog(item, context) {
     item.tiempoFaseDos = f2;
 
     const total = f1 + gap + f2;
-    if (total > SERVICE_CATALOG.MAX_DURATION_MINUTES) {
+    if (total > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
         throw new Error("SERVICE_VALIDATION: total duration is invalid.");
     }
     item.duracionTotal = Math.round(total * 100) / 100;
@@ -258,107 +257,4 @@ export function CitasF2_beforeUpdate(item, context) {
     }
 
     if (item[CITA_FIELDS.STATUS]) {
-        item[CITA_FIELDS.STATUS] = String(item[CITA_FIELDS.STATUS]).toUpperCase();
-    }
-    if (item[CITA_FIELDS.STATUS_PAGO]) {
-        item[CITA_FIELDS.STATUS_PAGO] = String(item[CITA_FIELDS.STATUS_PAGO]).toUpperCase();
-    }
-    if (item.version !== undefined && item.version !== null) {
-        item.version = Number(item.version) || 1;
-    }
-    return item;
-}
-
-export function movimientoCaja_beforeInsert(item, context) {
-    if (!item || typeof item !== "object") return item;
-
-    if (!SHA256_HEX_RE.test(String(item.hashCadena || "").trim())) {
-        throw new Error("FISCAL_VIOLATION: Missing or invalid hashCadena format.");
-    }
-    if (!SHA256_HEX_RE.test(String(item.prevHash || "").trim())) {
-        throw new Error("FISCAL_VIOLATION: Missing or invalid prevHash format.");
-    }
-
-    const signatureParts = String(item.firmaDigital || "").trim().split("|");
-    if (signatureParts.length !== 2 || !SHA256_HEX_RE.test(signatureParts[0]) || !SHA256_HEX_RE.test(signatureParts[1])) {
-        throw new Error("FISCAL_VIOLATION: Invalid firmaDigital format.");
-    }
-    if (!String(item.numTicketFactura || item.numeroTicket || "").trim()) {
-        throw new Error("FISCAL_VIOLATION: Missing numTicketFactura.");
-    }
-
-    _normalizeDateField(item, "fechaCreacion", new Date());
-    return item;
-}
-
-export function movimientoCaja_beforeUpdate(_item) {
-    throw new Error("FISCAL_VIOLATION: Direct updates to movimientoCaja are forbidden.");
-}
-
-export function movimientoCaja_beforeRemove(_itemId) {
-    throw new Error("FISCAL_VIOLATION: Direct removals from movimientoCaja are forbidden.");
-}
-
-export async function REGISTROHORARIO_beforeInsert(item, context) {
-    if (!item || typeof item !== "object") return item;
-
-    const staff = await findStaff(item.resourceId);
-    if (!staff) {
-        throw new Error("INVALID_EMPLOYEE: Employee resourceId is not registered in MAPA_STAFF.");
-    }
-
-    const tipoFichaje = String(item.tipoFichaje || "").toUpperCase();
-    if (!Object.values(TIPO_FICHAJE).includes(tipoFichaje)) {
-        throw new Error(`INVALID_CLOCK_TYPE: Tipo de fichaje invalido "${tipoFichaje}".`);
-    }
-    if (tipoFichaje === TIPO_FICHAJE.AJUSTE && !String(item.motivoAjuste || "").trim()) {
-        throw new Error("INVALID_CLOCK_ADJUSTMENT: motivoAjuste is required for manual adjustments.");
-    }
-
-    const now = new Date();
-    const fechaHora = _toDate(item.fechaHora) || now;
-    if (fechaHora.getTime() > now.getTime() + 60000) {
-        throw new Error("INVALID_TIMESTAMP: Future timestamps are forbidden.");
-    }
-
-    const madrid = getMadridLocalStringNoZ(fechaHora);
-    item.resourceId = staff.resourceId;
-    item.resourceName = staff.displayName || staff.nombreVisible;
-    item.tipoFichaje = tipoFichaje;
-    item.fechaHora = fechaHora;
-    item.fechaCreacion = now;
-    item.diaKey = madrid.slice(0, 10);
-    item.mesKey = madrid.slice(0, 7);
-    item.hora = madrid.slice(11, 19);
-    return item;
-}
-
-export function REGISTROHORARIO_beforeUpdate(_item) {
-    throw new Error("LABOR_LOG_VIOLATION: Direct updates to REGISTROHORARIO are forbidden.");
-}
-
-export function REGISTROHORARIO_beforeRemove(_itemId) {
-    throw new Error("LABOR_LOG_VIOLATION: Direct removals from REGISTROHORARIO are forbidden.");
-}
-
-export function HISTORICOCIERRESZ_beforeUpdate(_item) {
-    throw new Error("FISCAL_VIOLATION: Direct updates to HISTORICOCIERRESZ are forbidden.");
-}
-
-export function HISTORICOCIERRESZ_beforeRemove(_itemId) {
-    throw new Error("FISCAL_VIOLATION: Direct removals from HISTORICOCIERRESZ are forbidden.");
-}
-
-export function cajaActual_beforeInsert(item) {
-    if (item && typeof item === "object") item._id = CAJA_ACTUAL_ID;
-    return item;
-}
-
-export function cajaActual_beforeUpdate(item) {
-    if (item && typeof item === "object") item._id = CAJA_ACTUAL_ID;
-    return item;
-}
-
-export function cajaActual_beforeRemove(_itemId) {
-    throw new Error("SINGLETON_PROTECTED: Direct deletion of cajaActual is forbidden.");
-}
+        item[CITA_FIELDS.STATUS
