@@ -1,7 +1,7 @@
 /*
 =============================================================================
-MODULE: pages/servicio-2.js
-RESPONSIBILITY: Velo page controller for the Service Details widget.
+MODULE: pages/Pagina de servicio 2.xnfr4.js
+RESPONSIBILITY: Velo page controller for the Service Details widget (#htmlWidgetCustomService).
 STANDARDS: G10 ASCII Strict, Lightweight.
 =============================================================================
 */
@@ -34,7 +34,7 @@ async function resolveServiceLookup() {
 
     const path = Array.isArray(wixLocation.path) ? wixLocation.path : [];
     const pathCandidate = _safeSlugOrId(path[path.length - 1] || "");
-    const excludedPaths = new Set(["servicios", "service", "servicio", "servicio-2"]);
+    const excludedPaths = new Set(["servicios", "service", "servicio", "servicio-2", "pagina-de-servicio-2"]);
     
     if (pathCandidate && !excludedPaths.has(pathCandidate)) {
         return pathCandidate;
@@ -44,94 +44,17 @@ async function resolveServiceLookup() {
 
 $w.onReady(async () => {
     const traceId = makeTraceId("servicio");
-    const widget = $w("#htmlWidgetCustomService");
+    const widget = $w("#htmlWidgetCustomService") || $w("#html1");
 
     if (!widget || typeof widget.postMessage !== "function") {
-        showError("HTML widget not found.");
+        showError("HTML widget not found or incompatible.");
         return;
     }
 
-<<<<<<< HEAD
-    let resolvedService = null;
-
-    createWidgetBridge(widget, {
-      slug: lookup.value,
-      traceId,
-      handshakeTimeoutMs:
-        CONFIG.HANDSHAKE_TIMEOUT_MS,
-      contextTimeoutMs:
-        CONFIG.CONTEXT_TIMEOUT_MS,
-
-      onContextReady: async () => {
-        resolvedService =
-          await fetchServiceFromBackend(
-            lookup
-          );
-
-        return buildContext(
-          resolvedService,
-          traceId
-        );
-      },
-
-      onWidgetMessage: async (message) => {
-        const type = _normType(
-          message?.type
-        );
-
-        const payload =
-          message?.payload || {};
-
-        if (!resolvedService) {
-          showError(
-            "El servicio todavia esta cargando."
-          );
-          return;
-        }
-
-        if (
-          type === _normType(
-            MESSAGE_TYPES.BOOK
-          )
-        ) {
-          const addonIds =
-            sanitizeAddonIds(
-              payload.addons,
-              resolvedService
-            );
-
-          goToCalendar(
-            resolvedService,
-            addonIds
-          );
-
-          return;
-        }
-
-        if (
-          type === _normType(
-            MESSAGE_TYPES.NAV
-          )
-        ) {
-          const target = String(
-            payload.target || ""
-          )
-            .trim()
-            .toUpperCase();
-
-          if (
-            target === "CALENDARIO2" ||
-            target.includes("CALENDAR")
-          ) {
-            goToCalendar(
-              resolvedService
-            );
-=======
     try {
         const lookupValue = await resolveServiceLookup();
         if (!lookupValue) {
             showError("No se pudo localizar el servicio en la URL.");
->>>>>>> 5e575e90c56998cb2ba7cfe7469c9ca872bcda08
             return;
         }
 
@@ -159,13 +82,13 @@ $w.onReady(async () => {
                 if (type === MESSAGE_TYPES.BOOK) {
                     const base = URLS?.CALENDARIO_2 || "/booking-calendar/calendario-2";
                     const query = [
-                        `slugUrl=${encodeURIComponent(resolvedService.slugUrl)}`,
-                        `serviceId=${encodeURIComponent(resolvedService.serviceId)}`,
+                        `slugUrl=${encodeURIComponent(resolvedService.slugUrl || "")}`,
+                        `serviceId=${encodeURIComponent(resolvedService.serviceId || "")}`,
                         "referral=servicio-2"
                     ];
                     
                     if (Array.isArray(payload.addons) && payload.addons.length > 0) {
-                        const addonIds = payload.addons.map(a => typeof a === 'object' ? a.addonId : a).filter(Boolean);
+                        const addonIds = payload.addons.map(a => typeof a === "object" ? (a.addonId || a.id) : a).filter(Boolean);
                         if (addonIds.length > 0) query.push(`addonIds=${encodeURIComponent(addonIds.join(","))}`);
                     }
 
@@ -174,6 +97,12 @@ $w.onReady(async () => {
                 }
 
                 if (type === MESSAGE_TYPES.NAV) {
+                    const target = String(payload.target || "").trim().toUpperCase();
+                    if (target === "CALENDARIO2" || target.includes("CALENDAR")) {
+                        const base = URLS?.CALENDARIO_2 || "/booking-calendar/calendario-2";
+                        wixLocation.to(`${base}?slugUrl=${encodeURIComponent(resolvedService.slugUrl || "")}&serviceId=${encodeURIComponent(resolvedService.serviceId || "")}&referral=servicio-2`);
+                        return;
+                    }
                     wixLocation.to(URLS?.SERVICIOS || "/reserva-online");
                 }
             },
