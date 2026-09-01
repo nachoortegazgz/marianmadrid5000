@@ -16,7 +16,7 @@ import { logger } from "backend/booking/bookingCore";
 import { COLLECTIONS, SDK_CONFIG, SERVICE_CATALOG } from "backend/internalConfig";
 
 const log = logger;
-const QUEUE_COL = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE;
+const QUEUE_COL = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE || "BookingsServiceSyncQueue";
 const MAX_ATTEMPTS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_MAX_ATTEMPTS || 5;
 const BATCH_SIZE = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BATCH_SIZE || 20;
 const BACKOFF_MS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BACKOFF_MS || 300000;
@@ -105,18 +105,39 @@ export async function enqueueBookingsServiceSync(serviceItem) {
         updatedAt: new Date(),
     };
 
-    return await wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true });
+    try {
+        return await wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true });
+    } catch (err) {
+        // Fallback por si la coleccion fue creada con ID en mayusculas
+        if (String(err?.message || "").includes("WDE0025")) {
+            return await wixData.save(COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE", queueRecord, { suppressAuth: true });
+        }
+        throw err;
+    }
 }
 
 export async function processBookingsServiceSyncQueue(options = {}) {
     const traceId = options.traceId || makeTraceId("cron-bookings-sync");
     const now = new Date();
 
-    const pending = await wixData.query(QUEUE_COL)
-        .hasSome("status", VALID_STATUS)
-        .le("nextAttemptAt", now)
-        .limit(BATCH_SIZE)
-        .find({ suppressAuth: true, consistentRead: true });
+    let pending;
+    try {
+        pending = await wixData.query(QUEUE_COL)
+            .hasSome("status", VALID_STATUS)
+            .le("nextAttemptAt", now)
+            .limit(BATCH_SIZE)
+            .find({ suppressAuth: true, consistentRead: true });
+    } catch (err) {
+        if (String(err?.message || "").includes("WDE0025")) {
+            pending = await wixData.query(COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE")
+                .hasSome("status", VALID_STATUS)
+                .le("nextAttemptAt", now)
+                .limit(BATCH_SIZE)
+                .find({ suppressAuth: true, consistentRead: true });
+        } else {
+            throw err;
+        }
+    }
 
     let completed = 0;
     let failed = 0;
@@ -142,7 +163,14 @@ export async function processBookingsServiceSyncQueue(options = {}) {
                 status: "COMPLETED",
                 completedAt: new Date(),
                 updatedAt: new Date(),
-            }, { suppressAuth: true });
+            }, { suppressAuth: true }).catch(() => {
+                return wixData.update(COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE", {
+                    ...safeItem,
+                    status: "COMPLETED",
+                    completedAt: new Date(),
+                    updatedAt: new Date(),
+                }, { suppressAuth: true });
+            });
             completed++;
         } catch (err) {
             const attempts = Number(item.attempts || 0) + 1;
@@ -155,7 +183,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
                 lastError: err?.message || "SYNC_ERROR",
                 nextAttemptAt: new Date(Date.now() + BACKOFF_MS * Math.pow(2, attempts - 1)),
                 updatedAt: new Date(),
-            }, { suppressAuth: true });
+            }, { suppressAuth: true }).catch(() => null);
             failed++;
         }
     }
