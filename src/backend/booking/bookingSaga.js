@@ -657,9 +657,9 @@ export async function executeBookingSaga(unsafePayload) {
                 flowControlSettings: { ignoreCancellationPolicy: true }
               });
             } catch (_cancelError) {
-              // FIX v5001: el insert de compensación pendiente ahora se espera (await)
+              // FIX v5001: el insert de compensacion pendiente ahora se espera (await)
               // en lugar de dispararse sin esperar (fire-and-forget), evitando que el
-              // registro PENDING se pierda si el proceso continúa antes de persistirlo.
+              // registro PENDING se pierda si el proceso continua antes de persistirlo.
               try {
                 await withTimeout(
                   wixData.insert(
@@ -671,8 +671,8 @@ export async function executeBookingSaga(unsafePayload) {
                   'insertCompensationPending'
                 );
               } catch (_insertError) {
-                // Best-effort: si tampoco se puede registrar la compensación pendiente,
-                // se deja constancia solo en logs (no hay más fallback disponible).
+                // Best-effort: si tampoco se puede registrar la compensacion pendiente,
+                // se deja constancia solo en logs (no hay mas fallback disponible).
                 log.error('insertCompensationPending failed', { bookingId: b.bookingId, traceId });
               }
             }
