@@ -412,24 +412,42 @@ return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.me
 }
 }
 
-export async function _forceStaffInPristineSlot(slot, resourceId, durationMinutes) {
+export async function _forceStaffInPristineSlot(slot, resourceId, primaryServiceGuid, durationMinutes) {
+// VALIDACIÓN CRÍTICA: Verificar primaryServiceGuid
+if (!primaryServiceGuid) {
+logger.warn('[bookingCore] _forceStaffInPristineSlot: primaryServiceGuid missing', { slot });
+return null;
+}
+
+// Validar que resourceId sea GUID válido
+const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+if (!resourceId || !guidRegex.test(resourceId)) {
+logger.warn('[bookingCore] _forceStaffInPristineSlot: resourceId no es GUID válido', { resourceId });
+return null;
+}
+
 // VALIDACIÓN CRÍTICA: Verificar que el slot tenga localStartDate válido
 if (!slot || !slot.localStartDate) {
 logger.warn('[bookingCore] _forceStaffInPristineSlot: localStartDate missing', { slot });
 return null;
 }
 
-const pristineSlot = { ...slot };
-pristineSlot.resourceId = resourceId;
-if (durationMinutes && !pristineSlot.localEndDate) {
-const startDate = new Date(pristineSlot.localStartDate);
+const startDate = new Date(slot.localStartDate);
 if (isNaN(startDate.getTime())) {
-logger.error('[bookingCore] _forceStaffInPristineSlot: Invalid date format', { localStartDate: pristineSlot.localStartDate });
+logger.error('[bookingCore] _forceStaffInPristineSlot: Invalid date format', { localStartDate: slot.localStartDate });
 return null;
 }
+
+const pristineSlot = { ...slot };
+pristineSlot.resourceId = resourceId;
+pristineSlot.primaryServiceGuid = primaryServiceGuid;
+
+if (durationMinutes && !pristineSlot.localEndDate) {
 pristineSlot.localEndDate = getMadridLocalStringNoZ(new Date(startDate.getTime() + durationMinutes * 60000));
 }
-return pristineSlot;
+
+// Proyectar a formato certificado
+return _projectCertifiedSlot(pristineSlot, resourceId);
 }
 
 export async function _getDualPairFromCache(pairToken) {

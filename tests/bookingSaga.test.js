@@ -133,7 +133,7 @@ describe('bookingSaga - Integración Dinámica', () => {
       localStartDate: '2026-09-02T10:00:00',
     };
     
-    const result = await _forceStaffInPristineSlot(slot, '33333333-3333-3333-3333-333333333333', 45);
+    const result = await _forceStaffInPristineSlot(slot, '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 45);
     
     expect(result).toBeDefined();
     expect(result.resourceId).toBe('33333333-3333-3333-3333-333333333333');
