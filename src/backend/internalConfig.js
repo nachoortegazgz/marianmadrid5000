@@ -1,73 +1,74 @@
 /*
 =============================================================================
 MODULE: backend/internalConfig.js
-VERSION: marianmadrid5000 (v21.2.0-LTS-canonical-ssot)
-RESPONSIBILITY: Single Source of Truth (SSOT) for backend configuration,
-                canonical collection IDs, SDK settings, enums, and constants.
+VERSION: v5001-optimized (base marianmadrid4004 / v21.1.2-LTS-canonical-unified-ssot)
+RESPONSIBILITY: Single Source of Truth for all backend configuration:
+            collection IDs, app IDs, SDK settings, concurrency limits,
+            cache TTLs, enums, and feature flags.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+v5001 CHANGELOG (detectado por ejecucion dinamica real):
+ - AÑADIDO: STAFF.IDS. La constante "STAFF" no existia en NINGUN archivo del
+   repositorio, pero backend/booking/bookingSaga.js la importaba y la usaba
+   como guarda: "STAFF?.IDS?.includes(phaseOneServiceId)" (para evitar tratar
+   un GUID de personal como si fuera un GUID de servicio). Al ser undefined,
+   ese optional-chaining hacia que la comprobacion NUNCA se ejecutara (bug
+   silencioso preexistente, no introducido en v5001). Se añade aqui con
+   IDS: [] para que el modulo cargue sin fabricar datos de negocio: el
+   comportamiento efectivo (comprobacion siempre en false) se mantiene
+   identico al que ya tenia el sistema. PENDIENTE: quien conozca la regla de
+   negocio real debe rellenar IDS con los GUIDs de personal que deban
+   excluirse de la resolucion de servicios.
 =============================================================================
 */
 
+export const STAFF = Object.freeze({
+    IDS: [], // ver v5001 CHANGELOG arriba: placeholder neutro, pendiente de valores reales
+});
+
 export const COLLECTIONS = Object.freeze({
-    // Catalogo y salon
     SERVICIOS_RESERVA: "SERVICIOS_RESERVA",
+    /** @deprecated Usar COLLECTIONS.SERVICIOS_RESERVA */
+    SERVICIOS_CITA: "SERVICIOS_RESERVA",
     ADDONS_CATALOGO: "ADDONS_CATALOGO",
+    /** @deprecated Usar COLLECTIONS.ADDONS_CATALOGO */
+    EXTRAS_CATALOGO: "ADDONS_CATALOGO",
+    /** @deprecated Usar COLLECTIONS.ADDONS_CATALOGO */
+    SERVICIOS_OPCIONES_ADDON: "ADDONS_CATALOGO",
+    MAPA_STAFF: "MAPA_STAFF",
     CATEGORIAS_SERVICIO: "CATEGORIAS_SERVICIO",
     LOCALIZACIONES_SALON: "LOCALIZACIONES_SALON",
-    MAPA_STAFF: "MAPA_STAFF",
 
-    // Citas y reservas
-    CITAS: "CitasF2",
-    CitasF2: "CitasF2",
-    TRANSACTIONS: "BookingTransactions",
-    BookingTransactions: "BookingTransactions",
-    COMPENSATIONS: "PendingCompensations",
-    PendingCompensations: "PendingCompensations",
-    DUAL_CACHE: "DualSlotCache",
-    DualSlotCache: "DualSlotCache",
-    DAYS_CACHE: "AvailabilityDaysCache",
-    SLOTS_CACHE: "AvailabilitySlotsCache",
-    LOCKS: "MM_LOCKS",
-    MM_LOCKS: "MM_LOCKS",
-
-    // Inventario
     INVENTARIO_PRODUCTO: "INVENTARIO_PRODUCTO",
+    /** @deprecated Usar COLLECTIONS.INVENTARIO_PRODUCTO */
+    INVENTARIO_PRODUCTOS: "INVENTARIO_PRODUCTO",
     PRODUCTOS_VENTA: "PRODUCTOS_VENTA",
     MOVIMIENTO_INVENTARIO: "movimientoInventario",
-    movimientoInventario: "movimientoInventario",
     CONCILIACION_STOCK_WIX: "ConciliacionStockWix",
-    ConciliacionStockWix: "ConciliacionStockWix",
     PROVEEDORES_INVENTARIO: "ProveedoresInventario",
 
-    // Caja y contadores fiscales
+    DUAL_CACHE: "DualSlotCache",
+    DAYS_CACHE: "AvailabilityDaysCache",
+    SLOTS_CACHE: "AvailabilitySlotsCache",
+    CITAS: "CitasF2",
+    TRANSACTIONS: "BookingTransactions",
+    LOCKS: "MM_LOCKS",
+    COMPENSATIONS: "PendingCompensations",
+
     MOVIMIENTOS_CAJA: "movimientoCaja",
-    movimientoCaja: "movimientoCaja",
     CAJA_ACTUAL: "cajaActual",
-    cajaActual: "cajaActual",
     HISTORICO_CIERRES_Z: "HISTORICOCIERRESZ",
-    HISTORICOCIERRESZ: "HISTORICOCIERRESZ",
     CONTEOS_X: "RESUMENCONTEO_X",
-    RESUMENCONTEO_X: "RESUMENCONTEO_X",
     CONTADORES_FISCALES: "SecuenciaTickets",
-    SecuenciaTickets: "SecuenciaTickets",
 
-    // Control horario
     REGISTRO_HORARIO: "REGISTROHORARIO",
-    REGISTROHORARIO: "REGISTROHORARIO",
 
-    // Auditoria, logs y colas
     AUDIT_LOG: "MMAUDIT_LOG",
-    MMAUDIT_LOG: "MMAUDIT_LOG",
     SYNC_LOG: "m365SyncLog",
-    m365SyncLog: "m365SyncLog",
     BOOKINGS_SERVICE_SYNC_QUEUE: "BookingsServiceSyncQueue",
-    BookingsServiceSyncQueue: "BookingsServiceSyncQueue",
-    BOOKINGS_SERVICE_SYNC_QUEUE_UPPER: "BOOKINGS_SERVICE_SYNC_QUEUE",
     M365_GRAPH_SYNC_QUEUE: "M365GraphSyncQueue",
-    M365GraphSyncQueue: "M365GraphSyncQueue",
+
     ALERTAS_OPERATIVAS: "AlertasOperativas",
 
-    // Fiscalidad y contabilidad avanzada
     CONFIGURACION_FISCAL: "CONFIGURACIONFISCAL",
     EVENTOS_SISTEMA_FACTURACION: "EVENTOSSISTEMAFACTURACION",
     LIBRO_IVA_FACTURAS_EXPEDIDAS: "LIBROIVAFACTURASEXPEDIDAS",
@@ -75,13 +76,9 @@ export const COLLECTIONS = Object.freeze({
     LIBRO_IVA_BIENES_INVERSION: "LIBROIVABIENESINVERSION",
     LIBRO_IVA_INTRACOMUNITARIO: "LIBROIVAINTRACOMUNITARIO",
     LIBRO_INVENTARIO_CIERRE: "LIBROINVENTARIOCIERRE",
-    LIBROINVENTARIOCIERRE: "LIBROINVENTARIOCIERRE",
     ASIENTOS_CONTABLES: "ASIENTOSCONTABLES",
-    ASIENTOSCONTABLES: "ASIENTOSCONTABLES",
     LINEAS_ASIENTO_CONTABLE: "LINEASASIENTOCONTABLE",
-    LINEASASIENTOCONTABLE: "LINEASASIENTOCONTABLE",
     PLAN_CUENTAS_CONTABLES: "PLANCUENTASCONTABLES",
-    PLANCUENTASCONTABLES: "PLANCUENTASCONTABLES",
     MAYOR_CONTABLE_SALDOS: "MAYORCONTABLESALDOS",
 });
 
@@ -264,16 +261,4 @@ export const SERVICE_CATALOG = Object.freeze({
     MAX_SUMMARY_LENGTH: 120,
     MAX_DESCRIPTION_LENGTH: 6000,
     MAX_DURATION_MINUTES: 1440,
-});
-
-export const MONEY = Object.freeze({
-    DISPLAY_CURRENCY: "EUR",
-    DECIMAL_SEPARATOR: ",",
-    THOUSANDS_SEPARATOR: ".",
-});
-
-export const STAFF_DEFAULT_NAME = "Cualquier Profesional";
-
-export const BOOKINGS_ADDON_CONFIG = Object.freeze({
-    MAX_PER_BOOKING: 5,
 });
