@@ -8,8 +8,13 @@ export const insert = async (collection: string, item: any) => {
   if (!mockDb.has(collection)) {
     mockDb.set(collection, []);
   }
-  mockDb.get(collection)!.push(item);
-  return { _id: item._id || `mock-${Date.now()}` };
+  // Simular respuesta completa de Wix Data incluyendo todos los campos
+  const insertedItem = {
+    ...item,
+    _id: item._id || `mock-${Date.now()}`
+  };
+  mockDb.get(collection)!.push(insertedItem);
+  return insertedItem;
 };
 
 export const update = async (collection: string, item: any) => {
