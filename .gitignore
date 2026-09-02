@@ -2,10 +2,8 @@
 # Dependencies
 node_modules/
 
-# Build artifacts
-dist/
-build/
-target/
+# Test mocks (if they follow common patterns)
+tests/mocks/
 
 # Logs and temp files
 *.log
@@ -15,22 +13,4 @@ target/
 .env
 .env.local
 *.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Testing
-.vitest/
 ```
