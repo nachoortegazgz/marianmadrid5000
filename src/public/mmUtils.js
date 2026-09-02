@@ -100,6 +100,27 @@ const s = String(v || "").trim();
 const safe = s.replace(/[^A-Za-z0-9_-]/g, "");
 return safe.length > maxLen ? safe.slice(0, maxLen) : safe;
 }
+export const _normalizeIdPart = normalizeIdPart;
+export function _roundMoney(value) {
+const amount = Number(value);
+return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+}
+export function _cleanText(value, maxLength = 500) {
+const text = String(value ?? "").trim();
+return text.length > maxLength ? text.slice(0, maxLength) : text;
+}
+export function _stableSerialize(value) {
+if (Array.isArray(value)) return `[${value.map(_stableSerialize).join(",")}]`;
+if (value && typeof value === "object") {
+if (value instanceof Date) return JSON.stringify(value.toISOString());
+return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${_stableSerialize(value[key])}`).join(",")}}`;
+}
+return JSON.stringify(value);
+}
+export function _extractRelationalId(value) {
+if (value && typeof value === "object") return String(value._id || value.id || value.resourceId || "").trim();
+return String(value || "").trim();
+}
 export function _looksLikeGuid(v) {
 return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
 String(v || "").trim()
@@ -216,7 +237,7 @@ const d = new Date(val);
 return isNaN(d.getTime()) ? null : d;
 }
 export function withTimeout(promise, timeoutMs, label = "operation") {
-const ms = Number.isFinite(timeoutMs) ? timeoutMs : SDK_CONFIG.TIMEOUTS.API_MS;
+const ms = Number.isFinite(timeoutMs) ? timeoutMs : (SDK_CONFIG.TIMEOUTS?.API_MS || 15000);
 let timer;
 const timeoutPromise = new Promise((_, reject) => {
 timer = setTimeout(() => reject(new Error(`TIMEOUT: ${label} exceeded ${ms}ms`)), ms);

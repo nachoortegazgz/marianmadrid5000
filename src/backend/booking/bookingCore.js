@@ -420,8 +420,7 @@ return null;
 }
 
 // Validar que resourceId sea GUID válido
-const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-if (!resourceId || !guidRegex.test(resourceId)) {
+if (!_looksLikeGuid(resourceId)) {
 logger.warn('[bookingCore] _forceStaffInPristineSlot: resourceId no es GUID válido', { resourceId });
 return null;
 }
@@ -713,9 +712,7 @@ export function _generateSlotKey(slot) {
  * Valida que un string sea un GUID válido (formato UUID v4)
  */
 export function isValidGuid(id) {
-  if (!id || typeof id !== 'string') return false;
-  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return guidRegex.test(id);
+  return _looksLikeGuid(id);
 }
 
 /**
@@ -751,6 +748,7 @@ export function _projectCertifiedSlot(slot, resourceId) {
   return {
     serviceId: slot.primaryServiceGuid,
     scheduleId: slot.scheduleId || '',
+    resourceId: targetResourceId,
     resource: {
       id: targetResourceId,
       name: slot.resourceName || undefined

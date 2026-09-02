@@ -552,14 +552,18 @@ export async function executeBookingSaga(unsafePayload) {
         ? Number(serviceData.tiempoFase2) || 30
         : Number(serviceData.tiempoFase1) || 30;
 
-      // FIX 4: CALL _forceStaffInPristineSlot WITH 3 PARAMETERS MATCHING v18.9.1-clean
-      p.pristineSlot = _forceStaffInPristineSlot(p.validatedSlot, finalResourceId, durationMinutes);
+      p.pristineSlot = _forceStaffInPristineSlot(
+        p.validatedSlot,
+        finalResourceId,
+        p.serviceId,
+        durationMinutes
+      );
       if (!p.pristineSlot) {
         throw createBookingError('INVALID_SLOT', `Formato de slot invalido para el motor V2 (${p.key})`);
       }
 
       if (!p.pristineSlot.scheduleId) {
-        const resourceObj2 = findStaff(finalResourceId);
+        const resourceObj2 = await findStaff(finalResourceId);
         if (resourceObj2?.scheduleId) p.pristineSlot.scheduleId = resourceObj2.scheduleId;
       }
     }

@@ -19,6 +19,7 @@ _looksLikeGuid,
 withTimeout,
 } from "public/mmUtils";
 import { createWidgetBridge } from "public/widgetBridge";
+import { processDualBooking } from "backend/citasManager.web";
 let currentServiceId = null;
 let currentSlug = null;
 let bridge = null;
@@ -80,7 +81,19 @@ return;
 if (type === MESSAGE_TYPES.BOOK) {
 const bookingData = payload.bookingData || payload;
 console.info("[calendario-2] Booking initiated", { traceId, bookingData });
-return;
+try {
+const result = await withTimeout(
+processDualBooking({ ...bookingData, traceId }),
+UI.FRONTEND_API_TIMEOUT_MS,
+"processDualBooking"
+);
+reply("BOOK_RES", result);
+return result;
+} catch (error) {
+const result = { status: "ERROR", data: null, error: { code: "BOOKING_TIMEOUT", message: "No se pudo completar la reserva." } };
+reply("BOOK_RES", result);
+return result;
+}
 }
 },
 onError: (error) => {
