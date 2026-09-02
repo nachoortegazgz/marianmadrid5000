@@ -1,75 +1,79 @@
 /*
 =============================================================================
 MODULE: backend/staff.js
-RESPONSIBILITY: Staff resolution from MAPA_STAFF collection.
-STANDARDS: G10 ASCII Strict, 100% Velo Native, No RAM Caching.
+VERSION: v5001-optimized (base v19.6.2-canonical-staff-labels)
+RESPONSIBILITY: Staff catalog resolution from MAPA_STAFF collection.
+STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 =============================================================================
 */
-
 import wixData from "wix-data";
 import { COLLECTIONS } from "backend/internalConfig";
-import { _safeTrim, _looksLikeGuid } from "public/mmUtils";
-
-const STAFF_COL = COLLECTIONS.MAPA_STAFF;
-
-function _mapStaffItem(item) {
-    if (!item) return null;
-    return {
-        resourceId: _safeTrim(item.resourceId),
-        displayName: _safeTrim(item.nombreVisible || item.displayName || "ESTILISTA"),
-        nombreVisible: _safeTrim(item.nombreVisible || item.displayName || "ESTILISTA"),
-        email: _safeTrim(item.email).toLowerCase(),
-        memberId: _safeTrim(item.idMiembroStaff || item.memberId),
-        idMiembroStaff: _safeTrim(item.idMiembroStaff || item.memberId),
-        scheduleId: _safeTrim(item.scheduleId || item.idHorario),
-        rol: _safeTrim(item.rol || "ESTILISTA"),
-        activo: item.activo !== false,
-    };
+import { makeTraceId, _safeTrim, _looksLikeGuid, _safeEmail } from "public/mmUtils";
+import { logger } from "backend/booking/bookingCore";
+const log = logger;
+const MAPA_STAFF_COL = COLLECTIONS.MAPA_STAFF;
+const STAFF_CACHE_TTL_MS = 300000;
+let staffCache = null;
+let staffCacheTime = 0;
+async function _loadStaffCatalog() {
+const now = Date.now();
+if (staffCache && now - staffCacheTime < STAFF_CACHE_TTL_MS) return staffCache;
+try {
+const res = await wixData
+.query(MAPA_STAFF_COL)
+.eq("activo", true)
+.limit(100)
+.find({ suppressAuth: true });
+staffCache = res?.items || [];
+staffCacheTime = now;
+return staffCache;
+} catch (error) {
+log.error("Failed to load MAPA_STAFF", { error: error?.message });
+return staffCache || [];
 }
-
-export async function findStaff(identifier) {
-    const clean = _safeTrim(identifier);
-    if (!clean) return null;
-
-    const lower = clean.toLowerCase();
-    
-    // Consulta optimizada usando .or() para buscar por ID, Email o MemberID en una sola pasada
-    const query = wixData.query(STAFF_COL)
-        .eq("resourceId", clean)
-        .or(wixData.query(STAFF_COL).eq("email", lower))
-        .or(wixData.query(STAFF_COL).eq("idMiembroStaff", clean))
-        .or(wixData.query(STAFF_COL).eq("memberId", clean));
-
-    const res = await query.limit(1).find({ suppressAuth: true, consistentRead: false });
-    return _mapStaffItem(res.items[0]);
 }
-
-export async function getAllStaff() {
-    const res = await wixData.query(STAFF_COL)
-        .eq("activo", true)
-        .limit(100)
-        .find({ suppressAuth: true, consistentRead: false });
-        
-    return res.items.map(_mapStaffItem);
-}
-
-export async function resolveStaffResourceIds(personalDisponible) {
-    const items = Array.isArray(personalDisponible) ? personalDisponible : [];
-    const resourceIds = [];
-    for (const entry of items) {
-        const candidate = typeof entry === "object" && entry !== null ? (entry.resourceId || entry.id || entry._id) : entry;
-        const clean = _safeTrim(candidate);
-        if (_looksLikeGuid(clean)) {
-            resourceIds.push(clean);
-        } else {
-            const found = await findStaff(clean);
-            if (found?.resourceId) resourceIds.push(found.resourceId);
-        }
-    }
-    return Array.from(new Set(resourceIds)).sort();
-}
-
-// Mantenemos la firma de la función para no romper dependencias, pero ya no hace nada.
 export function clearStaffCache() {
-    return true; 
+staffCache = null;
+staffCacheTime = 0;
+}
+export async function getAllStaff() {
+return await _loadStaffCatalog();
+}
+export async function findStaff(identifier) {
+const cleanId = _safeTrim(identifier);
+if (!cleanId) return null;
+const catalog = await _loadStaffCatalog();
+if (cleanId.toLowerCase() === "any" || cleanId.toLowerCase() === "all") return null;
+const byResourceId = catalog.find((s) => s.resourceId === cleanId);
+if (byResourceId) return byResourceId;
+const byMemberId = catalog.find((s) => s.idMiembroStaff === cleanId);
+if (byMemberId) return byMemberId;
+const byScheduleId = catalog.find((s) => s.scheduleId === cleanId);
+if (byScheduleId) return byScheduleId;
+const cleanEmail = _safeEmail(cleanId);
+if (cleanEmail) {
+const byEmail = catalog.find((s) => _safeEmail(s.email) === cleanEmail);
+if (byEmail) return byEmail;
+}
+const byName = catalog.find((s) => {
+const displayName = _safeTrim(s.displayName || s.nombreVisible || "").toLowerCase();
+return displayName === cleanId.toLowerCase();
+});
+if (byName) return byName;
+return null;
+}
+export async function findStaffByResourceId(resourceId) {
+const cleanId = _safeTrim(resourceId);
+if (!cleanId || !_looksLikeGuid(cleanId)) return null;
+return await findStaff(cleanId);
+}
+export async function getStaffDisplayName(resourceId) {
+const staff = await findStaff(resourceId);
+if (!staff) return "";
+return _safeTrim(staff.displayName || staff.nombreVisible || staff.name || "");
+}
+export async function getStaffScheduleId(resourceId) {
+const staff = await findStaff(resourceId);
+if (!staff) return null;
+return _safeTrim(staff.scheduleId) || null;
 }

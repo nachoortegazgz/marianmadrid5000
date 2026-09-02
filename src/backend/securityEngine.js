@@ -1,149 +1,115 @@
 /*
 =============================================================================
 MODULE: backend/securityEngine.js
-VERSION: marianmadrid4004 (v21.1.2-LTS-remediated-jti-anti-replay)
-RESPONSIBILITY: Cryptographic engine: HMAC-SHA256, timing-safe comparison,
-            SHA-256 hashing, hash chains, and JWT HS256 tokens with JTI replay prevention.
+VERSION: v5001-optimized (base v18.9.1-ultimate)
+RESPONSIBILITY: Cryptographic engine for fiscal hash chains and JWT authentication.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 =============================================================================
 */
-
-import { createHmac, createHash, timingSafeEqual as cryptoTimingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual as nodeTimingSafeEqual } from "wix-crypto";
 import { getSecret } from "wix-secrets-backend";
-import wixData from "wix-data";
 import { SECRETS } from "backend/mmSecrets";
-import { JWT, COLLECTIONS } from "backend/internalConfig";
-
-export function hmacSha256Hex(secretKey, payload) {
-    return createHmac("sha256", String(secretKey))
-        .update(String(payload), "utf8")
-        .digest("hex");
+import { makeTraceId, _safeTrim } from "public/mmUtils";
+import { logger } from "backend/booking/bookingCore";
+const log = logger;
+const JWT_ALGORITHM = "HS256";
+const JWT_EXPIRATION_MS = 1800000;
+export function hashSHA256(input) {
+const clean = String(input || "");
+return createHash("sha256").update(clean).digest("hex");
 }
-
+export function hmacSha256Hex(key, payload) {
+const cleanKey = String(key || "");
+const cleanPayload = String(payload || "");
+return createHmac("sha256", cleanKey).update(cleanPayload).digest("hex");
+}
+export function hashChain(prevHash, payload) {
+const cleanPrev = String(prevHash || "");
+const cleanPayload = String(payload || "");
+return hashSHA256(`${cleanPrev}|${cleanPayload}`);
+}
 export function timingSafeEqual(a, b) {
-    const strA = String(a || "");
-    const strB = String(b || "");
-    if (strA.length !== strB.length) {
-        const dummy = Buffer.alloc(strA.length, 0);
-        cryptoTimingSafeEqual(Buffer.from(strA, "utf8"), dummy);
-        return false;
-    }
-    return cryptoTimingSafeEqual(Buffer.from(strA, "utf8"), Buffer.from(strB, "utf8"));
+try {
+const bufA = Buffer.from(String(a || ""), "utf8");
+const bufB = Buffer.from(String(b || ""), "utf8");
+if (bufA.length !== bufB.length) return false;
+return nodeTimingSafeEqual(bufA, bufB);
+} catch (_) {
+return String(a || "") === String(b || "");
 }
-
-export function verifyHMAC(secretKey, payload, signature) {
-    const expected = hmacSha256Hex(secretKey, payload);
-    return timingSafeEqual(expected, signature);
 }
-
-export function hashSHA256(data) {
-    return createHash("sha256").update(String(data), "utf8").digest("hex");
+function _base64UrlEncode(input) {
+const clean = String(input || "");
+return Buffer.from(clean, "utf8")
+.toString("base64")
+.replace(/\+/g, "-")
+.replace(/\//g, "_")
+.replace(/=+$/, "");
 }
-
-export function hashChain(previousHash, currentData) {
-    return hashSHA256(`${String(previousHash)}|${String(currentData)}`);
+function _base64UrlDecode(input) {
+const clean = String(input || "");
+const padded = clean.replace(/-/g, "+").replace(/_/g, "/");
+const pad = padded.length % 4;
+const finalPadded = pad ? padded + "=".repeat(4 - pad) : padded;
+try {
+return Buffer.from(finalPadded, "base64").toString("utf8");
+} catch (_) {
+return "";
 }
-
-function base64UrlEncode(str) {
-    return Buffer.from(String(str), "utf8")
-        .toString("base64")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
 }
-
-function base64UrlDecode(str) {
-    if (typeof str !== "string") return "";
-    const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-    const pad = base64.length % 4;
-    const padded = pad ? base64 + "=".repeat(4 - pad) : base64;
-    try {
-        return Buffer.from(padded, "base64").toString("utf8");
-    } catch (_) {
-        return "";
-    }
+export async function generateJWT(payload, traceId) {
+const activeTraceId = traceId || makeTraceId("jwt-gen");
+try {
+const secretKey = await getSecret(SECRETS.AUTH_JWT_KEY);
+if (!secretKey) {
+log.error("AUTH_JWT_KEY missing in Secrets Manager", { traceId: activeTraceId });
+return null;
 }
-
-function signJWT(secretKey, data) {
-    return createHmac("sha256", secretKey)
-        .update(String(data), "utf8")
-        .digest("base64")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
+const now = Math.floor(Date.now() / 1000);
+const exp = now + Math.floor(JWT_EXPIRATION_MS / 1000);
+const header = { alg: JWT_ALGORITHM, typ: "JWT" };
+const tokenPayload = {
+...(payload || {}),
+iat: now,
+exp: exp,
+};
+const headerEncoded = _base64UrlEncode(JSON.stringify(header));
+const payloadEncoded = _base64UrlEncode(JSON.stringify(tokenPayload));
+const signingInput = `${headerEncoded}.${payloadEncoded}`;
+const signature = hmacSha256Hex(secretKey, signingInput);
+return `${signingInput}.${signature}`;
+} catch (error) {
+log.error("JWT generation failed", { traceId: activeTraceId, error: error?.message });
+return null;
 }
-
-export async function generarToken(payload, traceId) {
-    const secretKey = await getSecret(SECRETS.AUTH_JWT_KEY).catch(() => null);
-    if (!secretKey) throw new Error(`JWT_KEY_MISSING: ${traceId}`);
-    const now = Date.now();
-    const expiresAt = now + (JWT.EXPIRATION_MS || 1800000);
-    const header = { alg: JWT.ALGORITHM, typ: "JWT" };
-    const jti = `jti_${traceId}_${now}_${createHash("sha256").update(`${traceId}:${now}:${Math.random()}`).digest("hex").slice(0, 12)}`;
-    const body = {
-        ...payload,
-        iss: "marianmadrid.es",
-        aud: "marianmadrid-staff",
-        iat: Math.floor(now / 1000),
-        exp: Math.floor(expiresAt / 1000),
-        jti,
-    };
-    const encodedHeader = base64UrlEncode(JSON.stringify(header));
-    const encodedBody = base64UrlEncode(JSON.stringify(body));
-    const signature = signJWT(secretKey, `${encodedHeader}.${encodedBody}`);
-    return `${encodedHeader}.${encodedBody}.${signature}`;
 }
-
-export async function verificarToken(token, traceId, options = {}) {
-    if (!token || typeof token !== "string") return { valid: false, error: "TOKEN_MISSING" };
-    const parts = token.split(".");
-    if (parts.length !== 3) return { valid: false, error: "TOKEN_MALFORMED" };
-    const secretKey = await getSecret(SECRETS.AUTH_JWT_KEY).catch(() => null);
-    if (!secretKey) return { valid: false, error: "JWT_KEY_MISSING" };
-    const expectedSignature = signJWT(secretKey, `${parts[0]}.${parts[1]}`);
-    if (!timingSafeEqual(expectedSignature, parts[2])) {
-        return { valid: false, error: "TOKEN_SIGNATURE_INVALID" };
-    }
-    try {
-        const body = JSON.parse(base64UrlDecode(parts[1]));
-        const nowSec = Math.floor(Date.now() / 1000);
-        if (body.exp && body.exp < nowSec) {
-            return { valid: false, error: "TOKEN_EXPIRED" };
-        }
-        if (body.iss && body.iss !== "marianmadrid.es") {
-            return { valid: false, error: "TOKEN_ISSUER_INVALID" };
-        }
-        if (body.aud && body.aud !== "marianmadrid-staff") {
-            return { valid: false, error: "TOKEN_AUDIENCE_INVALID" };
-        }
-
-        if (options.singleUse === true && body.jti) {
-            const jtiLockId = `lk_jwt_${createHash("sha256").update(body.jti).digest("hex")}`;
-            const remainingTtlMs = Math.max(1000, ((body.exp || (nowSec + 1800)) - nowSec + 30) * 1000);
-            try {
-                await wixData.insert(
-                    COLLECTIONS.LOCKS,
-                    {
-                        _id: jtiLockId,
-                        slotKey: body.jti,
-                        traceId: String(traceId || "jwt_verifier"),
-                        expiresAt: new Date(Date.now() + remainingTtlMs),
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                    },
-                    { suppressAuth: true }
-                );
-            } catch (lockErr) {
-                const msg = String(lockErr?.message || "");
-                if (msg.includes("WDE0123") || msg.includes("WD_ITEM_ALREADY_EXISTS") || msg.includes("Duplicated")) {
-                    return { valid: false, error: "TOKEN_ALREADY_CONSUMED_OR_REPLAYED" };
-                }
-                return { valid: false, error: "TOKEN_JTI_VERIFICATION_FAILED" };
-            }
-        }
-
-        return { valid: true, payload: body };
-    } catch (_) {
-        return { valid: false, error: "TOKEN_PAYLOAD_INVALID" };
-    }
+export async function verifyJWT(token, traceId) {
+const activeTraceId = traceId || makeTraceId("jwt-verify");
+try {
+const cleanToken = _safeTrim(token);
+if (!cleanToken) return null;
+const parts = cleanToken.split(".");
+if (parts.length !== 3) return null;
+const secretKey = await getSecret(SECRETS.AUTH_JWT_KEY);
+if (!secretKey) {
+log.error("AUTH_JWT_KEY missing in Secrets Manager", { traceId: activeTraceId });
+return null;
+}
+const signingInput = `${parts[0]}.${parts[1]}`;
+const expectedSignature = hmacSha256Hex(secretKey, signingInput);
+if (!timingSafeEqual(parts[2], expectedSignature)) {
+return null;
+}
+const payloadJson = _base64UrlDecode(parts[1]);
+if (!payloadJson) return null;
+const payload = JSON.parse(payloadJson);
+const now = Math.floor(Date.now() / 1000);
+if (payload.exp && payload.exp < now) {
+return null;
+}
+return payload;
+} catch (error) {
+log.error("JWT verification failed", { traceId: activeTraceId, error: error?.message });
+return null;
+}
 }
