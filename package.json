@@ -1,11 +1,13 @@
 {
   "devDependencies": {
+    "@types/node": "^26.4.1",
     "@vitest/ui": "^4.1.11",
     "@wix/cli": "^1.0.0",
     "@wix/eslint-plugin-cli": "^1.0.0",
     "eslint": "^8.25.0",
     "jsdom": "^29.1.1",
     "react": "16.14.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   },
   "scripts": {
