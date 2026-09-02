@@ -1,29 +1,53 @@
-﻿import { _safeTrim, _roundMoney } from "public/mmUtils";
-export function buildVerifactuQrUrl(params = {}) {
-    const nifEmisor = _safeTrim(params.nifEmisor).toUpperCase();
-    const numTicket = _safeTrim(params.numTicketFactura || params.numTicket);
-    const fechaExpedicion = _safeTrim(params.fechaExpedicion || params.diaKey);
-    const importeTotal = _roundMoney(params.importeTotal);
-    const huella = _safeTrim(params.huellaSha256 || params.hashCadena).slice(0, 8).toUpperCase();
-    if (!nifEmisor || !numTicket || !fechaExpedicion) {
-        return "";
-    }
-    const queryParams = new URLSearchParams({
-        nif: nifEmisor,
-        num: numTicket,
-        fec: fechaExpedicion,
-        imp: importeTotal.toFixed(2),
-        hc: huella,
-    });
-    return `https://sede.agenciatributaria.gob.es/verifactu/consulta?${queryParams.toString()}`;
+/*
+=============================================================================
+FILE: public/qrHelper.js
+VERSION: v19.6.16-verifactu-qr-generator
+RESPONSIBILITY: Generates Veri*Factu QR verification URLs for fiscal receipts.
+STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+=============================================================================
+*/
+export function generateVerifactuQrUrl(params = {}) {
+const nifEmisor = String(params.nifEmisor || "").trim();
+const numFactura = String(params.numTicketFactura || params.numFactura || "").trim();
+const fechaEmision = String(params.fechaEmision || "").trim();
+const importeTotal = String(params.importeTotal || "0").trim();
+const hashCadena = String(params.hashCadena || "").trim();
+if (!nifEmisor || !numFactura || !fechaEmision) {
+return null;
 }
-export function generateTicketQrSvg(payloadText, size = 128) {
-    const text = _safeTrim(payloadText);
-    if (!text) return "";
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">
-        <rect width="100%" height="100%" fill="#ffffff"/>
-        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="6" fill="#111111" font-family="monospace">
-            QR:${text.slice(0, 24)}...
-        </text>
-    </svg>`;
+const baseUrl = "https://www.agenciatributaria.gob.es/verifactu/verify";
+const queryParams = [
+`nif=${encodeURIComponent(nifEmisor)}`,
+`numFactura=${encodeURIComponent(numFactura)}`,
+`fecha=${encodeURIComponent(fechaEmision)}`,
+`importe=${encodeURIComponent(importeTotal)}`,
+`hash=${encodeURIComponent(hashCadena)}`,
+].join("&");
+return `${baseUrl}?${queryParams}`;
+}
+export function extractVerifactuData(movimiento = {}) {
+return {
+nifEmisor: String(movimiento.nifEmisor || "").trim(),
+numTicketFactura: String(movimiento.numTicketFactura || "").trim(),
+fechaEmision: String(movimiento.fechaCreacion || "").slice(0, 10),
+importeTotal: String(movimiento.importeTotal || 0),
+hashCadena: String(movimiento.hashCadena || "").trim(),
+firmaDigital: String(movimiento.firmaDigital || "").trim(),
+qrUrl: generateVerifactuQrUrl(movimiento),
+};
+}
+export function buildVerifactuReceiptHtml(movimiento = {}) {
+const data = extractVerifactuData(movimiento);
+if (!data.qrUrl) return "";
+return `
+<div style="font-family: Arial, sans-serif; padding: 16px; border: 1px solid #ccc; border-radius: 8px;">
+<h3 style="margin: 0 0 12px;">Factura Simplificada</h3>
+<p><strong>NIF Emisor:</strong> ${data.nifEmisor}</p>
+<p><strong>Numero:</strong> ${data.numTicketFactura}</p>
+<p><strong>Fecha:</strong> ${data.fechaEmision}</p>
+<p><strong>Importe:</strong> ${data.importeTotal} EUR</p>
+<p><strong>Verificacion:</strong> <a href="${data.qrUrl}" target="_blank">Verificar factura</a></p>
+<p style="font-size: 10px; color: #666;">Hash: ${data.hashCadena.substring(0, 16)}...</p>
+</div>
+`;
 }
