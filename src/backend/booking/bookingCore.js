@@ -237,20 +237,79 @@ return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.me
 }
 }
 
-export async function _persistBooking(bookingData) {
-try {
-const bookingRecord = {
-...bookingData,
-createdAt: new Date(),
-updatedAt: new Date(),
-};
-const result = await withTimeout(wixData.insert(CITAS_COLLECTION, bookingRecord), API_TIMEOUT_MS);
-log.info(`[bookingCore] Booking persisted`, { bookingId: result._id });
-return { ok: true, data: result };
-} catch (error) {
-log.error(`[bookingCore] Failed to persist booking`, { error: error.message });
-return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.message };
-}
+/**
+ * Persiste un booking en Wix Data con validación de tipos
+ * @param {Object} params - Parámetros del booking
+ * @param {string} traceId - ID de traza para logs
+ */
+export async function _persistBooking(params, traceId = 'no-trace') {
+  // Validaciones en tiempo de ejecución
+  if (!params.bookingId || !params.primaryServiceGuid || !params.scheduleId) {
+    const missingFields = [];
+    if (!params.bookingId) missingFields.push('bookingId');
+    if (!params.primaryServiceGuid) missingFields.push('primaryServiceGuid');
+    if (!params.scheduleId) missingFields.push('scheduleId');
+    
+    const error = new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    console.error(`[bookingCore][${traceId}] ${error.message}`);
+    throw error;
+  }
+  
+  // Validar GUIDs
+  if (!isValidGuid(params.primaryServiceGuid)) {
+    throw new Error(`Invalid primaryServiceGuid: ${params.primaryServiceGuid}`);
+  }
+  
+  if (params.resourceId && !isValidGuid(params.resourceId)) {
+    throw new Error(`Invalid resourceId: ${params.resourceId}`);
+  }
+  
+  // Validar fechas
+  if (isNaN(params.startDate.getTime()) || isNaN(params.endDate.getTime())) {
+    throw new Error('Invalid start or end date');
+  }
+  
+  // Validar tipo de booking
+  const validTypes = ['simple', 'dual_fase1', 'dual_fase2'];
+  if (!validTypes.includes(params.tipo)) {
+    throw new Error(`Invalid booking type: ${params.tipo}`);
+  }
+  
+  // Validar estado de pago
+  const validPaymentStates = ['UNPAID', 'PENDING_PAYMENT', 'CONFIRMED_UNPAID', 'PAID'];
+  if (!validPaymentStates.includes(params.meta.estadoPago)) {
+    throw new Error(`Invalid payment state: ${params.meta.estadoPago}`);
+  }
+  
+  // Construir item para Wix Data
+  const bookingRecord = {
+    _id: params.bookingId,
+    revision: params.revision,
+    primaryServiceGuid: params.primaryServiceGuid,
+    scheduleId: params.scheduleId,
+    resourceId: params.resourceId,
+    startDate: params.startDate,
+    endDate: params.endDate,
+    contactDetails: params.contactDetails,
+    tipo: params.tipo,
+    meta: JSON.stringify(params.meta),
+    traceId,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  
+  try {
+    const result = await withTimeout(wixData.insert(CITAS_COLLECTION, bookingRecord), API_TIMEOUT_MS);
+    console.log(`[bookingCore][${traceId}] Booking persistido: ${result._id || params.bookingId}`);
+    
+    return {
+      created: true,
+      item: result
+    };
+  } catch (error) {
+    console.error(`[bookingCore][${traceId}] Error persistiendo booking: ${error.message}`);
+    throw error;
+  }
 }
 
 export function _normalizeAddons(addons) {
@@ -400,20 +459,47 @@ new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), ms))
 
 /**
  * Extrae IDs de recursos válidos (GUIDs) de un slot.
+ * Soporta múltiples formatos: resourceId string, objeto resource, array resources, staffMemberId
  * @param {Object} slot - Slot de Wix Bookings.
- * @returns {string[]} Array de resourceIds.
+ * @returns {string[]} Array de resourceIds deduplicados y validados como GUID.
  */
 export function _extractResourceIdsFromSlot(slot) {
-  if (!slot || !slot.resource) return [];
-  // Manejar tanto string como objeto resource
-  const res = slot.resource;
-  const id = typeof res === 'string' ? res : (res?.id || '');
+  if (!slot || typeof slot !== 'object') return [];
   
-  // Validar formato GUID básico
-  if (!id || typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-    return [];
+  const resources = new Set();
+  
+  // Formato 1: resourceId como string directo
+  if (slot.resourceId && typeof slot.resourceId === 'string') {
+    resources.add(slot.resourceId);
   }
-  return [id];
+  
+  // Formato 2: objeto resource con id
+  if (slot.resource) {
+    const res = slot.resource;
+    if (typeof res === 'string') {
+      resources.add(res);
+    } else if (res?.id && typeof res.id === 'string') {
+      resources.add(res.id);
+    }
+  }
+  
+  // Formato 3: array resources
+  if (slot.resources && Array.isArray(slot.resources)) {
+    for (const r of slot.resources) {
+      if (r?.id && typeof r.id === 'string') {
+        resources.add(r.id);
+      }
+    }
+  }
+  
+  // Formato 4: staffMemberId
+  if (slot.staffMemberId && typeof slot.staffMemberId === 'string') {
+    resources.add(slot.staffMemberId);
+  }
+  
+  // Filtrar solo GUIDs válidos
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return [...resources].filter(id => guidRegex.test(id));
 }
 
 /**
@@ -587,4 +673,121 @@ async function _mockFetchPrimarySlots(serviceId, resourceId, dateYMD) {
     });
   }
   return slots;
+}
+
+/**
+ * Genera una clave única para identificar un slot
+ */
+export function _generateSlotKey(slot) {
+  if (!slot) return null;
+  
+  const parts = [
+    slot.primaryServiceGuid || slot.serviceId || '',
+    slot.scheduleId || '',
+    slot.localStartDate || slot.startDate || '',
+    slot.resourceId || (slot.resource?.id) || ''
+  ].filter(Boolean);
+  
+  return parts.length >= 3 ? parts.join('|') : null;
+}
+
+/**
+ * Valida que un string sea un GUID válido (formato UUID v4)
+ */
+export function isValidGuid(id) {
+  if (!id || typeof id !== 'string') return false;
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return guidRegex.test(id);
+}
+
+/**
+ * Proyecta un slot de Wix a nuestro formato interno certificado
+ */
+export function _projectCertifiedSlot(slot, resourceId) {
+  if (!slot || !slot.primaryServiceGuid) {
+    console.warn('[bookingCore] Slot inválido: falta primaryServiceGuid');
+    return null;
+  }
+  
+  const targetResourceId = resourceId || slot.resourceId || (slot.resource?.id);
+  
+  if (!isValidGuid(targetResourceId)) {
+    console.warn(`[bookingCore] ResourceId inválido: ${targetResourceId}`);
+    return null;
+  }
+  
+  // Validar fechas
+  if (!slot.localStartDate || !slot.localEndDate) {
+    console.warn('[bookingCore] Slot inválido: faltan fechas');
+    return null;
+  }
+  
+  const startDate = new Date(slot.localStartDate);
+  const endDate = new Date(slot.localEndDate);
+  
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    console.warn('[bookingCore] Fechas inválidas en slot');
+    return null;
+  }
+  
+  return {
+    serviceId: slot.primaryServiceGuid,
+    scheduleId: slot.scheduleId || '',
+    resource: {
+      id: targetResourceId,
+      name: slot.resourceName || undefined
+    },
+    localStartDate: slot.localStartDate,
+    localEndDate: slot.localEndDate,
+    availableSpots: slot.availableSpots,
+    bookedSpots: slot.bookedSpots
+  };
+}
+
+/**
+ * Genera un token único para emparejar slots duales
+ */
+export function _generatePairToken(traceId) {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `pair_${traceId}_${timestamp}_${random}`;
+}
+
+/**
+ * Valida que dos slots sean compatibles para emparejamiento dual
+ */
+export function _areSlotsCompatible(slot1, slot2, maxGapMinutes = 15) {
+  // Mismo recurso
+  if (slot1.resource.id !== slot2.resource.id) {
+    return false;
+  }
+  
+  // El slot2 debe empezar después del slot1
+  const end1 = new Date(slot1.localEndDate).getTime();
+  const start2 = new Date(slot2.localStartDate).getTime();
+  
+  const gapMinutes = (start2 - end1) / 60000;
+  
+  // Gap dentro del límite permitido
+  return gapMinutes >= 0 && gapMinutes <= maxGapMinutes;
+}
+
+/**
+ * Auditoría de precio de booking
+ */
+export function _auditBookingPrice(basePrice, addons) {
+  let total = basePrice;
+  
+  for (const addon of addons) {
+    const qty = addon.quantity || 1;
+    total += addon.price * qty;
+  }
+  
+  // Validar que el precio sea positivo
+  if (total < 0) {
+    console.error('[bookingCore] Precio auditado negativo:', total);
+    throw new Error('Precio auditado inválido');
+  }
+  
+  return Math.round(total * 100) / 100; // Redondear a 2 decimales
 }

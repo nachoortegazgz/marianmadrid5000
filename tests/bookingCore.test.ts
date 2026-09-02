@@ -33,27 +33,30 @@ describe('bookingCore.ts', () => {
 
   describe('_extractResourceIdsFromSlot', () => {
     it('debe extraer resourceId simple', () => {
-      const slot = { resourceId: 'res-123' };
-      expect(_extractResourceIdsFromSlot(slot)).toEqual(['res-123']);
+      const slot = { resourceId: '11111111-1111-4111-8111-111111111111' };
+      expect(_extractResourceIdsFromSlot(slot)).toEqual(['11111111-1111-4111-8111-111111111111']);
     });
 
     it('debe extraer múltiples recursos de array', () => {
       const slot = {
         resources: [
-          { id: 'res-1', name: 'Staff 1' },
-          { id: 'res-2', name: 'Staff 2' }
+          { id: '11111111-1111-4111-8111-111111111111', name: 'Staff 1' },
+          { id: '22222222-2222-4222-8222-222222222222', name: 'Staff 2' }
         ]
       };
-      expect(_extractResourceIdsFromSlot(slot)).toEqual(['res-1', 'res-2']);
+      expect(_extractResourceIdsFromSlot(slot)).toEqual([
+        '11111111-1111-4111-8111-111111111111',
+        '22222222-2222-4222-8222-222222222222'
+      ]);
     });
 
     it('debe deduplicar recursos', () => {
       const slot = {
-        resourceId: 'res-1',
-        resources: [{ id: 'res-1' }],
-        staffMemberId: 'res-1'
+        resourceId: '11111111-1111-4111-8111-111111111111',
+        resources: [{ id: '11111111-1111-4111-8111-111111111111' }],
+        staffMemberId: '11111111-1111-4111-8111-111111111111'
       };
-      expect(_extractResourceIdsFromSlot(slot)).toEqual(['res-1']);
+      expect(_extractResourceIdsFromSlot(slot)).toEqual(['11111111-1111-4111-8111-111111111111']);
     });
 
     it('debe retornar array vacío para slot inválido', () => {
