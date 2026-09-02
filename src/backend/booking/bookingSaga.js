@@ -41,10 +41,13 @@ import {
   COLLECTIONS,
   APP_IDS,
   SDK_CONFIG,
-  MONEY,
   STAFF,
-  STAFF_DEFAULT_NAME,
   CONCURRENCY,
+} from 'backend/internalConfig';
+import { findStaff } from 'backend/staff';
+import {
+  MONEY,
+  STAFF_DEFAULT_NAME,
   makeTraceId,
   _safeTrim,
   _safeEmail,
@@ -55,9 +58,7 @@ import {
   getMadridLocalStringNoZ,
   _executeWithRetry,
   withTimeout,
-  findStaff,
-  _isValidEmail,
-  _unwrapServiceId
+  _isValidEmail
 } from 'public/mmUtils';
 import {
   createBookingElevated,
