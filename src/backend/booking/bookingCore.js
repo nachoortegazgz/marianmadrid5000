@@ -99,30 +99,33 @@ error.timestamp = new Date().toISOString();
 return error;
 }
 
-export async function _initTransaction(pairToken, traceId) {
+export async function _initTransaction(pairToken, payloadHashOrTraceId, traceId = null) {
+const activeTraceId = traceId || payloadHashOrTraceId;
+const payloadHash = traceId ? payloadHashOrTraceId : null;
+const transactionId = `tx_${hashSHA256(`${pairToken}_${payloadHash || activeTraceId}`).substring(0, 16)}`;
 try {
-const transactionId = `tx_${hashSHA256(`${pairToken}_${traceId}`).substring(0, 16)}`;
 const transactionRecord = {
 _id: transactionId,
 pairToken,
-traceId,
+traceId: activeTraceId,
+payloadHash,
 status: "INITIATED",
 createdAt: new Date(),
 updatedAt: new Date(),
 };
 await withTimeout(wixData.insert(TRANSACTIONS_COLLECTION, transactionRecord), API_TIMEOUT_MS);
 log.info(`[bookingCore] Transaction initialized`, { transactionId, pairToken });
-return { ok: true, transactionId };
+return { ok: true, success: true, isNew: true, transactionId };
 } catch (error) {
 log.error(`[bookingCore] Failed to initialize transaction`, { error: error.message, pairToken });
-return { ok: false, code: ERROR_CODES.TRANSACTION_FAILED, message: error.message };
+return { ok: false, success: false, isNew: false, code: ERROR_CODES.TRANSACTION_FAILED, message: error.message };
 }
 }
 
-export async function _completeTransaction(transactionId) {
+export async function _completeTransaction(transactionId, result = null) {
 try {
 await withTimeout(
-wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "COMPLETED", updatedAt: new Date() }),
+wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "COMPLETED", result, updatedAt: new Date() }),
 API_TIMEOUT_MS
 );
 log.info(`[bookingCore] Transaction completed`, { transactionId });
@@ -341,15 +344,17 @@ export async function createBookingElevated(payload) {
 try {
 const elevatedPayload = {
 serviceId: payload.serviceId,
-resourceId: payload.resourceId,
-startDate: payload.startDate,
-endDate: payload.endDate,
-bookerDetails: payload.bookerDetails,
+bookedEntity: payload.bookedEntity,
+contactDetails: payload.contactDetails,
+totalParticipants: payload.totalParticipants,
+options: payload.options,
 };
 
 const result = await elevate(() => bookings.createBooking(elevatedPayload));
-log.info(`[bookingCore] Booking created via elevated`, { bookingId: result.booking?._id });
-return { ok: true, data: { bookingId: result.booking?._id, status: result.booking?.status } };
+const booking = result?.booking || result?.data?.booking || result;
+const bookingId = booking?._id || booking?.id || result?.bookingId;
+log.info(`[bookingCore] Booking created via elevated`, { bookingId });
+return { ok: true, data: { bookingId, revision: booking?.revision, status: booking?.status }, raw: result };
 } catch (error) {
 log.error(`[bookingCore] Elevated booking creation failed`, { error: error.message });
 return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.message };

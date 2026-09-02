@@ -201,6 +201,7 @@ export async function executeBookingSaga(unsafePayload) {
   let heartbeatInterval = null;
   let lockKeys = [];
   let lockOwnerId = null;
+  let transactionId = null;
   let sagaSteps = []; // DECLARADA EN FUNCTION SCOPE PARA ELIMINAR no-undef LINTER ERROR
 
   try {
@@ -250,8 +251,9 @@ export async function executeBookingSaga(unsafePayload) {
       String(rawFilter).toLowerCase() === 'all' ||
       String(rawFilter).toLowerCase() === 'any';
 
+    const staffForRequestedResource = rawResourceId ? await findStaff(rawResourceId) : null;
     const assignedResource =
-      (rawResourceId && findStaff(rawResourceId) ? String(findStaff(rawResourceId).resourceId) : null) ||
+      (staffForRequestedResource?.resourceId ? String(staffForRequestedResource.resourceId) : null) ||
       (_looksLikeGuid(rawResourceId) ? rawResourceId : null) ||
       (_looksLikeGuid(slotResourceId) ? slotResourceId : null);
 
@@ -346,7 +348,7 @@ export async function executeBookingSaga(unsafePayload) {
       return { status: 'ERROR', error: { code: 'SLOT_UNAVAILABLE', message: 'No se pudo asignar una profesional para este horario.' } };
     }
 
-    const resourceObj = findStaff(finalResourceId);
+    const resourceObj = await findStaff(finalResourceId);
     const finalResourceName =
       resourceObj?.displayName ||
       resourceObj?.name ||
@@ -432,6 +434,7 @@ export async function executeBookingSaga(unsafePayload) {
     );
 
     const txResult = await _initTransaction(stableToken, payloadHash, traceId);
+    transactionId = txResult?.transactionId || null;
     if (!txResult.success) {
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
@@ -512,11 +515,11 @@ export async function executeBookingSaga(unsafePayload) {
           bookingIdF1: existingCita.bookingId,
           bookingIdF2: meta.bookingIdF2 || null,
           isCombined: meta.esCombinado || false,
-          checkoutUrl: urlRes?.checkoutUrl || null,
+          checkoutUrl: urlRes?.data?.url || urlRes?.checkoutUrl || urlRes?.url || null,
           requiresPayment: true,
           idempotent: true
         };
-        await _completeTransaction(stableToken, resultData);
+        await _completeTransaction(transactionId, resultData);
         return { status: 'SUCCESS', data: resultData, error: null };
       }
 
@@ -527,7 +530,7 @@ export async function executeBookingSaga(unsafePayload) {
         requiresPayment: false,
         idempotent: true
       };
-      await _completeTransaction(stableToken, resultData);
+      await _completeTransaction(transactionId, resultData);
       return { status: 'SUCCESS', data: resultData, error: null };
     }
 
@@ -610,8 +613,8 @@ export async function executeBookingSaga(unsafePayload) {
               500
             );
 
-            const bId = res?.booking?._id || res?._id;
-            const rev = Number(res?.booking?.revision || res?.revision || 1);
+            const bId = res?.data?.bookingId || res?.booking?._id || res?._id;
+            const rev = Number(res?.data?.revision || res?.booking?.revision || res?.revision || 1);
             if (!bId) throw new Error('Falta bookingId para la Fase 1');
             createdBookings.push({ bookingId: bId, revision: rev, phase: p });
           };
@@ -638,8 +641,8 @@ export async function executeBookingSaga(unsafePayload) {
               500
             );
 
-            const bId = res?.booking?._id || res?._id;
-            const rev = Number(res?.booking?.revision || res?.revision || 1);
+            const bId = res?.data?.bookingId || res?.booking?._id || res?._id;
+            const rev = Number(res?.data?.revision || res?.booking?.revision || res?.revision || 1);
             if (!bId) throw new Error('Falta bookingId para la Fase 2');
             createdBookings.push({ bookingId: bId, revision: rev, phase: p });
           };
@@ -718,7 +721,7 @@ export async function executeBookingSaga(unsafePayload) {
             500
           );
 
-          checkoutUrl = urlRes?.checkoutUrl || null;
+          checkoutUrl = urlRes?.data?.url || urlRes?.checkoutUrl || urlRes?.url || null;
           return { ok: true };
         })
       );
@@ -818,7 +821,7 @@ export async function executeBookingSaga(unsafePayload) {
       } : null
     };
 
-    await _completeTransaction(stableToken, resultData);
+    await _completeTransaction(txResult.transactionId, resultData);
 
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
@@ -842,7 +845,7 @@ export async function executeBookingSaga(unsafePayload) {
       await _bestEffortUnlockAll(lockKeys, lockOwnerId);
     }
     if (pairToken) {
-      await _failTransaction(pairToken, error?.message || String(error)).catch(() => {});
+      await _failTransaction(transactionId, error?.message || String(error)).catch(() => {});
     }
     return _handleError(error, 'executeBookingSaga', traceId, log);
   } finally {
