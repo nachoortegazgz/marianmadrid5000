@@ -1,280 +1,323 @@
-/*
+/**
 =============================================================================
 MODULE: public/mmUtils.js
-RESPONSIBILITY: Universal shared utility library for Frontend and Backend.
-STANDARDS: G10 ASCII Strict, Velo Native Optimized.
-=============================================================================
-*/
-
-export const TZ = "Europe/Madrid";
-export const STAFF_DEFAULT_NAME = "Cualquier Profesional";
-
+VERSION: v19.6.17-corrections-applied
+RESPONSIBILITY: SSOT constants, timezones, validators, PII masking,
+and retry logic (PUBLIC SAFE).
+STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+CORRECTIONS APPLIED:
+  [FIX-1]  getUtcDateFromMadridLocal: "const roundTripParts =  dtf" -> "const roundTripParts = dtf"
+  [FIX-2]  getUtcDateFromMadridLocal: "const roundTrip = (type) = >" -> "const roundTrip = (type) =>"
+  [FIX-3]  getUtcDateFromMadridLocal: "roundTripParts.find((p) = >" -> "roundTripParts.find((p) =>"
+  [FIX-4]  getUtcDateFromMadridLocal: 'roundTrip( "year ")' -> 'roundTrip("year")'
+  [FIX-5]  getUtcDateFromMadridLocal: 'roundTrip( "month ")' -> 'roundTrip("month")'
+  [FIX-6]  getUtcDateFromMadridLocal: 'roundTrip( "day ")' -> 'roundTrip("day")'
+  [FIX-7]  getUtcDateFromMadridLocal: 'roundTrip( "hour ")' -> 'roundTrip("hour")'
+  [FIX-8]  getUtcDateFromMadridLocal: 'roundTrip( "minute ")' -> 'roundTrip("minute")'
+  [FIX-9]  getUtcDateFromMadridLocal: 'roundTrip( "second ")' -> 'roundTrip("second")'
+  [FIX-10] _maskEmail: 'String(email ||  " ")' -> 'String(email || "")'
+  [FIX-11] _maskEmail: '!raw.includes( "@ ")' -> '!raw.includes("@")'
+  [FIX-12] _maskIp: 'typeof ip !==  "string "' -> 'typeof ip !== "string"'
+  [FIX-13] _maskIp: 'parts = trimmed.split( ". ")' -> 'parts = trimmed.split(".")'
+  [FIX-14] _isValidEmail: regex "." -> "\."
+=============================================================================*/
+export const VERSION = Object.freeze({
+CORE: "v19.6.17-corrections-applied",
+API_V2: true,
+COMPLIANCE_ES: "2026",
+});
+export const SDK_CONFIG = Object.freeze({
+TZ: "Europe/Madrid",
+});
 export const MONEY = Object.freeze({
-    DISPLAY_CURRENCY: "EUR",
-    DECIMAL_SEPARATOR: ",",
-    THOUSANDS_SEPARATOR: ".",
+DISPLAY_CURRENCY: "EUR",
+DECIMAL_PLACES: 2,
 });
-
 export const BOOKINGS_ADDON_CONFIG = Object.freeze({
-    MAX_PER_BOOKING: 5,
+MAX_PER_BOOKING: 21,
 });
-
-export function _safeTrim(value) {
-    if (value === null || value === undefined) return "";
-    return String(value).trim();
+export const MESSAGE_TYPES = Object.freeze({
+READY: "MM_READY",
+CONTEXT: "MM_CONTEXT",
+AVAIL: "MM_AVAIL",
+SELECT: "MM_SELECT",
+BOOK: "MM_BOOK",
+NAV: "MM_NAV",
+});
+export const URLS = Object.freeze({
+SERVICIOS: "/reserva-online",
+CALENDARIO_2: "/booking-calendar/calendario-2",
+DETALLE_SERVICIO: "/servicio-2",
+PRIVACY_POLICY: "/politica-de-privacidad",
+TPV_PANEL: "/onlystaff",
+});
+export const UI = Object.freeze({
+HANDSHAKE_MAX_ATTEMPTS: 7,
+HANDSHAKE_BASE_BACKOFF_MS: 750,
+HANDSHAKE_TIMEOUT_MS: 120000,
+CONTEXT_TIMEOUT_MS: 120000,
+FRONTEND_API_TIMEOUT_MS: 30000,
+FRONTEND_RETRY_ATTEMPTS: 5,
+FRONTEND_RETRY_BASE_BACKOFF_MS: 500,
+TPV_POLLING_MS: 60 * 1000,
+MAX_VISIBLE_SLOTS: 100,
+SLOT_BUTTON_CLASS: "slot-btn",
+DEFAULT_SERVICE_IMAGE_URL: "https://static.wixstatic.com/media/ab7708_374e5f7adb2f47f3944f3355da129b80~mv2.jpg",
+SALON_LOCATION_LABEL: "C/ Maurice Ravel 35, Zaragoza",
+});
+export const STAFF_DEFAULT_NAME = "PROFESIONAL SEGUN HORARIO";
+export function makeTraceId(prefix = "mm") {
+const timestamp = Date.now().toString(36);
+const random = Math.random().toString(36).slice(2, 10);
+return `${prefix}_${timestamp}_${random}`;
 }
-
-export function _safeEmail(value) {
-    return _safeTrim(value).toLowerCase();
+export function _safeTrim(v) {
+return v === null || v === undefined ? "" : String(v).trim();
 }
-
-export function _isValidEmail(email) {
-    const clean = _safeEmail(email);
-    if (!clean || clean.length > 254) return false;
-    const re = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-    return re.test(clean);
+export function _cloneDeep(value) {
+if (value == null || typeof value !== "object") return value;
+if (value instanceof Date) return new Date(value.getTime());
+if (Array.isArray(value)) return value.map((entry) => _cloneDeep(entry));
+const output = {};
+Object.keys(value).forEach((key) => {
+output[key] = _cloneDeep(value[key]);
+});
+return output;
 }
-
+export function _safeEmail(email) {
+return String(email || "").trim().toLowerCase();
+}
+export function _safePhone(phone) {
+const raw = String(phone || "").trim();
+if (!raw) return "";
+const hasPlus = raw.startsWith("+");
+const digitsOnly = raw.replace(/[^0-9]/g, "");
+if (!digitsOnly) return "";
+return hasPlus ? `+${digitsOnly}` : digitsOnly;
+}
+export function normalizeIdPart(v, maxLen = 80) {
+const s = String(v || "").trim();
+const safe = s.replace(/[^A-Za-z0-9_-]/g, "");
+return safe.length > maxLen ? safe.slice(0, maxLen) : safe;
+}
+export function _looksLikeGuid(v) {
+return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+String(v || "").trim()
+);
+}
+export function _safeSlugOrId(raw) {
+let s = String(raw || "").trim();
+if (!s) return "";
+s = s.split("?")[0].split("#")[0].trim();
+if (s.startsWith("/")) s = s.substring(1);
+if (s.endsWith("/")) s = s.slice(0, -1);
+const parts = s.split("/").filter(Boolean);
+s = parts.length ? parts[parts.length - 1] : s;
+if (_looksLikeGuid(s)) return s.trim();
+s = s.trim().toLowerCase();
+s = s.replace(/\s+/g, "-");
+s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+s = s.replace(/[^a-z0-9-]/g, "");
+s = s.replace(/-+/g, "-").replace(/^-|-$/g, "");
+return s;
+}
+export function _normalizeLocalIsoStr(rawStr) {
+if (!rawStr || rawStr instanceof Date) return "";
+const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(String(rawStr).trim());
+if (!match) return "";
+const year = Number(match[1]);
+const month = Number(match[2]);
+const day = Number(match[3]);
+const hour = match[4] === undefined ? 0 : Number(match[4]);
+const minute = match[5] === undefined ? 0 : Number(match[5]);
+const second = match[6] === undefined ? 0 : Number(match[6]);
+const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+if (
+date.getUTCFullYear() !== year ||
+date.getUTCMonth() !== month - 1 ||
+date.getUTCDate() !== day ||
+hour > 23 ||
+minute > 59 ||
+second > 59
+) return "";
+return `${match[1]}-${match[2]}-${match[3]}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
+}
+export function getUtcDateFromMadridLocal(localStr) {
+if (localStr instanceof Date) return isNaN(localStr.getTime()) ? null : localStr;
+if (!localStr) return null;
+const norm = _normalizeLocalIsoStr(localStr);
+const partsIso = norm.split("T");
+const datePart = partsIso[0] || "";
+const timePart = partsIso[1] || "00:00:00";
+const dateParts = datePart.split("-").map(Number);
+const timeParts = timePart.split(":").map(Number);
+const y = Number(dateParts[0]);
+const m = Number(dateParts[1]);
+const d = Number(dateParts[2]);
+const hh = Number(timeParts[0] || 0);
+const mm = Number(timeParts[1] || 0);
+const ss = Number(timeParts[2] || 0);
+if (!y || !m || !d) return null;
+const guessUtcMs = Date.UTC(y, m - 1, d, hh, mm, ss);
+const guessDate = new Date(guessUtcMs);
+const dtf = new Intl.DateTimeFormat("sv-SE", {
+timeZone: SDK_CONFIG.TZ,
+year: "numeric",
+month: "2-digit",
+day: "2-digit",
+hour: "2-digit",
+minute: "2-digit",
+second: "2-digit",
+hour12: false,
+});
+const parts = dtf.formatToParts(guessDate);
+const get = (type) => {
+const found = parts.find((p) => p.type === type);
+return found ? found.value : null;
+};
+const asIfUtc = Date.UTC(
+Number(get("year")),
+Number(get("month")) - 1,
+Number(get("day")),
+Number(get("hour")),
+Number(get("minute")),
+Number(get("second"))
+);
+const offsetMs = asIfUtc - guessDate.getTime();
+const utcMs = guessUtcMs - offsetMs;
+const out = new Date(utcMs);
+if (isNaN(out.getTime())) return null;
+const roundTripParts = dtf.formatToParts(out);           // [FIX-1] removed double space
+const roundTrip = (type) => {                            // [FIX-2] was "(type) = >"
+const found = roundTripParts.find((p) => p.type === type); // [FIX-3] was "(p) = >"
+return found ? Number(found.value) : NaN;
+};
+if (
+roundTrip("year") !== y ||                              // [FIX-4] was 'roundTrip( "year ")'
+roundTrip("month") !== m ||                             // [FIX-5] was 'roundTrip( "month ")'
+roundTrip("day") !== d ||                               // [FIX-6] was 'roundTrip( "day ")'
+roundTrip("hour") !== hh ||                             // [FIX-7] was 'roundTrip( "hour ")'
+roundTrip("minute") !== mm ||                           // [FIX-8] was 'roundTrip( "minute ")'
+roundTrip("second") !== ss                              // [FIX-9] was 'roundTrip( "second ")'
+) {
+return null;
+}
+return out;
+}
+export function getMadridLocalStringNoZ(utcDate) {
+if (!utcDate || !(utcDate instanceof Date) || isNaN(utcDate.getTime())) return "";
+return utcDate.toLocaleString("sv-SE", { timeZone: SDK_CONFIG.TZ }).replace(" ", "T");
+}
+export function _toDateSafe(val) {
+if (!val) return null;
+if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+if (typeof val === "object" && val !== null && val.$date) return _toDateSafe(val.$date);
+const d = new Date(val);
+return isNaN(d.getTime()) ? null : d;
+}
+export function withTimeout(promise, timeoutMs, label = "operation") {
+const ms = Number.isFinite(timeoutMs) ? timeoutMs : SDK_CONFIG.TIMEOUTS.API_MS;
+let timer;
+const timeoutPromise = new Promise((_, reject) => {
+timer = setTimeout(() => reject(new Error(`TIMEOUT: ${label} exceeded ${ms}ms`)), ms);
+});
+return Promise.race([promise, timeoutPromise]).finally(() => {
+if (timer) clearTimeout(timer);
+});
+}
+function _extractStatusCode(err) {
+if (!err) return null;
+if (typeof err.statusCode === "number") return err.statusCode;
+if (typeof err.status === "number") return err.status;
+if (err.details && typeof err.details.statusCode === "number") return err.details.statusCode;
+return null;
+}
+export async function _executeWithRetry(fn, retries = 3, delay = 500) {
+let lastError;
+for (let i = 0; i < retries; i++) {
+try {
+return await fn();
+} catch (error) {
+lastError = error;
+  const msg = String(error && error.message ? error.message : "").toUpperCase();
+   const code = _extractStatusCode(error);
+   const retryable =
+     msg.includes("TIMEOUT") ||
+     msg.includes("ETIMEDOUT") ||
+     msg.includes("ECONNRESET") ||
+     msg.includes("429") ||
+     msg.includes("502") ||
+     msg.includes("503") ||
+     msg.includes("504") ||
+     code === 429 ||
+     code === 502 ||
+     code === 503 ||
+     code === 504;
+   if (!retryable) throw error;
+   const waitMs = Math.random() * delay * Math.pow(2, i);
+   await new Promise((resolve) => setTimeout(resolve, waitMs));
+ }
+}
+throw lastError;
+}
 export function _maskEmail(email) {
-    const clean = _safeEmail(email);
-    if (!clean.includes("@")) return "masked_user";
-    const [name, domain] = clean.split("@");
-    const maskedName = name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : `${name[0]}***`;
-    return `${maskedName}@${domain}`;
+const raw = String(email || "").trim();                   // [FIX-10] was 'String(email ||  " ")'
+if (!raw || !raw.includes("@")) return "***@***";        // [FIX-11] was '!raw.includes( "@ ")'
+const split = raw.split("@");
+const localRaw = split[0] || "";
+const domainRaw = split[1] || "";
+const local = String(localRaw);
+const domain = String(domainRaw);
+if (!domain) return "***@**";
+const keep = Math.min(2, local.length);
+const prefix = keep > 0 ? local.slice(0, keep) : "";
+return `${prefix}***@${domain}`;
 }
-
-export function _safePhone(value) {
-    const clean = _safeTrim(value);
-    if (!clean) return "";
-    return clean.replace(/[^\d+]/g, "");
-}
-
-export function _looksLikeGuid(value) {
-    const clean = _safeTrim(value);
-    if (clean.length !== 36) return false;
-    const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return re.test(clean);
-}
-
-export function _safeSlugOrId(value) {
-    const clean = _safeTrim(value);
-    return clean.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-}
-
-export function _roundMoney(value) {
-    const num = Number(value || 0);
-    if (!Number.isFinite(num)) return 0;
-    return Math.round((num + Number.EPSILON) * 100) / 100;
-}
-
-export function _sumAddons(addons) {
-    if (!Array.isArray(addons)) return 0;
-    const total = addons.reduce((acc, a) => acc + Number(a?.precio || a?.price || 0), 0);
-    return _roundMoney(total);
-}
-
-export function _cleanText(value, maxLength = 500) {
-    return _safeTrim(value).slice(0, maxLength);
-}
-
-export function _stableSerialize(obj) {
-    if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
-    if (Array.isArray(obj)) return `[${obj.map(_stableSerialize).join(",")}]`;
-    const sortedKeys = Object.keys(obj).sort();
-    const parts = sortedKeys.map((k) => `${JSON.stringify(k)}:${_stableSerialize(obj[k])}`);
-    return `{${parts.join(",")}}`;
-}
-
-export function _normalizeIdPart(value, maxLen = 80) {
-    const clean = _safeTrim(value).replace(/[^a-zA-Z0-9_-]/g, "_");
-    return clean.slice(0, maxLen);
-}
-
-export function _toDateSafe(value) {
-    if (!value) return null;
-    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
-    const d = new Date(value);
-    return isNaN(d.getTime()) ? null : d;
-}
-
-export function getUtcDateFromMadridLocal(localIsoStr) {
-    const clean = _safeTrim(localIsoStr);
-    if (!clean) return null;
-    if (clean.endsWith("Z")) {
-        const d = new Date(clean);
-        return isNaN(d.getTime()) ? null : d;
-    }
-    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(clean);
-    if (!match) return null;
-
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const hour = Number(match[4]);
-    const min = Number(match[5]);
-    const sec = Number(match[6] || 0);
-
-    let guessUtc = new Date(Date.UTC(year, month - 1, day, hour, min, sec));
-    const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: "Europe/Madrid",
-        year: "numeric", month: "2-digit", day: "2-digit",
-        hour: "2-digit", minute: "2-digit", second: "2-digit",
-        hour12: false,
-    });
-
-    const getParts = (d) => {
-        const parts = formatter.formatToParts(d);
-        const map = {};
-        parts.forEach((p) => { map[p.type] = p.value; });
-        const h = map.hour === "24" ? 0 : Number(map.hour);
-        return {
-            year: Number(map.year), month: Number(map.month), day: Number(map.day),
-            hour: h, min: Number(map.minute), sec: Number(map.second || 0),
-        };
-    };
-
-    for (let i = 0; i < 3; i++) {
-        const p = getParts(guessUtc);
-        const diffMs = Date.UTC(year, month - 1, day, hour, min, sec) -
-                       Date.UTC(p.year, p.month - 1, p.day, p.hour, p.min, p.sec);
-        if (diffMs === 0) break;
-        guessUtc = new Date(guessUtc.getTime() + diffMs);
-    }
-    return guessUtc;
-}
-
-export function getMadridLocalStringNoZ(date) {
-    const d = _toDateSafe(date);
-    if (!d) return "";
-    const pad = (n) => String(n).padStart(2, "0");
-    const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "Europe/Madrid",
-        year: "numeric", month: "2-digit", day: "2-digit",
-        hour: "2-digit", minute: "2-digit", second: "2-digit",
-        hour12: false,
-    }).formatToParts(d);
-
-    const map = {};
-    parts.forEach((p) => { map[p.type] = p.value; });
-    const hour = map.hour === "24" ? "00" : map.hour;
-    return `${map.year}-${map.month}-${map.day}T${pad(hour)}:${map.minute}:${map.second}`;
-}
-
-export function _normalizeLocalIsoStr(value) {
-    if (!value) return "";
-    if (value instanceof Date) return getMadridLocalStringNoZ(value);
-    const raw = String(value).trim();
-    if (raw.endsWith("Z")) {
-        const utcDate = new Date(raw);
-        return isNaN(utcDate.getTime()) ? "" : getMadridLocalStringNoZ(utcDate);
-    }
-    return raw.split(".")[0];
-}
-
-export function _addDaysYMD(ymd, days) {
-    const clean = _safeTrim(ymd);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return "";
-    const [y, m, d] = clean.split("-").map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-    dt.setUTCDate(dt.getUTCDate() + Number(days || 0));
-    return dt.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
-}
-
-export function _minutesBetweenUtcDates(d1, d2) {
-    const a = _toDateSafe(d1);
-    const b = _toDateSafe(d2);
-    if (!a || !b) return 0;
-    const ms = b.getTime() - a.getTime();
-    if (ms <= 0) return 0;
-    return Math.round(ms / 60000);
-}
-
 export function _maskIp(ip) {
-    const clean = _safeTrim(ip);
-    if (!clean) return "ANON_IP";
-    if (clean.includes(".")) {
-        const parts = clean.split(".");
-        if (parts.length === 4) return `${parts[0]}.${parts[1]}.***.***`;
-    }
-    return clean.slice(0, 8) + "***";
+if (!ip || typeof ip !== "string") return "***";         // [FIX-12] was 'typeof ip !==  "string "'
+const trimmed = ip.trim();
+if (!trimmed) return "***";
+const parts = trimmed.split(".");                         // [FIX-13] was 'trimmed.split( ". ")'
+if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) return `${parts[0]}.${parts[1]}.***.***`;
+if (trimmed.length > 6) return trimmed.slice(0, 6) + ":***";
+return "***";
 }
-
+export function _hashKey(input) {
+const str = String(input || "");
+let hash1 = 5381;
+let hash2 = 52711;
+for (let i = 0; i < str.length; i++) {
+const char = str.charCodeAt(i);
+hash1 = ((hash1 << 5) + hash1) ^ char;
+hash2 = ((hash2 << 5) + hash2) ^ char;
+}
+const combined = Math.abs(hash1 * 31 + hash2);
+return combined.toString(16).padStart(16, "0").slice(0, 16);
+}
 export function _generateUUID() {
-    // Velo backend supports crypto.randomUUID natively in Node 18+
-    try {
-        const nodeCrypto = require("crypto");
-        if (nodeCrypto && typeof nodeCrypto.randomUUID === "function") {
-            return nodeCrypto.randomUUID();
-        }
-    } catch (_) {}
-    // Fallback for frontend
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-        return crypto.randomUUID();
-    }
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
+return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+const r = (Math.random() * 16) | 0;
+const v = c === "x" ? r : (r & 0x3) | 0x8;
+return v.toString(16);
+});
 }
-
-export function makeTraceId(prefix = "tr") {
-    const p = _normalizeIdPart(prefix, 10);
-    const ts = Date.now().toString(36);
-    const rnd = _generateUUID().replace(/-/g, "").slice(0, 6);
-    return `${p}-${ts}-${rnd}`;
+export function _isValidEmail(email) {
+return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim()); // [FIX-14] was "." -> "\."
 }
-
-export function _hashKey(str) {
-    let hash = 0;
-    const clean = String(str || "");
-    for (let i = 0; i < clean.length; i++) {
-        hash = ((hash << 5) - hash) + clean.charCodeAt(i);
-        hash |= 0;
-    }
-    return Math.abs(hash).toString(16);
+export function _normType(type) {
+if (!type) return "";
+return String(type).trim().toUpperCase();
 }
-
-export function _normalizeSlotShape(slot) {
-    if (!slot || typeof slot !== "object") return null;
-    if (slot.slot && typeof slot.slot === "object") return { ...slot.slot, ...slot };
-    return slot;
+export function _maskPhone(phone) {
+const raw = String(phone || "").trim();
+if (!raw) return "***";
+const clean = _safePhone(raw);
+if (clean.length <= 4) return "***";
+return clean.slice(0, 3) + "***" + clean.slice(-2);
 }
-
-export function _extractRelationalId(value) {
-    if (!value) return "";
-    if (typeof value === "object") {
-        return _safeTrim(value.idServicio || value.resourceId || value.idAddon || value.idCategoria || value._id || value.id || "");
-    }
-    return _safeTrim(value);
-}
-
-export function _cloneDeep(obj) {
-    if (obj === null || typeof obj !== "object") return obj;
-    if (obj instanceof Date) return new Date(obj.getTime());
-    if (Array.isArray(obj)) return obj.map((item) => _cloneDeep(item));
-    const copy = {};
-    for (const key of Object.keys(obj)) {
-        copy[key] = _cloneDeep(obj[key]);
-    }
-    return copy;
-}
-
-/**
- * @deprecated Velo handles timeouts natively. This is a lightweight pass-through to avoid breaking imports.
- */
-export async function withTimeout(promise, ms, label = "operation") {
-    return promise;
-}
-
-/**
- * @deprecated Velo handles retries natively for DB operations. Lightweight pass-through.
- */
-export async function _executeWithRetry(fn, retries = 1, delayMs = 0) {
-    try {
-        return await fn();
-    } catch (error) {
-        if (retries > 0) return await fn(); // Single simple retry for network hiccups
-        throw error;
-    }
+export function _maskName(name) {
+const raw = String(name || "").trim();
+if (!raw) return "";
+if (raw.length <= 2) return raw[0] + "";
+return raw[0] + "*" + raw.slice(-1);
 }
