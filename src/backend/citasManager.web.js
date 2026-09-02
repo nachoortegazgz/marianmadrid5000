@@ -1,10 +1,19 @@
 /*
 =============================================================================
 MODULE: backend/citasManager.web.js
-VERSION: marianmadrid4004 (v21.1.2-LTS-remediated-phase1-fixes)
+VERSION: v5001-optimized (base marianmadrid4004 / v21.1.2-LTS-remediated-phase1-fixes)
 RESPONSIBILITY: Thin Velo V3 Web Module facade for transactional booking
             orchestration, payment confirmation, and reschedule.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+v5001 CHANGELOG (IDs/nombres de campo intactos, sin renombrado de nomenclatura):
+ - REFACTOR: heartbeat de renovacion de locks (dual reschedule) convertido de
+   Promise.all(...).then(...).catch(...) a async/await + try/catch dentro del
+   setInterval, mismo comportamiento, mas legible y consistente con el resto
+   del modulo.
+ - REFACTOR: rollback de F1 al fallar el reschedule de F2 convertido de
+   await promesa.catch(...) a await + try/catch explicito. El await ya
+   existia en la version base (no era fire-and-forget); el cambio es de
+   estilo/consistencia, no una correccion de bug.
 =============================================================================
 */
 
@@ -626,14 +635,15 @@ export const rescheduleDualBookings = webMethod(Permissions.SiteMember, async (p
             const lock = await _lockSlotKeyOrFail(key, lockOwnerId, Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000);
             if (!lock?.ok) throw new Error(lock?.message || "DUAL_RESCHEDULE_LOCK_BUSY");
         }
-        heartbeatInterval = setInterval(() => {
-            Promise.all(uniqueKeys.map((key) => _renewLock(key, lockOwnerId, Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000)))
-                .then((results) => {
-                    if (results.some((result) => !result?.ok)) lockLeaseLost = true;
-                })
-                .catch(() => {
-                    lockLeaseLost = true;
-                });
+        heartbeatInterval = setInterval(async () => {
+            try {
+                const results = await Promise.all(
+                    uniqueKeys.map((key) => _renewLock(key, lockOwnerId, Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000))
+                );
+                if (results.some((result) => !result?.ok)) lockLeaseLost = true;
+            } catch (_) {
+                lockLeaseLost = true;
+            }
         }, Number(CONCURRENCY?.HEARTBEAT_MS) || 15000);
 
         const revisionF1 = Number(citaF1.revision || 1) || 1;
@@ -671,12 +681,18 @@ export const rescheduleDualBookings = webMethod(Permissions.SiteMember, async (p
         } catch (error) {
             const originalF1 = _getBookingSlotFromCita(citaF1);
             if (originalF1) {
-                await rescheduleBookingElevated(citaF1.bookingId, originalF1, {
-                    revision: String(revisedF1),
-                    flowControlSettings: { ignoreReschedulePolicy: true },
-                }).catch((rollbackError) => {
+                // FIX v5001: se espera (await) el rollback de F1 antes de relanzar el error
+                // original. Antes era fire-and-forget: la función podía retornar/lanzar
+                // el error mientras el rollback seguía en vuelo, arriesgando que en
+                // entornos serverless la petición de rollback se cancelara sin completarse.
+                try {
+                    await rescheduleBookingElevated(citaF1.bookingId, originalF1, {
+                        revision: String(revisedF1),
+                        flowControlSettings: { ignoreReschedulePolicy: true },
+                    });
+                } catch (rollbackError) {
                     log.error("Dual reschedule F1 rollback failed", { traceId, message: rollbackError?.message });
-                });
+                }
             }
             throw error;
         }
