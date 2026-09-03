@@ -60,6 +60,15 @@ vi.mock('wix-secrets-backend', () => ({
     };
     return secrets[key] || '';
   }),
+}));
+
+vi.mock('wix-web-module', () => ({
+  webMethod: vi.fn((_permission, handler) => handler),
+  Permissions: {
+    SiteMember: 'SITE_MEMBER',
+    Admin: 'ADMIN',
+  },
+}));
 
 vi.mock('backend/staff', () => ({
   findStaff: vi.fn(async () => ({
@@ -85,6 +94,15 @@ vi.mock('backend/internalConfig', () => ({
   },
   CONCURRENCY: { HEARTBEAT_MS: 15000, MUTEX_TTL_MS: 120000 },
   SDK_CONFIG: {
+    TZ: 'Europe/Madrid',
+    LOCATION_ID: '7a12abfd-bf30-4847-bcdf-00dc573d4802',
+    LOCATION_TYPES: { TIME_SLOTS: 'BUSINESS', BOOKINGS_WRITER: 'OWNER_BUSINESS' },
+    TIMEOUTS: { API_MS: 15000 },
+    RATE_LIMIT: {},
+  },
+  TIPO_FICHAJE: { ENTRADA: 'ENTRADA', SALIDA: 'SALIDA', PAUSA_INICIO: 'PAUSA_INICIO', PAUSA_FIN: 'PAUSA_FIN', AJUSTE: 'AJUSTE' },
+  COLLAB_ROLES: { ADMIN: 'ADMIN', GESTION: 'GESTION', ESTILISTA: 'ESTILISTA' },
+}));
 
 describe('Contratos de reschedule en bookingCore', () => {
   beforeEach(() => {
@@ -175,15 +193,3 @@ describe('Contrato de crons con bookingServiceSync', () => {
     expect(src).not.toContain('from "backend/bookingsServiceSync"');
   });
 });
-
-    TZ: 'Europe/Madrid',
-    LOCATION_ID: '7a12abfd-bf30-4847-bcdf-00dc573d4802',
-    LOCATION_TYPES: { TIME_SLOTS: 'BUSINESS', BOOKINGS_WRITER: 'OWNER_BUSINESS' },
-    TIMEOUTS: { API_MS: 15000 },
-    RATE_LIMIT: {},
-  },
-  TIPO_FICHAJE: { ENTRADA: 'ENTRADA', SALIDA: 'SALIDA', PAUSA_INICIO: 'PAUSA_INICIO', PAUSA_FIN: 'PAUSA_FIN', AJUSTE: 'AJUSTE' },
-  COLLAB_ROLES: { ADMIN: 'ADMIN', GESTION: 'GESTION', ESTILISTA: 'ESTILISTA' },
-}));
-
-}));
