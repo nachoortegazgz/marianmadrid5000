@@ -1,6 +1,7 @@
 // tests/bookingCore.test.ts — Tests unitarios para bookingCore.js (versión JS real)
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as bookingCore from '../src/backend/booking/bookingCore';
+import type { CertifiedSlot } from '../src/backend/booking/types/booking.types';
 
 const { 
   isValidGuid,

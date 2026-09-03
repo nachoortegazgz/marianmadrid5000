@@ -634,7 +634,7 @@ new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), ms))
 /**
  * Extrae IDs de recursos válidos (GUIDs) de un slot.
  * Soporta múltiples formatos: resourceId string, objeto resource, array resources, staffMemberId
- * @param {Object} slot - Slot de Wix Bookings.
+ * @param {Object|null|undefined} slot - Slot de Wix Bookings.
  * @returns {string[]} Array de resourceIds deduplicados y validados como GUID.
  */
 export function _extractResourceIdsFromSlot(slot) {
@@ -806,7 +806,7 @@ export async function getCertifiedDualSlotsOptimized(serviceId, resourceId, date
 /**
  * Helper: Verifica si dos slots son contiguos en el tiempo.
  */
-function _areSlotsContiguous(s1, s2) {
+export function _areSlotsContiguous(s1, s2) {
   if (!s1.localEndDate || !s2.localStartDate) return false;
   const end1 = new Date(s1.localEndDate).getTime();
   const start2 = new Date(s2.localStartDate).getTime();

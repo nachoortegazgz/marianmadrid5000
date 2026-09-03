@@ -45,6 +45,7 @@ import {
     makeTraceId,
     _safeTrim,
     _readPositiveAmount,
+    _readNonNegativeAmount,
     _readDate,
 } from "public/mmUtils";
 import { createWidgetBridge } from "public/widgetBridge";
@@ -129,8 +130,8 @@ const ADMIN_ACTION_DISPATCH = Object.freeze({
 
     X_COUNT: async ({ payload, traceId, post, messageId }) => {
         const diaKey = _readDate(payload.diaKey);
-        const metalicoCaja = Number(payload.metalicoCaja);
-        if (!diaKey || !Number.isFinite(metalicoCaja) || metalicoCaja < 0) {
+        const metalicoCaja = _readNonNegativeAmount(payload.metalicoCaja);
+        if (!diaKey || metalicoCaja === null) {
             _postError(post, "X_COUNT_RES", messageId, "Fecha y efectivo contado validos son obligatorios", "INVALID_INPUT");
             return;
         }

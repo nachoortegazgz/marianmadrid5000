@@ -105,6 +105,32 @@ export function _roundMoney(value) {
 const amount = Number(value);
 return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
 }
+export function _readPositiveAmount(value) {
+const amount = Number(value);
+if (!Number.isFinite(amount) || amount <= 0) return null;
+return Math.round(amount * 100) / 100;
+}
+export function _readNonNegativeAmount(value) {
+const amount = Number(value);
+if (!Number.isFinite(amount) || amount < 0) return null;
+return Math.round(amount * 100) / 100;
+}
+export function _readDate(value) {
+const raw = _safeTrim(value);
+if (!raw) return null;
+const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+if (!match) return null;
+const year = Number(match[1]);
+const month = Number(match[2]);
+const day = Number(match[3]);
+const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+if (
+date.getUTCFullYear() !== year ||
+date.getUTCMonth() !== month - 1 ||
+date.getUTCDate() !== day
+) return null;
+return `${match[1]}-${match[2]}-${match[3]}`;
+}
 export function _cleanText(value, maxLength = 500) {
 const text = String(value ?? "").trim();
 return text.length > maxLength ? text.slice(0, maxLength) : text;
