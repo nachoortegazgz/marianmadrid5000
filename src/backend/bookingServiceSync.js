@@ -121,6 +121,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
     const now = new Date();
 
     let pending;
+    let queueCollection = QUEUE_COL;
     try {
         pending = await wixData.query(QUEUE_COL)
             .hasSome("status", VALID_STATUS)
@@ -129,7 +130,8 @@ export async function processBookingsServiceSyncQueue(options = {}) {
             .find({ suppressAuth: true, consistentRead: true });
     } catch (err) {
         if (String(err?.message || "").includes("WDE0025")) {
-            pending = await wixData.query(COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE")
+            queueCollection = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE";
+            pending = await wixData.query(queueCollection)
                 .hasSome("status", VALID_STATUS)
                 .le("nextAttemptAt", now)
                 .limit(BATCH_SIZE)
@@ -158,7 +160,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
             }
 
             const { _createdDate, _updatedDate, _owner, ...safeItem } = item;
-            await wixData.update(QUEUE_COL, {
+            await wixData.update(queueCollection, {
                 ...safeItem,
                 status: "COMPLETED",
                 completedAt: new Date(),

@@ -240,8 +240,12 @@ if (existingLock.items && existingLock.items.length > 0) {
 let hasActiveLock = false;
 const staleLocks = [];
 for (const lock of existingLock.items) {
-const lockAge = Date.now() - new Date(lock.createdAt).getTime();
-if (!Number.isFinite(lockAge) || lockAge < ttlMs) {
+    const expiresAt = new Date(lock.expiresAt).getTime();
+    const lockAge = Date.now() - new Date(lock.createdAt).getTime();
+    const isActive = Number.isFinite(expiresAt)
+      ? expiresAt > Date.now()
+      : !Number.isFinite(lockAge) || lockAge < ttlMs;
+    if (isActive) {
 hasActiveLock = true;
 break;
 }

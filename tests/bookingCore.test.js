@@ -317,6 +317,32 @@ describe('bookingCore', () => {
         expect.objectContaining({ lockKey: 'lock:k', ownerId: 'owner-1', status: 'ACQUIRED' })
       );
     });
+
+    it('debe respetar expiresAt cuando un lock fue renovado', async () => {
+      const wixData = await import('wix-data');
+      const lockQuery = wixData.default.query();
+      const lockEq = lockQuery.eq();
+      const lockNe = lockEq.ne();
+      lockNe.find.mockResolvedValue({
+        items: [{
+          _id: 'lock-renewed',
+          lockKey: 'lock:k',
+          ownerId: 'other',
+          status: 'ACQUIRED',
+          createdAt: new Date(Date.now() - 200000),
+          expiresAt: new Date(Date.now() + 60000),
+        }]
+      });
+      lockEq.ne.mockReturnValue(lockNe);
+      lockQuery.eq.mockReturnValue(lockEq);
+      wixData.default.query.mockReturnValue(lockQuery);
+
+      const result = await _lockSlotKeyOrFail('lock:k', 'owner-1', 120000);
+
+      expect(result).toMatchObject({ ok: false, code: ERROR_CODES.TOKEN_BUSY });
+      expect(wixData.default.update).not.toHaveBeenCalled();
+      expect(wixData.default.insert).not.toHaveBeenCalled();
+    });
   });
 
   describe('_persistBooking', () => {

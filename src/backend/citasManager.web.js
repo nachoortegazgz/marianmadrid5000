@@ -53,9 +53,19 @@ const CITAS_COLLECTION = COLLECTIONS.CITAS;
 const AUDIT_LOG_COL = COLLECTIONS.AUDIT_LOG;
 const API_TIMEOUT_MS = SDK_CONFIG?.TIMEOUTS?.API_MS || 15000;
 const getOrderElevated = elevate(orders.getOrder);
+function _getCitaMeta(cita) {
+const meta = cita?.meta;
+if (meta && typeof meta === "object") return meta;
+if (typeof meta === "string") {
+try {
+return JSON.parse(meta) || {};
+} catch (_) {}
+}
+return {};
+}
 function _getNativeAddonIdsForRevalidation(cita) {
 if (String(cita?.tipo || "") === "dual_fase2") return [];
-const bookedAddOns = Array.isArray(cita?.meta?.nativeBookedAddOns) ? cita.meta.nativeBookedAddOns : [];
+const bookedAddOns = Array.isArray(_getCitaMeta(cita).nativeBookedAddOns) ? _getCitaMeta(cita).nativeBookedAddOns : [];
 return Array.from(new Set(
 bookedAddOns
 .map((addon) => _safeTrim(addon?._id || addon))
@@ -182,13 +192,13 @@ return { order, verifiedAmount: _roundMoney(verifiedAmount) };
 }
 function _validatePaymentCitaSet(citas, orderId) {
 const items = Array.isArray(citas) ? citas : [];
-const isDual = items.some((cita) => Boolean(cita?.meta?.esCombinado) || String(cita?.tipo || "").startsWith("dual_"));
-const pairTokens = Array.from(new Set(items.map((cita) => _safeTrim(cita?.pairToken)).filter(Boolean)));
+const isDual = items.some((cita) => Boolean(_getCitaMeta(cita).esCombinado) || String(cita?.tipo || "").startsWith("dual_"));
+const pairTokens = Array.from(new Set(items.map((cita) => _safeTrim(cita?.pairToken || _getCitaMeta(cita).pairToken)).filter(Boolean)));
 if (isDual && (items.length !== 2 || pairTokens.length !== 1)) throw new Error("DUAL_PAYMENT_PAIR_INVALID");
 if (!isDual && items.length !== 1) throw new Error("PAYMENT_BOOKING_SET_INVALID");
-const paidStates = items.map((cita) => String(cita?.statusPago || cita?.meta?.statusPago || "").toUpperCase());
+const paidStates = items.map((cita) => String(cita?.statusPago || _getCitaMeta(cita).statusPago || "").toUpperCase());
 const allPaid = paidStates.length > 0 && paidStates.every((state) => state === ESTADO_PAGO.PAID);
-const storedOrderIds = Array.from(new Set(items.map((cita) => _safeTrim(cita?.meta?.orderId)).filter(Boolean)));
+const storedOrderIds = Array.from(new Set(items.map((cita) => _safeTrim(_getCitaMeta(cita).orderId)).filter(Boolean)));
 if (allPaid && storedOrderIds.length > 0 && (storedOrderIds.length !== 1 || storedOrderIds[0] !== orderId)) {
 throw new Error("ORDER_IDEMPOTENCY_CONFLICT");
 }
@@ -328,7 +338,7 @@ return { status: "ERROR", data: null, error: { code: "INVALID_PAYLOAD", message:
      let rev = Number(revision) || 0;
      if (!rev) rev = Number(citaExistente?.revision || 1) || 1;
      const slotObj = newSlot?.slot || newSlot;
-     const serviceId = _extractRelationalId(citaExistente.serviceId);
+    const serviceId = _extractRelationalId(citaExistente.serviceId || citaExistente.primaryServiceGuid);
      const requestedServiceId = _extractRelationalId(slotObj.serviceId || slotObj?.slot?.serviceId || "");
      const resourceIdForReschedule = _safeTrim(slotObj.resourceId || slotObj.resource?.id || slotObj.resource?._id || "");
      if (!_looksLikeGuid(serviceId)) {
