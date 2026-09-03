@@ -81,7 +81,9 @@ import {
   ERROR_CODES,
   createBookingError,
   _normalizeAddons,
-  _sumAddons
+  _sumAddons,
+  _persistBooking,
+  _handleError
 } from '../src/backend/booking/bookingCore.js';
 
 describe('bookingCore', () => {
@@ -181,6 +183,110 @@ describe('bookingCore', () => {
         { price: 15, quantity: 1 },
       ];
       expect(_sumAddons(addons)).toBe(35);
+    });
+  });
+
+  describe('_persistBooking', () => {
+    it('debe persistir el identificador canonico del servicio', async () => {
+      const wixData = await import('wix-data');
+      wixData.default.insert.mockResolvedValue({ _id: 'booking-1' });
+
+      await _persistBooking({
+        bookingId: 'booking-1',
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        startDate: new Date('2026-09-03T10:00:00.000Z'),
+        endDate: new Date('2026-09-03T10:30:00.000Z'),
+        tipo: 'simple',
+        meta: { estadoPago: 'PENDING_PAYMENT' }
+      });
+
+      expect(wixData.default.insert).toHaveBeenCalledWith(
+        'CitasF2',
+        expect.objectContaining({
+          primaryServiceGuid: '11111111-1111-1111-1111-111111111111'
+        })
+      );
+      expect(wixData.default.insert.mock.calls[0][1]).not.toHaveProperty('serviceId');
+    });
+  });
+
+  describe('operaciones elevadas de booking', () => {
+    it('debe conservar revision y opciones al cancelar', async () => {
+      const wixBookings = await import('wix-bookings.v2');
+      wixBookings.bookings.cancelBooking.mockResolvedValue({});
+      const { cancelBookingElevated } = await import('../src/backend/booking/bookingCore.js');
+
+      await cancelBookingElevated('booking-1', {
+        revision: 3,
+        flowControlSettings: { ignoreCancellationPolicy: true }
+      });
+
+      expect(wixBookings.bookings.cancelBooking).toHaveBeenCalledWith({
+        bookingId: 'booking-1',
+        revision: 3,
+        flowControlSettings: { ignoreCancellationPolicy: true }
+      });
+    });
+
+    it('debe confirmar cuando recibe opciones de pago', async () => {
+      const wixBookings = await import('wix-bookings.v2');
+      wixBookings.bookings.confirmBooking.mockResolvedValue({});
+      const { confirmOrDeclineBookingElevated } = await import('../src/backend/booking/bookingCore.js');
+
+      await confirmOrDeclineBookingElevated('booking-1', {
+        paymentStatus: 'NOT_PAID',
+        revision: 2
+      });
+
+      expect(wixBookings.bookings.confirmBooking).toHaveBeenCalledWith({
+        bookingId: 'booking-1',
+        paymentStatus: 'NOT_PAID',
+        revision: 2
+      });
+    });
+
+    it('debe declinar cuando recibe la accion explicitamente', async () => {
+      const wixBookings = await import('wix-bookings.v2');
+      wixBookings.bookings.declineBooking.mockResolvedValue({});
+      const { confirmOrDeclineBookingElevated } = await import('../src/backend/booking/bookingCore.js');
+
+      await confirmOrDeclineBookingElevated('booking-2', 'decline');
+
+      expect(wixBookings.bookings.declineBooking).toHaveBeenCalledWith({
+        bookingId: 'booking-2'
+      });
+    });
+
+    it('debe mantener compatibilidad con la firma legacy de _forceStaffInPristineSlot', async () => {
+      const slot = {
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        localStartDate: '2026-09-02T10:00:00',
+      };
+      const { _forceStaffInPristineSlot } = await import('../src/backend/booking/bookingCore.js');
+
+      const result = await _forceStaffInPristineSlot(
+        slot,
+        '33333333-3333-3333-3333-333333333333',
+        30
+      );
+
+      expect(result).not.toBeNull();
+      expect(result.resourceId).toBe('33333333-3333-3333-3333-333333333333');
+      expect(result.localEndDate).toBeDefined();
+    });
+  });
+
+  it('debe conservar el contexto estructurado del error', async () => {
+    const result = await _handleError(new Error('fallo de prueba'), {
+      surface: 'processDualBooking(wrapper)',
+      traceId: 'trace-1'
+    });
+
+    expect(result.error.details).toMatchObject({
+      surface: 'processDualBooking(wrapper)',
+      traceId: 'trace-1'
     });
   });
 });

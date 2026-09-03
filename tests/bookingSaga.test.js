@@ -67,9 +67,29 @@ vi.mock('backend/securityEngine', () => ({
   hashSHA256: vi.fn((str) => 'hash_' + str.substring(0, 16))
 }));
 
+vi.mock('backend/reservas.web', () => ({
+  _getServiceBySlugOrIdInternal: vi.fn(),
+  _resolveStaffForSlotInternal: vi.fn(),
+  _resolvePrimaryServiceIdInternal: vi.fn(),
+  _invalidateCachesInternal: vi.fn()
+}));
+
 describe('bookingSaga - Integración Dinámica', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('debe cargar la saga con sus helpers internos disponibles', async () => {
+    const saga = await import('../src/backend/booking/bookingSaga.js');
+    expect(typeof saga.executeBookingSaga).toBe('function');
+  });
+
+  it('debe normalizar meta serializada para reintentos online', async () => {
+    const { _normalizePersistedMeta } = await import('../src/backend/booking/bookingSaga.js');
+    expect(_normalizePersistedMeta('{"estadoPago":"PENDING_PAYMENT","checkoutId":"co-1"}'))
+      .toEqual({ estadoPago: 'PENDING_PAYMENT', checkoutId: 'co-1' });
+    expect(_normalizePersistedMeta({ esCombinado: true })).toEqual({ esCombinado: true });
+    expect(_normalizePersistedMeta('invalid')).toEqual({});
   });
 
   it('debe validar estructura de ERROR_CODES', async () => {

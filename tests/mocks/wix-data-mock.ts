@@ -1,52 +1,31 @@
 // tests/mocks/wix-data-mock.ts
 // Mock de wix-data para tests
 
-const mockDb = new Map<string, any[]>();
-
-export const insert = async (collection: string, item: any) => {
-  console.log(`[MOCK Wix Data] insert en ${collection}`, item);
-  if (!mockDb.has(collection)) {
-    mockDb.set(collection, []);
-  }
-  // Simular respuesta completa de Wix Data incluyendo todos los campos
-  const insertedItem = {
-    ...item,
-    _id: item._id || `mock-${Date.now()}`
-  };
-  mockDb.get(collection)!.push(insertedItem);
-  return insertedItem;
+const createQuery = () => {
+  const mockQuery: Record<string, (...args: any[]) => any> = {};
+  const chain = () => mockQuery;
+  mockQuery.eq = chain;
+  mockQuery.ne = chain;
+  mockQuery.in = chain;
+  mockQuery.lt = chain;
+  mockQuery.limit = chain;
+  mockQuery.skip = chain;
+  mockQuery.ascending = chain;
+  mockQuery.descending = chain;
+  mockQuery.find = async () => ({ items: [], hasNext: () => false, next: async () => ({ items: [] }) });
+  mockQuery.count = async () => 0;
+  return mockQuery;
 };
 
-export const update = async (collection: string, item: any) => {
-  console.log(`[MOCK Wix Data] update en ${collection}`, item);
-  return { _id: item._id };
+export const wixData = {
+  query: (_collectionName: string) => createQuery(),
+  get: async (_collection: string, _id: string) => null,
+  insert: async (_collection: string, item: any) => ({ ...item, _id: item._id || 'mock-id' }),
+  update: async (_collection: string, item: any) => item,
+  remove: async (_collection: string, _id: string) => undefined,
+  save: async (_collection: string, item: any) => item,
 };
 
-export const get = async (collection: string, id: string) => {
-  console.log(`[MOCK Wix Data] get de ${collection}:${id}`);
-  const items = mockDb.get(collection) || [];
-  return items.find(i => i._id === id) || null;
-};
+export const { query, get, insert, update, remove, save } = wixData;
 
-export const query = async (collection: string, filter: any = {}) => {
-  console.log(`[MOCK Wix Data] query en ${collection}`, filter);
-  const items = mockDb.get(collection) || [];
-  // Filtro simple
-  let result = items;
-  for (const [key, value] of Object.entries(filter)) {
-    result = result.filter(item => item[key] === value);
-  }
-  return { items: result, totalCount: result.length };
-};
-
-export const remove = async (collection: string, id: string) => {
-  console.log(`[MOCK Wix Data] remove de ${collection}:${id}`);
-  const items = mockDb.get(collection) || [];
-  const index = items.findIndex(i => i._id === id);
-  if (index >= 0) {
-    items.splice(index, 1);
-  }
-  return { _id: id };
-};
-
-export default { insert, update, get, query, remove };
+export default wixData;

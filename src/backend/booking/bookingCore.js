@@ -361,9 +361,13 @@ return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.me
 }
 }
 
-export async function cancelBookingElevated(bookingId) {
+export async function cancelBookingElevated(bookingId, options = {}) {
 try {
-const result = await elevate(() => bookings.cancelBooking({ bookingId }));
+const cancelPayload = {
+bookingId,
+...(options && typeof options === "object" ? options : {}),
+};
+const result = await elevate(() => bookings.cancelBooking(cancelPayload));
 log.info(`[bookingCore] Booking cancelled via elevated`, { bookingId });
 return { ok: true, data: { bookingId, status: "CANCELLED" } };
 } catch (error) {
@@ -401,15 +405,31 @@ return { ok: false, code: ERROR_CODES.CHECKOUT_FAILED, message: error.message };
 
 export async function confirmOrDeclineBookingElevated(bookingId, action) {
 try {
-if (action === "confirm") {
-const result = await elevate(() => bookings.confirmBooking({ bookingId }));
+const resolvedAction = typeof action === 'string'
+? action.toLowerCase()
+: (action && typeof action === 'object' ? String(action.action || action.type || action.status || '').toLowerCase() : '');
+
+if (resolvedAction === 'confirm' || (!resolvedAction && action && typeof action === 'object' && action.paymentStatus !== 'DECLINED')) {
+const confirmPayload = action && typeof action === 'object' ? { bookingId, ...action } : { bookingId };
+const result = await elevate(() => bookings.confirmBooking(confirmPayload));
 log.info(`[bookingCore] Booking confirmed`, { bookingId });
 return { ok: true, data: { bookingId, status: "CONFIRMED" } };
-} else if (action === "decline") {
-const result = await elevate(() => bookings.declineBooking({ bookingId }));
+}
+
+if (resolvedAction === 'decline' || (action && typeof action === 'object' && String(action.status || action.action || '').toLowerCase() === 'declined')) {
+const declinePayload = action && typeof action === 'object' ? { bookingId, ...action } : { bookingId };
+const result = await elevate(() => bookings.declineBooking(declinePayload));
 log.info(`[bookingCore] Booking declined`, { bookingId });
 return { ok: true, data: { bookingId, status: "DECLINED" } };
 }
+
+if (action && typeof action === 'object') {
+const confirmPayload = { bookingId, ...action };
+const result = await elevate(() => bookings.confirmBooking(confirmPayload));
+log.info(`[bookingCore] Booking confirmed`, { bookingId });
+return { ok: true, data: { bookingId, status: "CONFIRMED" } };
+}
+
 return { ok: false, code: ERROR_CODES.INVALID_CLOCK_TYPE, message: "Invalid action" };
 } catch (error) {
 log.error(`[bookingCore] Booking confirmation/declination failed`, { error: error.message, bookingId });
@@ -418,6 +438,12 @@ return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.me
 }
 
 export async function _forceStaffInPristineSlot(slot, resourceId, primaryServiceGuid, durationMinutes) {
+const legacyDurationSignature = typeof primaryServiceGuid === 'number' && durationMinutes === undefined;
+if (legacyDurationSignature) {
+durationMinutes = primaryServiceGuid;
+primaryServiceGuid = slot?.primaryServiceGuid || slot?.serviceId || null;
+}
+
 // VALIDACIÓN CRÍTICA: Verificar primaryServiceGuid
 if (!primaryServiceGuid) {
 logger.warn('[bookingCore] _forceStaffInPristineSlot: primaryServiceGuid missing', { slot });

@@ -1,5 +1,5 @@
 // tests/mocks/wix-bookings-mock.ts
-// Mock de @wix/bookings para tests unitarios
+// Mock de wix-bookings.v2 para tests unitarios
 
 export interface Slot {
   primaryServiceGuid: string;
@@ -34,6 +34,18 @@ export const getAvailability = async (params: any) => {
   return { slots: [] };
 };
 
+export const bookings = {
+  createBooking: async () => ({ _id: 'mock-booking-id', revision: 1 }),
+  cancelBooking: async () => ({ success: true }),
+  confirmOrDeclineBooking: async () => ({ success: true }),
+  rescheduleBooking: async () => ({ _id: 'mock-booking-id', revision: 2 }),
+};
+
+export const availabilityTimeSlots = {
+  listAvailabilityTimeSlots: async () => ({ timeSlots: [] }),
+  getAvailabilityTimeSlot: async () => ({ timeSlot: null }),
+};
+
 export const createBooking = async (bookingData: any) => {
   console.log('[MOCK Wix Bookings] createBooking llamado', bookingData);
   return { booking: { _id: 'mock-booking-id', status: 'CONFIRMED' } };
@@ -47,5 +59,7 @@ export const cancelBooking = async (bookingId: string, revision: number) => {
 export default {
   getAvailability,
   createBooking,
-  cancelBooking
+  cancelBooking,
+  bookings,
+  availabilityTimeSlots,
 };

@@ -7,7 +7,7 @@ FIX: Removed trailing spaces from all 19 secret values.
 Trailing spaces cause getSecret() to return null for every key.
 */
 export const SECRETS = Object.freeze({
-FISCAL_KEY: "SECRET_FISCAL_KEY",
+FISCAL_KEY: "SECRETFISCALKEY",
 FISCAL_NIF_EMISOR: "FISCAL_NIF_EMISOR",
 AUTH_JWT_KEY: "SECRET_AUTH_JWT_KEY",
 ADMIN_EMAILS: "ADMIN_EMAILS",

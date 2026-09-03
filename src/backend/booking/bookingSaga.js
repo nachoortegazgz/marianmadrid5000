@@ -101,6 +101,18 @@ const API_TIMEOUT_MS = SDK_CONFIG?.TIMEOUTS?.API_MS || 15000;
 const HEARTBEAT_MS = CONCURRENCY?.HEARTBEAT_MS || 15000;
 const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000;
 
+export function _normalizePersistedMeta(meta) {
+  if (!meta) return {};
+  if (typeof meta === 'object') return meta;
+  if (typeof meta !== 'string') return {};
+  try {
+    const parsed = JSON.parse(meta);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
 /**
  * Resolves a stable pairToken.
  * FIX 1: Uses phaseOneServiceId directly instead of slotF1.serviceId.
@@ -504,7 +516,7 @@ export async function executeBookingSaga(unsafePayload) {
       }
       await _bestEffortUnlockAll(lockKeys, lockOwnerId);
 
-      const meta = existingCita.meta || {};
+      const meta = _normalizePersistedMeta(existingCita.meta);
       if (meta.estadoPago === 'PENDING_PAYMENT' && meta.checkoutId) {
         const urlRes = await _executeWithRetry(
           () => withTimeout(getCheckoutUrlElevated(meta.checkoutId), API_TIMEOUT_MS, 'getCheckoutUrl'),
@@ -555,7 +567,7 @@ export async function executeBookingSaga(unsafePayload) {
         ? Number(serviceData.tiempoFase2) || 30
         : Number(serviceData.tiempoFase1) || 30;
 
-      p.pristineSlot = _forceStaffInPristineSlot(
+      p.pristineSlot = await _forceStaffInPristineSlot(
         p.validatedSlot,
         finalResourceId,
         p.serviceId,
@@ -782,7 +794,7 @@ export async function executeBookingSaga(unsafePayload) {
       return _persistBooking({
         bookingId: b.bookingId,
         revision: b.revision,
-        serviceId: persistedServiceId,
+        primaryServiceGuid: persistedServiceId,
         scheduleId: phase.pristineSlot?.scheduleId || '',
         resourceId: finalResourceId,
         startDate: startUtc,
@@ -847,7 +859,7 @@ export async function executeBookingSaga(unsafePayload) {
     if (pairToken) {
       await _failTransaction(transactionId, error?.message || String(error)).catch(() => {});
     }
-    return _handleError(error, 'executeBookingSaga', traceId, log);
+    return _handleError(error, { surface: 'executeBookingSaga', traceId });
   } finally {
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);

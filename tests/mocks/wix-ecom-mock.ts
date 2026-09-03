@@ -5,18 +5,14 @@ export const checkout = {
   createCheckout: async (data: any) => {
     console.log('[MOCK Wix Ecom] createCheckout llamado', data);
     return {
-      checkoutId: `mock-checkout-${Date.now()}`,
-      redirectUrl: 'https://mock.wix.com/checkout'
+      checkout: { _id: `mock-checkout-${Date.now()}`, checkoutUrl: 'https://mock.url' }
     };
   },
-  getCheckout: async (checkoutId: string) => {
-    console.log(`[MOCK Wix Ecom] getCheckout: ${checkoutId}`);
-    return {
-      checkoutId,
-      status: 'PENDING',
-      totalAmount: 100
-    };
-  }
+  getCheckoutUrl: async () => ({ checkoutUrl: 'https://mock.url' }),
 };
 
-export default { checkout };
+export const orders = {
+  getOrder: async () => ({ _id: 'mock-order-id', paymentStatus: 'PAID' }),
+};
+
+export default { checkout, orders };

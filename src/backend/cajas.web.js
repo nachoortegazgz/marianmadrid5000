@@ -68,6 +68,9 @@ referenciaRectificativa: String(movement?.referenciaRectificativa || ""),
 detalleLineas: Array.isArray(movement?.detalleLineas) ? movement.detalleLineas : [],
 });
 }
+function _canonicalPayload(prevHash, transactionId, tipoMovimiento, importeContable, formaPago) {
+return `${String(prevHash)}|${String(transactionId)}|${String(tipoMovimiento)}|${Number(importeContable)}|${String(formaPago)}`;
+}
 async function _getAndIncrementLedgerState(year, payloadData) {
 let retries = 5;
 while (retries > 0) {
@@ -283,7 +286,7 @@ inconsistencies.push({ index: i, id: m._id, reason: "prevHash mismatch with glob
 expectedPrevHash = m.hashCadena || "";
 const payloadCanonico = m.integrityPayloadVersion === "LEDGER_V2" ?
 _canonicalPayloadV2(m) :
-`${String(m.prevHash)}|${String(m.transactionId)}|${String(m.tipoMovimiento)}|${Number(m.importeContable)}|${String(m.formaPago)}`;
+_canonicalPayload(m.prevHash, m.transactionId, m.tipoMovimiento, m.importeContable, m.formaPago);
 const computedHashCadena = hashChain(m.prevHash, payloadCanonico);
 const computedFirma = hmacSha256Hex(fiscalKey, payloadCanonico);
 const firmaExpectedFull = `${computedFirma}|${computedHashCadena}`;

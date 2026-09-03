@@ -141,7 +141,7 @@ if (!unsafePayload.metaCita || typeof unsafePayload.metaCita !== "object") throw
      }
      return await executeBookingSaga({ ...unsafePayload, traceId });
  } catch (error) {
-     return _handleError(error, "processDualBooking(wrapper)", traceId, log);
+    return _handleError(error, { surface: "processDualBooking(wrapper)", traceId });
  }
 });
 function _isPaidOrderStatus(value) {
@@ -410,7 +410,7 @@ return { status: "ERROR", data: null, error: { code: "INVALID_PAYLOAD", message:
      };
  } catch (error) {
      log.error("Error in rescheduleExistingBooking(wrapper)", { error: error?.message, traceId });
-     return _handleError(error, "rescheduleExistingBooking(wrapper)", traceId, log);
+    return _handleError(error, { surface: "rescheduleExistingBooking(wrapper)", traceId });
  }
 });
 function _getDualSlotInput(payload, key) {
@@ -661,7 +661,7 @@ try {
  } catch (error) {
      await Promise.all(lockKeys.map((key) => _unlockSlotKey(key, lockOwnerId).catch(() => null)));
      log.error("rescheduleDualBookings failed", { traceId, message: error?.message });
-     return _handleError(error, "rescheduleDualBookings", traceId, log);
+    return _handleError(error, { surface: "rescheduleDualBookings", traceId });
  } finally {
      if (heartbeatInterval) clearInterval(heartbeatInterval);
  }

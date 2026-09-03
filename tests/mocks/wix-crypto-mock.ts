@@ -4,9 +4,7 @@
 export const createHash = (algorithm: string) => {
   console.log(`[MOCK Wix Crypto] createHash: ${algorithm}`);
   return {
-    update: (data: string) => ({ 
-      digest: () => `mock-hash-${algorithm}-${data.substring(0, 10)}` 
-    }),
+    update: (_data: string) => ({ digest: () => 'mock-hash' }),
     digest: (encoding?: string) => `mock-hash-${algorithm}`
   };
 };
@@ -14,9 +12,7 @@ export const createHash = (algorithm: string) => {
 export const createHmac = (algorithm: string, key: string) => {
   console.log(`[MOCK Wix Crypto] createHmac: ${algorithm}`);
   return {
-    update: (data: string) => ({ 
-      digest: () => `mock-hmac-${algorithm}-${data.substring(0, 10)}` 
-    }),
+    update: (_data: string) => ({ digest: () => 'mock-hmac' }),
     digest: (encoding?: string) => `mock-hmac-${algorithm}`
   };
 };

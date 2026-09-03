@@ -1,18 +1,17 @@
 // tests/mocks/wix-secrets-mock.ts
 // Mock de wix-secrets-backend para tests
 
-const mockSecrets = new Map<string, string>();
-
-export const get = async (secretName: string) => {
-  console.log(`[MOCK Wix Secrets] get: ${secretName}`);
-  // Retornar valores mock para secrets comunes
-  const defaults: Record<string, string> = {
-    'WIX_BOOKINGS_API_KEY': 'mock-bookings-key',
-    'WIX_PAYMENTS_API_KEY': 'mock-payments-key',
-    'MADRID_TIMEZONE': 'Europe/Madrid'
+export const getSecret = async (key: string) => {
+  const secrets: Record<string, string> = {
+    SECRET_FISCALKEY: 'mock-fiscal-key',
+    SECRET_AUTH_JWT_KEY: 'mock-jwt-key',
+    ADMIN_EMAILS: 'admin@example.com',
+    CAJERO_EMAILS: 'cajero@example.com',
   };
-  return { value: mockSecrets.get(secretName) || defaults[secretName] || 'mock-secret-value' };
+  return secrets[key] || '';
 };
+
+export const get = getSecret;
 
 export const set = async (secretName: string, value: string) => {
   console.log(`[MOCK Wix Secrets] set: ${secretName}`);
@@ -20,4 +19,4 @@ export const set = async (secretName: string, value: string) => {
   return { success: true };
 };
 
-export default { get, set };
+export default { getSecret, get, set };

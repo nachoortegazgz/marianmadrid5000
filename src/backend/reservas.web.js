@@ -91,6 +91,7 @@ export function purgeExpiredRamCaches() {
     for (const [k, v] of staffDisplayCache) {
         if (now - (v.ts || 0) > STAFF_CACHE_TTL_MS) staffDisplayCache.delete(k);
     }
+    inflightRequests.clear();
 }
 
 async function _getStaffDisplayName(resourceId) {
@@ -307,7 +308,7 @@ async function _mapServiceToPresentation(service, traceId) {
     };
 }
 
-async function _getServiceBySlugOrIdInternal(slugOrId, externalTraceId = null) {
+export async function _getServiceBySlugOrIdInternal(slugOrId, externalTraceId = null) {
     const traceId = externalTraceId || makeTraceId("service");
     const raw = _safeTrim(slugOrId);
     const isGuid = _looksLikeGuid(raw);
@@ -382,6 +383,21 @@ export async function resolveServiceId(serviceIdReq) {
 
 export async function getServiceForBookingInternal(serviceId, traceId) {
     return await _getServiceBySlugOrIdInternal(serviceId, traceId);
+}
+
+export async function _resolvePrimaryServiceIdInternal(serviceIdReq) {
+    const resolved = await resolveServiceId(serviceIdReq);
+    return resolved?.status === "SUCCESS" ? resolved.data : null;
+}
+
+export async function _resolveStaffForSlotInternal(serviceId, start1, end1, start2, end2, resourceId) {
+    return resolveStaffForSlot(
+        serviceId,
+        start1,
+        resourceId,
+        [],
+        start2 ? { start2, end2 } : null
+    );
 }
 
 function _extractResourceIdsFromSlot(slot) {
@@ -834,7 +850,11 @@ export async function _invalidateCachesInternal(serviceId, dateYMD, resourceId, 
         );
 
         await Promise.allSettled(
-            (res?.items || []).map((it) => wixData.remove(DUAL_CACHE_COL, it._id, { suppressAuth: true }).catch(() => null))
+            (res?.items || []).map((it) => withTimeout(
+                wixData.remove(DUAL_CACHE_COL, it._id, { suppressAuth: true }),
+                WATCHDOG_TIMEOUT_MS,
+                "invalidateDualCacheRemove"
+            ).catch(() => null))
         );
     } catch (e) {
         log.warn("_invalidateCachesInternal: dual cache cleanup failed (best-effort)", { traceId: tId, message: e?.message });

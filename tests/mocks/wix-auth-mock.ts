@@ -1,10 +1,7 @@
 // tests/mocks/wix-auth-mock.ts
 // Mock de wix-auth para tests
 
-export const elevate = async (fn: Function) => {
-  console.log('[MOCK Wix Auth] elevate llamado');
-  return await fn();
-};
+export const elevate = (fn: Function) => fn();
 
 export const grant = async (permissions: string[]) => {
   console.log('[MOCK Wix Auth] grant llamado', permissions);
