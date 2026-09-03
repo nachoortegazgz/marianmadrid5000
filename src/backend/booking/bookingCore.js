@@ -530,6 +530,34 @@ return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.me
 }
 }
 
+export async function rescheduleBookingElevated(bookingId, schedule, options = {}) {
+try {
+const cleanBookingId = _safeTrim(bookingId);
+if (!cleanBookingId || !schedule || typeof schedule !== "object") {
+return { ok: false, code: ERROR_CODES.INVALID_PAYLOAD, message: "bookingId and schedule are required" };
+}
+const payload = {
+bookingId: cleanBookingId,
+schedule,
+...(options && typeof options === "object" ? options : {}),
+};
+const result = await elevate(() => bookings.rescheduleBooking(payload));
+const booking = result?.booking || result;
+const revision = Number(booking?.revision || options?.revision || 1);
+log.info(`[bookingCore] Booking rescheduled via elevated`, { bookingId: cleanBookingId, revision });
+return {
+ok: true,
+booking,
+revision,
+data: { bookingId: cleanBookingId, revision, status: booking?.status || "RESCHEDULED" },
+raw: result,
+};
+} catch (error) {
+log.error(`[bookingCore] Elevated booking reschedule failed`, { error: error.message, bookingId });
+return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.message };
+}
+}
+
 export async function _forceStaffInPristineSlot(slot, resourceId, primaryServiceGuid, durationMinutes) {
 const legacyDurationSignature = typeof primaryServiceGuid === 'number' && durationMinutes === undefined;
 if (legacyDurationSignature) {
