@@ -65,6 +65,26 @@ error: null,
 return { status: "ERROR", data: null, error: _toPublicError(err, "INVENTORY_DASH_FAIL") };
 }
 });
+export const getInventoryReconciliationQueue = webMethod(Permissions.SiteMember, async (options = {}) => {
+const traceId = options.traceId || makeTraceId("inv-conciliation");
+try {
+_rateLimitOrThrow("inventario.getInventoryReconciliationQueue", "staff", traceId);
+await requireCajero(traceId);
+const res = await wixData
+.query(CONCILIACION_COL)
+.descending("createdAt")
+.limit(100)
+.find({ suppressAuth: true });
+const items = res?.items || [];
+return {
+status: "SUCCESS",
+data: { items, total: items.length },
+error: null,
+};
+} catch (err) {
+return { status: "ERROR", data: null, error: _toPublicError(err, "INVENTORY_QUEUE_FAIL") };
+}
+});
 export async function recordOnlineInventoryOrderInternal(order, traceId) {
 const orderId = _safeTrim(order?._id || order?.id || "");
 if (!orderId) return { status: "SKIPPED", reason: "NO_ORDER_ID" };

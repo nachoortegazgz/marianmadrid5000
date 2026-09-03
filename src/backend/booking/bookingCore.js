@@ -26,6 +26,7 @@ _looksLikeGuid,
 getUtcDateFromMadridLocal,
 getMadridLocalStringNoZ,
 makeTraceId,
+_normalizeLocalIsoStr,
 _toDateSafe,
 _hashKey,
 } from "public/mmUtils";
@@ -918,6 +919,51 @@ export function _projectCertifiedSlot(slot, resourceId) {
     localEndDate: slot.localEndDate,
     availableSpots: slot.availableSpots,
     bookedSpots: slot.bookedSpots
+  };
+}
+/**
+ * Proyecta un slot de availability al formato Writer V2 para reschedule.
+ * Compatible con el slot shape que consume `_getBookingSlotFromCita` y el
+ * motor de reschedule de Wix Bookings V2 (startDate/endDate como Date).
+ */
+export async function _projectWriterSlotFromAvailability(slot, resourceId, serviceId) {
+  const cleanServiceId = _safeTrim(serviceId || slot?.serviceId || slot?.primaryServiceGuid || "");
+  const cleanResourceId = _safeTrim(
+    resourceId || slot?.resourceId || slot?.resource?._id || slot?.resource?.id || ""
+  );
+  if (!_looksLikeGuid(cleanServiceId) || !_looksLikeGuid(cleanResourceId)) {
+    logger.warn("[bookingCore] _projectWriterSlotFromAvailability: invalid service/resource id", {
+      serviceId: cleanServiceId,
+      resourceId: cleanResourceId,
+    });
+    return null;
+  }
+
+  const localStart = _normalizeLocalIsoStr(slot?.localStartDate || slot?.startDate || "");
+  const localEnd = _normalizeLocalIsoStr(slot?.localEndDate || slot?.endDate || "");
+  if (!localStart || !localEnd) {
+    logger.warn("[bookingCore] _projectWriterSlotFromAvailability: missing or invalid dates", { slot });
+    return null;
+  }
+
+  const startDate = getUtcDateFromMadridLocal(localStart);
+  const endDate = getUtcDateFromMadridLocal(localEnd);
+  if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate.getTime() <= startDate.getTime()) {
+    logger.warn("[bookingCore] _projectWriterSlotFromAvailability: invalid date range", { localStart, localEnd });
+    return null;
+  }
+
+  return {
+    serviceId: cleanServiceId,
+    scheduleId: _safeTrim(slot?.scheduleId) || "",
+    startDate,
+    endDate,
+    timezone: SDK_CONFIG?.TZ || "Europe/Madrid",
+    resource: { _id: cleanResourceId },
+    location: {
+      _id: SDK_CONFIG?.LOCATION_ID,
+      locationType: SDK_CONFIG?.LOCATION_TYPES?.BOOKINGS_WRITER,
+    },
   };
 }
 

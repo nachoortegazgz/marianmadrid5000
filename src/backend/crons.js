@@ -12,7 +12,7 @@ import { makeTraceId } from "public/mmUtils";
 import { logger } from "backend/booking/bookingCore";
 import { _cleanExpiredDualSlotsInternal } from "backend/reservas.web";
 import { processPendingFiscalRecoveries, _registerZClosingInternal } from "backend/cajas.web";
-import { processBookingsServiceSyncQueue } from "backend/bookingsServiceSync";
+import { processBookingsServiceSyncQueue } from "backend/bookingServiceSync";
 const log = logger;
 export async function cleanExpiredLocks() {
 const traceId = makeTraceId("cron-locks");

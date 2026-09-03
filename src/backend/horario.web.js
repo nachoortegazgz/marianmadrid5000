@@ -9,7 +9,7 @@ STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 import { webMethod, Permissions } from "wix-web-module";
 import wixData from "wix-data";
 import { COLLECTIONS, TIPO_FICHAJE, SDK_CONFIG } from "backend/internalConfig";
-import { makeTraceId, _safeTrim, _roundMoney } from "public/mmUtils";
+import { makeTraceId, _safeTrim, _safeEmail, _roundMoney } from "public/mmUtils";
 import { requireCajero, isStaffCollaborator, rateLimiter } from "backend/security";
 import { _toPublicError } from "backend/responseUtils";
 import { logger, ERROR_CODES, createBookingError } from "backend/booking/bookingCore";
@@ -112,6 +112,40 @@ error: null,
 };
 } catch (err) {
 return { status: "ERROR", data: null, error: _toPublicError(err, "ESTADO_JORNADA_FAIL") };
+}
+});
+export const getMyStaffContext = webMethod(Permissions.SiteMember, async (options = {}) => {
+const traceId = options.traceId || makeTraceId("staff-context");
+try {
+_rateLimitOrThrow("horario.getMyStaffContext", "staff", traceId);
+const isCollab = await isStaffCollaborator(traceId);
+if (!isCollab) {
+return { status: "ERROR", data: null, error: { code: ERROR_CODES.ACCESS_DENIED, message: "Staff access required" } };
+}
+const { currentMember } = await import("wix-members-backend");
+const member = await currentMember.getMember({ fieldsets: ["FULL"] }).catch(() => null);
+if (!member) {
+return { status: "ERROR", data: null, error: { code: ERROR_CODES.AUTH_REQUIRED, message: "Could not identify logged-in user" } };
+}
+const memberId = _safeTrim(member._id || member.id || "");
+const memberEmail = member?.loginEmail ? _safeEmail(member.loginEmail) : "";
+let staff = memberId ? await findStaff(memberId) : null;
+if (!staff && memberEmail) staff = await findStaff(memberEmail);
+if (!staff) {
+return { status: "ERROR", data: null, error: { code: "STAFF_CONTEXT_NOT_FOUND", message: "No staff profile found for this member" } };
+}
+return {
+status: "SUCCESS",
+data: {
+resourceId: staff.resourceId,
+displayName: staff.displayName || staff.nombreVisible || staff.name || "",
+scheduleId: staff.scheduleId || "",
+email: memberEmail || staff.email || "",
+},
+error: null,
+};
+} catch (err) {
+return { status: "ERROR", data: null, error: _toPublicError(err, "STAFF_CONTEXT_FAIL") };
 }
 });
 export const calcularHorasTrabajadas = webMethod(Permissions.SiteMember, async (options = {}) => {

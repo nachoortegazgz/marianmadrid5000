@@ -138,3 +138,12 @@ throw createBookingError(ERROR_CODES.ACCESS_DENIED, "Cajero access required", { 
 }
 return true;
 }
+export async function requireMarianManager(traceId) {
+const activeTraceId = traceId || makeTraceId("rbac");
+// The Marian manager is the owner-level role (covers ADMIN and GESTION).
+const manager = await isCajero(activeTraceId);
+if (!manager) {
+throw createBookingError(ERROR_CODES.ACCESS_DENIED, "Marian manager access required", { traceId: activeTraceId });
+}
+return true;
+}
