@@ -99,6 +99,58 @@ error.timestamp = new Date().toISOString();
 return error;
 }
 
+export function normalizeError(error) {
+  if (error && error.isBookingError) {
+    return {
+      code: error.code || ERROR_CODES.NETWORK_ERROR,
+      message: error.message || "Unknown error occurred",
+      details: error.details || null,
+    };
+  }
+
+  const code = String(error?.code || error?.errorCode || ERROR_CODES.NETWORK_ERROR);
+  const message = error?.message || error?.errorDescription || String(error || "Unknown error occurred");
+  return { code, message, details: error?.details || null };
+}
+
+export async function _updateCitaSafe(bookingId, updater, traceId = "no-trace", operation = "updateCita") {
+  const cleanBookingId = _safeTrim(bookingId);
+  if (!cleanBookingId || typeof updater !== "function") {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking ID and updater are required", {
+      bookingId,
+      operation,
+      traceId,
+    });
+  }
+
+  const queryResult = await withTimeout(
+    wixData.query(CITAS_COLLECTION)
+      .eq("bookingId", cleanBookingId)
+      .limit(1)
+      .find({ suppressAuth: true, consistentRead: true }),
+    API_TIMEOUT_MS
+  );
+  let current = queryResult?.items?.[0] || null;
+  if (!current) {
+    current = await withTimeout(
+      wixData.get(CITAS_COLLECTION, cleanBookingId, { suppressAuth: true, consistentRead: true }),
+      API_TIMEOUT_MS
+    );
+  }
+  if (!current) {
+    throw createBookingError(ERROR_CODES.DATA_CONFLICT, "Booking not found", {
+      bookingId: cleanBookingId,
+      operation,
+      traceId,
+    });
+  }
+
+  const updated = await updater(current);
+  if (updated === null || updated === undefined) return current;
+  const record = { ...updated, _id: current._id || updated._id || cleanBookingId };
+  return wixData.update(CITAS_COLLECTION, record, { suppressAuth: true });
+}
+
 export async function _initTransaction(pairToken, payloadHashOrTraceId, traceId = null) {
 const activeTraceId = traceId || payloadHashOrTraceId;
 const payloadHash = traceId ? payloadHashOrTraceId : null;
@@ -247,43 +299,52 @@ return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.me
  */
 export async function _persistBooking(params, traceId = 'no-trace') {
   // Validaciones en tiempo de ejecución
+  if (!params || typeof params !== 'object') {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking payload is required', { traceId });
+  }
+
   if (!params.bookingId || !params.primaryServiceGuid || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push('bookingId');
     if (!params.primaryServiceGuid) missingFields.push('primaryServiceGuid');
     if (!params.scheduleId) missingFields.push('scheduleId');
-    
-    const error = new Error(`Missing required fields: ${missingFields.join(', ')}`);
+
+    const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(', ')}`, { traceId, missingFields });
     console.error(`[bookingCore][${traceId}] ${error.message}`);
     throw error;
   }
-  
+
   // Validar GUIDs
   if (!isValidGuid(params.primaryServiceGuid)) {
-    throw new Error(`Invalid primaryServiceGuid: ${params.primaryServiceGuid}`);
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid primaryServiceGuid: ${params.primaryServiceGuid}`, { traceId, primaryServiceGuid: params.primaryServiceGuid });
   }
-  
+
   if (params.resourceId && !isValidGuid(params.resourceId)) {
-    throw new Error(`Invalid resourceId: ${params.resourceId}`);
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid resourceId: ${params.resourceId}`, { traceId, resourceId: params.resourceId });
   }
-  
+
   // Validar fechas
-  if (isNaN(params.startDate.getTime()) || isNaN(params.endDate.getTime())) {
-    throw new Error('Invalid start or end date');
+  if (isNaN(new Date(params.startDate).getTime()) || isNaN(new Date(params.endDate).getTime())) {
+    throw createBookingError(ERROR_CODES.INVALID_DATES, 'Invalid start or end date', { traceId, startDate: params.startDate, endDate: params.endDate });
   }
-  
+
   // Validar tipo de booking
   const validTypes = ['simple', 'dual_fase1', 'dual_fase2'];
   if (!validTypes.includes(params.tipo)) {
-    throw new Error(`Invalid booking type: ${params.tipo}`);
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid booking type: ${params.tipo}`, { traceId, tipo: params.tipo });
   }
-  
+
+  const meta = (params.meta && typeof params.meta === 'object') ? params.meta : (typeof params.meta === 'string' ? (() => { try { return JSON.parse(params.meta); } catch { return null; } })() : null);
+  if (!meta || typeof meta !== 'object' || !('estadoPago' in meta) || !meta.estadoPago) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking meta is required and must include estadoPago', { traceId, meta: params.meta });
+  }
+
   // Validar estado de pago
   const validPaymentStates = ['UNPAID', 'PENDING_PAYMENT', 'CONFIRMED_UNPAID', 'PAID'];
-  if (!validPaymentStates.includes(params.meta.estadoPago)) {
-    throw new Error(`Invalid payment state: ${params.meta.estadoPago}`);
+  if (!validPaymentStates.includes(meta.estadoPago)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state: ${meta.estadoPago}`, { traceId, estadoPago: meta.estadoPago });
   }
-  
+
   // Construir item para Wix Data
   const bookingRecord = {
     _id: params.bookingId,
@@ -295,7 +356,7 @@ export async function _persistBooking(params, traceId = 'no-trace') {
     endDate: params.endDate,
     contactDetails: params.contactDetails,
     tipo: params.tipo,
-    meta: JSON.stringify(params.meta),
+    meta: JSON.stringify(meta),
     traceId,
     createdAt: new Date(),
     updatedAt: new Date()
@@ -726,17 +787,26 @@ async function _mockFetchPrimarySlots(serviceId, resourceId, dateYMD) {
 /**
  * Genera una clave única para identificar un slot
  */
-export function _generateSlotKey(slot) {
-  if (!slot) return null;
-  
-  const parts = [
-    slot.primaryServiceGuid || slot.serviceId || '',
-    slot.scheduleId || '',
-    slot.localStartDate || slot.startDate || '',
-    slot.resourceId || (slot.resource?.id) || ''
-  ].filter(Boolean);
-  
-  return parts.length >= 3 ? parts.join('|') : null;
+export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate) {
+  if (slotOrServiceId && typeof slotOrServiceId === 'object') {
+    const slot = slotOrServiceId;
+    const parts = [
+      slot.primaryServiceGuid || slot.serviceId || '',
+      slot.scheduleId || '',
+      slot.localStartDate || slot.startDate || '',
+      slot.resourceId || (slot.resource?.id) || ''
+    ].filter(Boolean);
+
+    return parts.length >= 3 ? parts.join('|') : null;
+  }
+
+  const serviceId = _safeTrim(slotOrServiceId || '');
+  const resourceIdValue = _safeTrim(resourceId || '');
+  const startValue = _safeTrim(startDate || '');
+  const endValue = _safeTrim(endDate || '');
+  const parts = [serviceId, resourceIdValue, startValue, endValue].filter(Boolean);
+
+  return parts.length >= 2 ? parts.join('|') : null;
 }
 
 /**

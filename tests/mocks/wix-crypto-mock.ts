@@ -1,29 +1,19 @@
 // tests/mocks/wix-crypto-mock.ts
 // Mock de wix-crypto para tests
 
+import { createHash as nodeCreateHash, createHmac as nodeCreateHmac, timingSafeEqual as nodeTimingSafeEqual } from 'node:crypto';
+
 export const createHash = (algorithm: string) => {
-  console.log(`[MOCK Wix Crypto] createHash: ${algorithm}`);
-  return {
-    update: (_data: string) => ({ digest: () => 'mock-hash' }),
-    digest: (encoding?: string) => `mock-hash-${algorithm}`
-  };
+  return nodeCreateHash(algorithm);
 };
 
 export const createHmac = (algorithm: string, key: string) => {
-  console.log(`[MOCK Wix Crypto] createHmac: ${algorithm}`);
-  return {
-    update: (_data: string) => ({ digest: () => 'mock-hmac' }),
-    digest: (encoding?: string) => `mock-hmac-${algorithm}`
-  };
+  return nodeCreateHmac(algorithm, key);
 };
 
 export const timingSafeEqual = (a: Buffer, b: Buffer) => {
-  console.log('[MOCK Wix Crypto] timingSafeEqual');
   if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
+  return nodeTimingSafeEqual(a, b);
 };
 
 export default { createHash, createHmac, timingSafeEqual };

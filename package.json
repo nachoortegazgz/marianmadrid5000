@@ -1,6 +1,10 @@
 {
+  "name": "marian-madrid-tests",
+  "version": "1.0.0",
+  "type": "module",
   "devDependencies": {
     "@types/node": "^26.4.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vitest/ui": "^4.1.11",
     "@wix/cli": "^1.0.0",
     "@wix/eslint-plugin-cli": "^1.0.0",
@@ -11,6 +15,10 @@
     "vitest": "^4.1.11"
   },
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   }
 }

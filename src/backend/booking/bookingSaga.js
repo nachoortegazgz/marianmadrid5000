@@ -424,6 +424,8 @@ export async function executeBookingSaga(unsafePayload) {
     for (const key of lockKeys) {
       const lockResult = await _lockSlotKeyOrFail(key, lockOwnerId, LOCK_TTL_MS);
       if (!lockResult?.ok) {
+        await _bestEffortUnlockAll(lockKeys, lockOwnerId);
+        lockKeys = [];
         return {
           status: 'ERROR',
           error: { code: 'TOKEN_BUSY', message: lockResult?.message || 'El horario esta ocupado.' }

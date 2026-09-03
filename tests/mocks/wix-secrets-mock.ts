@@ -1,14 +1,17 @@
 // tests/mocks/wix-secrets-mock.ts
 // Mock de wix-secrets-backend para tests
 
+const mockSecrets = new Map<string, string>();
+
 export const getSecret = async (key: string) => {
   const secrets: Record<string, string> = {
+    SECRET_FISCAL_KEY: 'mock-fiscal-key',
     SECRET_FISCALKEY: 'mock-fiscal-key',
     SECRET_AUTH_JWT_KEY: 'mock-jwt-key',
     ADMIN_EMAILS: 'admin@example.com',
     CAJERO_EMAILS: 'cajero@example.com',
   };
-  return secrets[key] || '';
+  return mockSecrets.get(key) || secrets[key] || '';
 };
 
 export const get = getSecret;

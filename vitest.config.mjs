@@ -12,6 +12,15 @@ export default defineConfig({
     include: ["tests/**/*.test.{js,ts}"],
     mockReset: true,
     clearMocks: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      exclude: [
+        "node_modules/",
+        "tests/setup.ts",
+        "tests/mocks/",
+      ],
+    },
   },
   resolve: {
     alias: {

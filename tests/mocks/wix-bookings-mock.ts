@@ -37,6 +37,8 @@ export const getAvailability = async (params: any) => {
 export const bookings = {
   createBooking: async () => ({ _id: 'mock-booking-id', revision: 1 }),
   cancelBooking: async () => ({ success: true }),
+  confirmBooking: async () => ({ success: true }),
+  declineBooking: async () => ({ success: true }),
   confirmOrDeclineBooking: async () => ({ success: true }),
   rescheduleBooking: async () => ({ _id: 'mock-booking-id', revision: 2 }),
 };

@@ -29,6 +29,7 @@ vi.mock('wix-data', () => ({
         ne: vi.fn(() => ({
           find: vi.fn()
         })),
+        limit: vi.fn(),
         find: vi.fn()
       })),
       find: vi.fn()
@@ -83,7 +84,9 @@ import {
   _normalizeAddons,
   _sumAddons,
   _persistBooking,
-  _handleError
+  _handleError,
+  normalizeError,
+  _updateCitaSafe
 } from '../src/backend/booking/bookingCore.js';
 
 describe('bookingCore', () => {
@@ -147,6 +150,42 @@ describe('bookingCore', () => {
       expect(error.isBookingError).toBe(true);
     });
 
+    describe('helpers usados por webhooks y facades', () => {
+      it('debe normalizar errores Wix y errores de booking', () => {
+        expect(normalizeError({ code: 'WIX_ERROR', message: 'fallo Wix' })).toMatchObject({
+          code: 'WIX_ERROR',
+          message: 'fallo Wix'
+        });
+        expect(normalizeError(createBookingError('BOOKING_ERROR', 'fallo booking'))).toMatchObject({
+          code: 'BOOKING_ERROR',
+          message: 'fallo booking'
+        });
+      });
+
+      it('debe actualizar una cita encontrada por bookingId', async () => {
+        const wixData = await import('wix-data');
+        const query = wixData.default.query();
+        const eqQuery = query.eq();
+        eqQuery.limit.mockReturnValue(eqQuery);
+        eqQuery.find.mockResolvedValue({ items: [{ _id: 'cita-1', bookingId: 'booking-1', status: 'PENDING' }] });
+        query.eq.mockReturnValue(eqQuery);
+        wixData.default.query.mockReturnValue(query);
+        wixData.default.update.mockResolvedValue({ _id: 'cita-1', status: 'CONFIRMED' });
+
+        const result = await _updateCitaSafe('booking-1', (cita) => ({
+          ...cita,
+          status: 'CONFIRMED'
+        }));
+
+        expect(wixData.default.update).toHaveBeenCalledWith(
+          'CitasF2',
+          expect.objectContaining({ _id: 'cita-1', status: 'CONFIRMED' }),
+          { suppressAuth: true }
+        );
+        expect(result).toEqual({ _id: 'cita-1', status: 'CONFIRMED' });
+      });
+    });
+
     it('debe incluir detalles opcionales', () => {
       const error = createBookingError('TEST_CODE', 'Test message', { extra: 'data' });
       expect(error.details).toEqual({ extra: 'data' });
@@ -186,6 +225,20 @@ describe('bookingCore', () => {
     });
   });
 
+  describe('_generateSlotKey', () => {
+    it('debe aceptar tanto la firma de slot como la firma de lock key dual', () => {
+      const slot = {
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        localStartDate: '2026-09-02T10:00:00',
+        resourceId: '33333333-3333-3333-3333-333333333333'
+      };
+
+      expect(_generateSlotKey(slot)).toBe('11111111-1111-1111-1111-111111111111|22222222-2222-2222-2222-222222222222|2026-09-02T10:00:00|33333333-3333-3333-3333-333333333333');
+      expect(_generateSlotKey('11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333', '2026-09-02T10:00:00', '2026-09-02T10:30:00')).toBe('11111111-1111-1111-1111-111111111111|33333333-3333-3333-3333-333333333333|2026-09-02T10:00:00|2026-09-02T10:30:00');
+    });
+  });
+
   describe('_persistBooking', () => {
     it('debe persistir el identificador canonico del servicio', async () => {
       const wixData = await import('wix-data');
@@ -208,6 +261,21 @@ describe('bookingCore', () => {
         })
       );
       expect(wixData.default.insert.mock.calls[0][1]).not.toHaveProperty('serviceId');
+    });
+
+    it('debe fallar con un error controlado si falta meta.estadoPago', async () => {
+      await expect(_persistBooking({
+        bookingId: 'booking-2',
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        startDate: new Date('2026-09-03T10:00:00.000Z'),
+        endDate: new Date('2026-09-03T10:30:00.000Z'),
+        tipo: 'simple',
+        meta: null
+      })).rejects.toMatchObject({
+        code: 'INVALID_PAYLOAD',
+        message: expect.stringMatching(/meta.*estadoPago|estadoPago.*meta/i)
+      });
     });
   });
 
