@@ -196,7 +196,10 @@ describe('bookingCore', () => {
         });
         query.eq.mockReturnValue(eqQuery);
         wixData.default.query.mockReturnValue(query);
-        wixData.default.update.mockResolvedValue({ _id: 'cita-1' });
+        wixData.default.update.mockResolvedValue({
+          _id: 'cita-1',
+          meta: { statusPago: 'PAID', esCombinado: true }
+        });
 
         const result = await _updateCitaSafe('booking-1', (cita) => {
           const meta = cita.meta || {};
@@ -265,6 +268,54 @@ describe('bookingCore', () => {
 
       expect(_generateSlotKey(slot)).toBe('11111111-1111-1111-1111-111111111111|22222222-2222-2222-2222-222222222222|2026-09-02T10:00:00|33333333-3333-3333-3333-333333333333');
       expect(_generateSlotKey('11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333', '2026-09-02T10:00:00', '2026-09-02T10:30:00')).toBe('11111111-1111-1111-1111-111111111111|33333333-3333-3333-3333-333333333333|2026-09-02T10:00:00|2026-09-02T10:30:00');
+    });
+  });
+
+  describe('_lockSlotKeyOrFail', () => {
+    it('debe rechazar si existe un lock activo sin expirar', async () => {
+      const wixData = await import('wix-data');
+      const lockQuery = wixData.default.query();
+      const lockEq = lockQuery.eq();
+      const lockNe = lockEq.ne();
+      lockNe.find.mockResolvedValue({
+        items: [{ _id: 'lock-1', lockKey: 'lock:k', ownerId: 'other', status: 'ACQUIRED', createdAt: new Date(Date.now() - 1000) }]
+      });
+      lockEq.ne.mockReturnValue(lockNe);
+      lockQuery.eq.mockReturnValue(lockEq);
+      wixData.default.query.mockReturnValue(lockQuery);
+
+      const result = await _lockSlotKeyOrFail('lock:k', 'owner-1', 120000);
+
+      expect(result.ok).toBe(false);
+      expect(result.code).toBe(ERROR_CODES.TOKEN_BUSY);
+      expect(wixData.default.insert).not.toHaveBeenCalled();
+    });
+
+    it('debe liberar los locks expirados antes de adquirir uno nuevo', async () => {
+      const wixData = await import('wix-data');
+      const lockQuery = wixData.default.query();
+      const lockEq = lockQuery.eq();
+      const lockNe = lockEq.ne();
+      lockNe.find.mockResolvedValue({
+        items: [{ _id: 'lock-1', lockKey: 'lock:k', ownerId: 'other', status: 'ACQUIRED', createdAt: new Date(Date.now() - 200000) }]
+      });
+      lockEq.ne.mockReturnValue(lockNe);
+      lockQuery.eq.mockReturnValue(lockEq);
+      wixData.default.query.mockReturnValue(lockQuery);
+      wixData.default.update.mockResolvedValue({ _id: 'lock-1', status: 'RELEASED' });
+      wixData.default.insert.mockResolvedValue({ _id: 'lock-2', lockKey: 'lock:k' });
+
+      const result = await _lockSlotKeyOrFail('lock:k', 'owner-1', 120000);
+
+      expect(result.ok).toBe(true);
+      expect(wixData.default.update).toHaveBeenCalledWith(
+        'SlotLocks',
+        expect.objectContaining({ _id: 'lock-1', status: 'RELEASED' })
+      );
+      expect(wixData.default.insert).toHaveBeenCalledWith(
+        'SlotLocks',
+        expect.objectContaining({ lockKey: 'lock:k', ownerId: 'owner-1', status: 'ACQUIRED' })
+      );
     });
   });
 
