@@ -1,0 +1,189 @@
+// tests/contractFixes.test.js
+// Regression coverage for the contract fixes applied during full debugging:
+// 1. rescheduleBookingElevated (was imported by citasManager.web.js but not exported)
+// 2. _projectWriterSlotFromAvailability (same)
+// 3. requireMarianManager in backend/security
+// 4. getInventoryReconciliationQueue in backend/inventario.web
+// 5. getMyStaffContext in backend/horario.web
+// 6. crons.js now imports from backend/bookingServiceSync (singular)
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('wix-bookings.v2', () => ({
+  bookings: {
+    createBooking: vi.fn(),
+    cancelBooking: vi.fn(),
+    confirmBooking: vi.fn(),
+    declineBooking: vi.fn(),
+    rescheduleBooking: vi.fn(),
+  },
+}));
+
+vi.mock('wix-ecom-backend', () => ({
+  checkout: {
+    createCheckout: vi.fn(),
+    getCheckoutUrl: vi.fn(),
+  },
+}));
+
+vi.mock('wix-auth', () => ({
+  elevate: vi.fn((fn) => fn()),
+}));
+
+vi.mock('wix-data', () => ({
+  default: {
+    query: vi.fn(() => ({
+      eq: vi.fn(() => ({ eq: vi.fn(() => ({ find: vi.fn() })), ne: vi.fn(() => ({ find: vi.fn() })), limit: vi.fn(() => ({ find: vi.fn() })), find: vi.fn() })),
+      ne: vi.fn(() => ({ find: vi.fn() })),
+      descending: vi.fn(() => ({ limit: vi.fn(() => ({ find: vi.fn() })) })),
+      limit: vi.fn(() => ({ find: vi.fn() })),
+      find: vi.fn(),
+    })),
+    get: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+  },
+}));
+
+vi.mock('wix-members-backend', () => ({
+  currentMember: {
+    getMember: vi.fn(() => Promise.resolve({ _id: 'member-1', loginEmail: 'staff@example.com', roles: [] })),
+  },
+}));
+
+vi.mock('wix-secrets-backend', () => ({
+  getSecret: vi.fn(async (key) => {
+    const secrets = {
+      ADMIN_EMAILS: 'admin@example.com',
+      CAJERO_EMAILS: 'cajero@example.com',
+      SECRET_AUTH_JWT_KEY: 'mock-jwt-key',
+    };
+    return secrets[key] || '';
+  }),
+
+vi.mock('backend/staff', () => ({
+  findStaff: vi.fn(async () => ({
+    resourceId: '22222222-2222-2222-2222-222222222222',
+    displayName: 'Test Staff',
+    scheduleId: '33333333-3333-3333-3333-333333333333',
+    email: 'staff@example.com',
+    idMiembroStaff: 'member-1',
+  })),
+}));
+
+vi.mock('backend/internalConfig', () => ({
+  COLLECTIONS: {
+    CITAS: 'CitasF2',
+    COMPENSATIONS: 'PendingCompensations',
+    TRANSACTIONS: 'BookingTransactions',
+    LOCKS: 'MM_LOCKS',
+    SERVICIOS_RESERVA: 'SERVICIOS_RESERVA',
+    INVENTARIO_PRODUCTO: 'INVENTARIO_PRODUCTO',
+    MOVIMIENTO_INVENTARIO: 'movimientoInventario',
+    CONCILIACION_STOCK_WIX: 'ConciliacionStockWix',
+    REGISTRO_HORARIO: 'REGISTROHORARIO',
+  },
+  CONCURRENCY: { HEARTBEAT_MS: 15000, MUTEX_TTL_MS: 120000 },
+  SDK_CONFIG: {
+
+describe('Contratos de reschedule en bookingCore', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('expone rescheduleBookingElevated y delega en bookings.rescheduleBooking', async () => {
+    const { rescheduleBookingElevated } = await import('../src/backend/booking/bookingCore.js');
+    const { bookings } = await import('wix-bookings.v2');
+    bookings.rescheduleBooking.mockResolvedValue({ booking: { _id: 'bk-1', revision: 3 } });
+
+    const result = await rescheduleBookingElevated('bk-1', {
+      serviceId: '11111111-1111-1111-1111-111111111111',
+      startDate: new Date('2026-09-03T08:00:00Z'),
+      endDate: new Date('2026-09-03T08:30:00Z'),
+      resource: { _id: '22222222-2222-2222-2222-222222222222' },
+    }, { revision: '2' });
+
+    expect(result).toMatchObject({ ok: true, booking: { _id: 'bk-1', revision: 3 } });
+    expect(bookings.rescheduleBooking).toHaveBeenCalledTimes(1);
+    expect(bookings.rescheduleBooking).toHaveBeenCalledWith(expect.objectContaining({
+      bookingId: 'bk-1',
+      revision: '2',
+    }));
+  });
+
+  it('proyecta un slot de availability al formato Writer V2', async () => {
+    const { _projectWriterSlotFromAvailability } = await import('../src/backend/booking/bookingCore.js');
+    const slot = {
+      serviceId: '11111111-1111-1111-1111-111111111111',
+      scheduleId: '33333333-3333-3333-3333-333333333333',
+      localStartDate: '2026-09-03T10:00:00',
+      localEndDate: '2026-09-03T10:30:00',
+    };
+
+    const result = await _projectWriterSlotFromAvailability(
+      slot,
+      '22222222-2222-2222-2222-222222222222',
+      '11111111-1111-1111-1111-111111111111'
+    );
+
+    expect(result).toMatchObject({
+      serviceId: '11111111-1111-1111-1111-111111111111',
+      scheduleId: '33333333-3333-3333-3333-333333333333',
+    });
+    expect(result.resource).toEqual({ _id: '22222222-2222-2222-2222-222222222222' });
+    expect(result.startDate).toBeInstanceOf(Date);
+    expect(result.endDate).toBeInstanceOf(Date);
+  });
+
+  it('rechaza slot de reschedule con fechas invalidas', async () => {
+    const { _projectWriterSlotFromAvailability } = await import('../src/backend/booking/bookingCore.js');
+    const result = await _projectWriterSlotFromAvailability(
+      { serviceId: '11111111-1111-1111-1111-111111111111', localStartDate: 'nope' },
+      '22222222-2222-2222-2222-222222222222',
+      '11111111-1111-1111-1111-111111111111'
+    );
+    expect(result).toBeNull();
+  });
+});
+
+describe('Contratos de seguridad, inventario y horario', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('expone requireMarianManager en backend/security', async () => {
+    const mod = await import('../src/backend/security.js');
+    expect(typeof mod.requireMarianManager).toBe('function');
+  });
+
+  it('expone getInventoryReconciliationQueue en inventario.web', async () => {
+    const mod = await import('../src/backend/inventario.web.js');
+    expect(typeof mod.getInventoryReconciliationQueue).toBe('function');
+  });
+
+  it('expone getMyStaffContext en horario.web', async () => {
+    const mod = await import('../src/backend/horario.web.js');
+    expect(typeof mod.getMyStaffContext).toBe('function');
+  });
+});
+
+describe('Contrato de crons con bookingServiceSync', () => {
+  it('crons.js importa desde bookingServiceSync (singular) sin romper el modulo', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync(new URL('../src/backend/crons.js', import.meta.url), 'utf8');
+    expect(src).toContain('from "backend/bookingServiceSync"');
+    expect(src).not.toContain('from "backend/bookingsServiceSync"');
+  });
+});
+
+    TZ: 'Europe/Madrid',
+    LOCATION_ID: '7a12abfd-bf30-4847-bcdf-00dc573d4802',
+    LOCATION_TYPES: { TIME_SLOTS: 'BUSINESS', BOOKINGS_WRITER: 'OWNER_BUSINESS' },
+    TIMEOUTS: { API_MS: 15000 },
+    RATE_LIMIT: {},
+  },
+  TIPO_FICHAJE: { ENTRADA: 'ENTRADA', SALIDA: 'SALIDA', PAUSA_INICIO: 'PAUSA_INICIO', PAUSA_FIN: 'PAUSA_FIN', AJUSTE: 'AJUSTE' },
+  COLLAB_ROLES: { ADMIN: 'ADMIN', GESTION: 'GESTION', ESTILISTA: 'ESTILISTA' },
+}));
+
+}));
