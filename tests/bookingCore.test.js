@@ -79,6 +79,7 @@ vi.mock('backend/securityEngine', () => ({
 import { 
   _forceStaffInPristineSlot, 
   _generateSlotKey,
+  _lockSlotKeyOrFail,
   ERROR_CODES,
   createBookingError,
   _normalizeAddons,
@@ -183,6 +184,34 @@ describe('bookingCore', () => {
           { suppressAuth: true }
         );
         expect(result).toEqual({ _id: 'cita-1', status: 'CONFIRMED' });
+      });
+
+      it('debe normalizar meta persistido como JSON string antes de pasarlo al updater', async () => {
+        const wixData = await import('wix-data');
+        const query = wixData.default.query();
+        const eqQuery = query.eq();
+        eqQuery.limit.mockReturnValue(eqQuery);
+        eqQuery.find.mockResolvedValue({
+          items: [{ _id: 'cita-1', bookingId: 'booking-1', meta: '{"statusPago":"UNPAID","esCombinado":true}' }]
+        });
+        query.eq.mockReturnValue(eqQuery);
+        wixData.default.query.mockReturnValue(query);
+        wixData.default.update.mockResolvedValue({ _id: 'cita-1' });
+
+        const result = await _updateCitaSafe('booking-1', (cita) => {
+          const meta = cita.meta || {};
+          return {
+            ...cita,
+            meta: { ...meta, statusPago: 'PAID' }
+          };
+        });
+
+        expect(wixData.default.update).toHaveBeenCalledWith(
+          'CitasF2',
+          expect.objectContaining({ meta: { statusPago: 'PAID', esCombinado: true } }),
+          { suppressAuth: true }
+        );
+        expect(result.meta).toEqual({ statusPago: 'PAID', esCombinado: true });
       });
     });
 

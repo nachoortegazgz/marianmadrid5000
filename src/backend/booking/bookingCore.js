@@ -145,7 +145,22 @@ export async function _updateCitaSafe(bookingId, updater, traceId = "no-trace", 
     });
   }
 
-  const updated = await updater(current);
+  // FIX: normalize persisted meta. _persistBooking stores meta as a JSON
+  // string, and consumers spread it (e.g. { ...meta }). Spreading a string
+  // corrupts the record with index keys, so parse it back into an object
+  // before passing it to the updater.
+  const persistedMeta = current.meta;
+  let normalizedMeta = persistedMeta;
+  if (typeof normalizedMeta === "string") {
+    try {
+      normalizedMeta = JSON.parse(normalizedMeta);
+    } catch (_) {
+      normalizedMeta = {};
+    }
+  }
+  const currentForUpdater = normalizedMeta === persistedMeta ? current : { ...current, meta: normalizedMeta };
+
+  const updated = await updater(currentForUpdater);
   if (updated === null || updated === undefined) return current;
   const record = { ...updated, _id: current._id || updated._id || cleanBookingId };
   return wixData.update(CITAS_COLLECTION, record, { suppressAuth: true });
@@ -221,11 +236,28 @@ API_TIMEOUT_MS
 );
 
 if (existingLock.items && existingLock.items.length > 0) {
-const lock = existingLock.items[0];
+let hasActiveLock = false;
+const staleLocks = [];
+for (const lock of existingLock.items) {
 const lockAge = Date.now() - new Date(lock.createdAt).getTime();
-if (lockAge < ttlMs) {
-log.warn(`[bookingCore] Lock already held`, { lockKey, currentOwner: lock.ownerId });
+if (!Number.isFinite(lockAge) || lockAge < ttlMs) {
+hasActiveLock = true;
+break;
+}
+staleLocks.push(lock);
+}
+if (hasActiveLock) {
+log.warn(`[bookingCore] Lock already held`, { lockKey, currentOwner: existingLock.items[0].ownerId });
 return { ok: false, code: ERROR_CODES.TOKEN_BUSY, message: "Slot already locked" };
+}
+// FIX: release expired locks before acquiring. Without this, orphan ACQUIRED
+// records accumulate per lockKey and can block future acquisitions or allow
+// a stale record to be treated as an active lock (double-booking).
+for (const staleLock of staleLocks) {
+await withTimeout(
+wixData.update(LOCKS_COLLECTION, { _id: staleLock._id, status: "RELEASED", releasedAt: new Date() }),
+API_TIMEOUT_MS
+).catch(() => {});
 }
 }
 
