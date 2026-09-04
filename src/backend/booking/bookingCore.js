@@ -503,25 +503,27 @@ return { ok: false, code: ERROR_CODES.CHECKOUT_FAILED, message: error.message };
 
 export async function confirmOrDeclineBookingElevated(bookingId, action) {
 try {
+const isObjectAction = !!(action && typeof action === 'object');
+const paymentStatus = isObjectAction ? String(action.paymentStatus || '').toUpperCase() : '';
 const resolvedAction = typeof action === 'string'
 ? action.toLowerCase()
-: (action && typeof action === 'object' ? String(action.action || action.type || action.status || '').toLowerCase() : '');
+: (isObjectAction ? String(action.action || action.type || action.status || '').toLowerCase() : '');
 
-if (resolvedAction === 'confirm' || (!resolvedAction && action && typeof action === 'object' && action.paymentStatus !== 'DECLINED')) {
-const confirmPayload = action && typeof action === 'object' ? { bookingId, ...action } : { bookingId };
+if (resolvedAction === 'confirm' || (!resolvedAction && isObjectAction && paymentStatus !== 'DECLINED' && paymentStatus !== 'REFUNDED')) {
+const confirmPayload = isObjectAction ? { bookingId, ...action } : { bookingId };
 const result = await elevate(() => bookings.confirmBooking(confirmPayload));
 log.info(`[bookingCore] Booking confirmed`, { bookingId });
 return { ok: true, data: { bookingId, status: "CONFIRMED" } };
 }
 
-if (resolvedAction === 'decline' || (action && typeof action === 'object' && String(action.status || action.action || '').toLowerCase() === 'declined')) {
-const declinePayload = action && typeof action === 'object' ? { bookingId, ...action } : { bookingId };
+if (resolvedAction === 'decline' || paymentStatus === 'DECLINED' || (isObjectAction && String(action.status || action.action || '').toLowerCase() === 'declined')) {
+const declinePayload = isObjectAction ? { bookingId, ...action } : { bookingId };
 const result = await elevate(() => bookings.declineBooking(declinePayload));
 log.info(`[bookingCore] Booking declined`, { bookingId });
 return { ok: true, data: { bookingId, status: "DECLINED" } };
 }
 
-if (action && typeof action === 'object') {
+if (isObjectAction && paymentStatus !== 'DECLINED' && paymentStatus !== 'REFUNDED') {
 const confirmPayload = { bookingId, ...action };
 const result = await elevate(() => bookings.confirmBooking(confirmPayload));
 log.info(`[bookingCore] Booking confirmed`, { bookingId });

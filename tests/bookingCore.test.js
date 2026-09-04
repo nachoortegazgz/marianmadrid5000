@@ -450,6 +450,38 @@ describe('bookingCore', () => {
       expect(result.resourceId).toBe('33333333-3333-3333-3333-333333333333');
       expect(result.localEndDate).toBeDefined();
     });
+
+    it('debe declinar cuando paymentStatus es DECLINED (regresion: no confirmar)', async () => {
+      const wixBookings = await import('wix-bookings.v2');
+      wixBookings.bookings.declineBooking.mockResolvedValue({});
+      const { confirmOrDeclineBookingElevated } = await import('../src/backend/booking/bookingCore.js');
+
+      const result = await confirmOrDeclineBookingElevated('booking-3', {
+        paymentStatus: 'DECLINED',
+        revision: 2
+      });
+
+      expect(result).toMatchObject({ ok: true, data: { status: 'DECLINED' } });
+      expect(wixBookings.bookings.confirmBooking).not.toHaveBeenCalled();
+      expect(wixBookings.bookings.declineBooking).toHaveBeenCalledWith({
+        bookingId: 'booking-3',
+        paymentStatus: 'DECLINED',
+        revision: 2
+      });
+    });
+
+    it('debe rechazar paymentStatus REFUNDED sin confirmar ni declinar', async () => {
+      const wixBookings = await import('wix-bookings.v2');
+      const { confirmOrDeclineBookingElevated } = await import('../src/backend/booking/bookingCore.js');
+
+      const result = await confirmOrDeclineBookingElevated('booking-4', {
+        paymentStatus: 'REFUNDED'
+      });
+
+      expect(result.ok).toBe(false);
+      expect(wixBookings.bookings.confirmBooking).not.toHaveBeenCalled();
+      expect(wixBookings.bookings.declineBooking).not.toHaveBeenCalled();
+    });
   });
 
   it('debe conservar el contexto estructurado del error', async () => {

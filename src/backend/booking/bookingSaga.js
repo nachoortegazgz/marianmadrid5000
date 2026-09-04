@@ -137,14 +137,60 @@ function _resolveStablePairToken({ metaCita, unsafePayload, email, phaseOneServi
   return `pt_${hashSHA256(hashInput).substring(0, 16)}_${emailHash}`;
 }
 
-function _extractCheckoutId(checkoutSession) {
+export function _extractCheckoutId(checkoutSession) {
+  // createCheckoutElevated devuelve { ok, data: { checkoutId, status } }.
+  // Se soporta tambien el shape crudo de Wix ({ checkout: { _id } }) y el
+  // envelope legacy por compatibilidad.
   return (
+    checkoutSession?.data?.checkout?._id ||
+    checkoutSession?.data?.checkout?.id ||
+    checkoutSession?.data?.checkoutId ||
+    checkoutSession?.data?._id ||
+    checkoutSession?.data?.id ||
     checkoutSession?.checkout?._id ||
     checkoutSession?.checkout?.id ||
     checkoutSession?._id ||
     checkoutSession?.id ||
     null
   );
+}
+
+/**
+ * Compensacion best-effort de bookings ya creados en Wix: intenta cancelarlos
+ * y, si la cancelacion no confirma (incluye { ok:false } que nunca lanza),
+ * registra una compensacion PENDING para que el worker la reintente.
+ */
+export async function _compensateCreatedBookings(createdBookings, traceId) {
+  for (const b of createdBookings) {
+    let cancelled = false;
+    try {
+      const cancelRes = await cancelBookingElevated(b.bookingId, {
+        revision: b.revision,
+        flowControlSettings: { ignoreCancellationPolicy: true }
+      });
+      cancelled = !!cancelRes?.ok;
+    } catch (_cancelError) {
+      cancelled = false;
+    }
+    if (!cancelled) {
+      // El insert de compensacion pendiente se espera (await) para no perderlo.
+      try {
+        await withTimeout(
+          wixData.insert(
+            COMPENSATIONS_COLLECTION,
+            { bookingId: b.bookingId, phase: b.phase.key, status: 'PENDING', attempts: 0, traceId },
+            { suppressAuth: true }
+          ),
+          API_TIMEOUT_MS,
+          'insertCompensationPending'
+        );
+      } catch (_insertError) {
+        // Best-effort: si tampoco se puede registrar la compensacion pendiente,
+        // se deja constancia solo en logs (no hay mas fallback disponible).
+        log.error('insertCompensationPending failed', { bookingId: b.bookingId, traceId });
+      }
+    }
+  }
 }
 
 async function _bestEffortUnlockAll(lockKeys, lockOwnerId) {
@@ -215,6 +261,8 @@ export async function executeBookingSaga(unsafePayload) {
   let lockOwnerId = null;
   let transactionId = null;
   let sagaSteps = []; // DECLARADA EN FUNCTION SCOPE PARA ELIMINAR no-undef LINTER ERROR
+  let createdBookings = [];
+  let sagaCompleted = false;
 
   try {
     if (!unsafePayload || typeof unsafePayload !== 'object') {
@@ -490,7 +538,7 @@ export async function executeBookingSaga(unsafePayload) {
     }
 
     const saga = new BookingSagaOrchestrator(traceId);
-    const createdBookings = [];
+    createdBookings = [];
     let checkoutSession = null;
     let checkoutUrl = null;
 
@@ -671,33 +719,7 @@ export async function executeBookingSaga(unsafePayload) {
           return { ok: true };
         },
         async () => {
-          for (const b of createdBookings) {
-            try {
-              await cancelBookingElevated(b.bookingId, {
-                revision: b.revision,
-                flowControlSettings: { ignoreCancellationPolicy: true }
-              });
-            } catch (_cancelError) {
-              // FIX v5001: el insert de compensacion pendiente ahora se espera (await)
-              // en lugar de dispararse sin esperar (fire-and-forget), evitando que el
-              // registro PENDING se pierda si el proceso continua antes de persistirlo.
-              try {
-                await withTimeout(
-                  wixData.insert(
-                    COMPENSATIONS_COLLECTION,
-                    { bookingId: b.bookingId, phase: b.phase.key, status: 'PENDING', attempts: 0, traceId },
-                    { suppressAuth: true }
-                  ),
-                  API_TIMEOUT_MS,
-                  'insertCompensationPending'
-                );
-              } catch (_insertError) {
-                // Best-effort: si tampoco se puede registrar la compensacion pendiente,
-                // se deja constancia solo en logs (no hay mas fallback disponible).
-                log.error('insertCompensationPending failed', { bookingId: b.bookingId, traceId });
-              }
-            }
-          }
+          await _compensateCreatedBookings(createdBookings, traceId);
         }
       )
     );
@@ -759,6 +781,8 @@ export async function executeBookingSaga(unsafePayload) {
     }
 
     await saga.execute(sagaSteps);
+    sagaCompleted = true; // FIX: si algo falla despues (persistencia/completion),
+    // el catch sabra que los bookings ya fueron creados en Wix y debe compensarlos.
 
     const paymentPlan = {
       isOnline: needsCheckout,
@@ -854,6 +878,13 @@ export async function executeBookingSaga(unsafePayload) {
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
       heartbeatInterval = null;
+    }
+    // FIX: si el fallo ocurre despues de crear los bookings en Wix (p. ej. al
+    // persistir en CitasF2 o al completar la transaccion), el rollback del saga
+    // ya no puede ejecutarse; se compensan los bookings creados para no dejarlos
+    // huerfanos (confirmados en Wix sin registro local).
+    if (sagaCompleted && createdBookings.length > 0) {
+      await _compensateCreatedBookings(createdBookings, traceId);
     }
     if (lockKeys.length > 0 && lockOwnerId) {
       await _bestEffortUnlockAll(lockKeys, lockOwnerId);

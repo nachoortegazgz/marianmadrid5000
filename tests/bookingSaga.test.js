@@ -61,6 +61,7 @@ vi.mock('public/mmUtils', () => ({
   makeTraceId: vi.fn(() => 'trace-' + Date.now()),
   _toDateSafe: vi.fn((val) => new Date(val)),
   _hashKey: vi.fn((str) => 'hash-' + str),
+  withTimeout: (promise) => Promise.resolve(promise),
 }));
 
 vi.mock('backend/securityEngine', () => ({
@@ -198,5 +199,58 @@ describe('bookingSaga - Integración Dinámica', () => {
     expect(_safeTrim('')).toBe('');
     expect(_safeTrim(null)).toBe('');
     expect(_safeTrim(undefined)).toBe('');
+  });
+
+  it('_extractCheckoutId extrae el checkoutId del envelope de createCheckoutElevated', async () => {
+    const { _extractCheckoutId } = await import('../src/backend/booking/bookingSaga.js');
+
+    // Contrato actual: createCheckoutElevated devuelve { ok, data: { checkoutId, status } }
+    expect(_extractCheckoutId({ ok: true, data: { checkoutId: 'co-123', status: 'APPROVED' } }))
+      .toBe('co-123');
+    // Shapes legacy/raw soportados
+    expect(_extractCheckoutId({ checkout: { _id: 'co-raw' } })).toBe('co-raw');
+    expect(_extractCheckoutId({ _id: 'co-legacy' })).toBe('co-legacy');
+    // Fracaso del checkout: no debe lanzar, debe devolver null
+    expect(_extractCheckoutId({ ok: false, code: 'CHECKOUT_FAILED', message: 'boom' })).toBeNull();
+    expect(_extractCheckoutId(null)).toBeNull();
+  });
+
+  it('_compensateCreatedBookings cancela los bookings creados en Wix', async () => {
+    const { bookings } = await import('wix-bookings.v2');
+    const wixData = await import('wix-data');
+    const { _compensateCreatedBookings } = await import('../src/backend/booking/bookingSaga.js');
+
+    bookings.cancelBooking.mockResolvedValue({});
+    await _compensateCreatedBookings([
+      { bookingId: 'b1', revision: 1, phase: { key: 'F1' } }
+    ], 'trace-1');
+
+    expect(bookings.cancelBooking).toHaveBeenCalledWith({
+      bookingId: 'b1',
+      revision: 1,
+      flowControlSettings: { ignoreCancellationPolicy: true }
+    });
+    // Cancelacion OK: no se registra compensacion pendiente
+    expect(wixData.default.insert).not.toHaveBeenCalled();
+  });
+
+  it('_compensateCreatedBookings registra PENDING si la cancelacion falla (no lanza)', async () => {
+    const { bookings } = await import('wix-bookings.v2');
+    const wixData = await import('wix-data');
+    const { _compensateCreatedBookings } = await import('../src/backend/booking/bookingSaga.js');
+
+    // cancelBookingElevated captura el error y devuelve { ok:false } (nunca lanza)
+    bookings.cancelBooking.mockRejectedValue(new Error('network'));
+    wixData.default.insert.mockResolvedValue({ _id: 'comp-1' });
+
+    await _compensateCreatedBookings([
+      { bookingId: 'b2', revision: 2, phase: { key: 'F2' } }
+    ], 'trace-2');
+
+    expect(wixData.default.insert).toHaveBeenCalledWith(
+      'PendingCompensations',
+      { bookingId: 'b2', phase: 'F2', status: 'PENDING', attempts: 0, traceId: 'trace-2' },
+      { suppressAuth: true }
+    );
   });
 });
