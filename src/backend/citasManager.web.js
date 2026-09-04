@@ -124,7 +124,13 @@ if (!unsafePayload.metaCita || typeof unsafePayload.metaCita !== "object") throw
     const slotF1 = unsafePayload.slotF1 || {};
      const slotF2 = unsafePayload.slotF2 || null;
      const metaCita = unsafePayload.metaCita;
-     const serviceId = _extractRelationalId(slotF1.serviceId || metaCita.serviceId || "");
+     const serviceId = _extractRelationalId(
+         slotF1.serviceId ||
+         metaCita.serviceId ||
+         metaCita.primaryServiceId ||
+         unsafePayload.primaryServiceId ||
+         ""
+     );
      if (!_looksLikeGuid(serviceId)) {
          return { status: "ERROR", data: null, error: { code: "SERVICE_ID_INVALID", message: "The first booking phase requires a valid serviceId." } };
      }

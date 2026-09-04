@@ -23,6 +23,9 @@ vi.mock('wix-ecom-backend', () => ({
     createCheckout: vi.fn(),
     getCheckoutUrl: vi.fn(),
   },
+  orders: {
+    getOrder: vi.fn(),
+  },
 }));
 
 vi.mock('wix-auth', () => ({
@@ -67,7 +70,34 @@ vi.mock('wix-web-module', () => ({
   Permissions: {
     SiteMember: 'SITE_MEMBER',
     Admin: 'ADMIN',
+    Anyone: 'ANYONE',
   },
+}));
+
+vi.mock('backend/booking/bookingSaga', () => ({
+  executeBookingSaga: vi.fn(async () => ({ status: 'SUCCESS', data: null, error: null })),
+}));
+
+vi.mock('backend/cajas.web', () => ({
+  registerBookingPayment: vi.fn(),
+  queueFiscalRecovery: vi.fn(),
+}));
+
+vi.mock('backend/security', () => ({
+  requireAdmin: vi.fn(),
+  requireMarianManager: vi.fn(),
+  isAdmin: vi.fn(),
+  rateLimiter: vi.fn(() => ({ allowed: true })),
+}));
+
+vi.mock('backend/responseUtils', () => ({
+  _toPublicError: vi.fn((error, code) => ({ code, message: error?.message })),
+}));
+
+vi.mock('backend/reservas.web', () => ({
+  getServiceForBookingInternal: vi.fn(),
+  _invalidateCachesInternal: vi.fn(),
+  revalidateExactAvailabilitySlot: vi.fn(),
 }));
 
 vi.mock('backend/staff', () => ({
@@ -161,6 +191,31 @@ describe('Contratos de reschedule en bookingCore', () => {
       '11111111-1111-1111-1111-111111111111'
     );
     expect(result).toBeNull();
+  });
+});
+
+describe('Contrato del facade de reservas', () => {
+  it('acepta primaryServiceId en metaCita y delega en el saga', async () => {
+    const { processDualBooking } = await import('../src/backend/citasManager.web.js');
+    const { executeBookingSaga } = await import('backend/booking/bookingSaga');
+
+    const payload = {
+      cliente: { email: 'cliente@example.com' },
+      metaCita: {
+        primaryServiceId: '11111111-1111-4111-8111-111111111111',
+      },
+      slotF1: {
+        localStartDate: '2026-09-04T10:00:00',
+      },
+    };
+
+    await processDualBooking(payload);
+
+    expect(executeBookingSaga).toHaveBeenCalledWith(expect.objectContaining({
+      metaCita: expect.objectContaining({
+        serviceId: '11111111-1111-4111-8111-111111111111',
+      }),
+    }));
   });
 });
 
