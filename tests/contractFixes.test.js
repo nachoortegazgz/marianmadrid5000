@@ -60,6 +60,7 @@ vi.mock('wix-secrets-backend', () => ({
       ADMIN_EMAILS: 'admin@example.com',
       CAJERO_EMAILS: 'cajero@example.com',
       SECRET_AUTH_JWT_KEY: 'mock-jwt-key',
+      POWER_AUTOMATE_TOKEN: 'm365-secret',
     };
     return secrets[key] || '';
   }),
@@ -72,6 +73,12 @@ vi.mock('wix-web-module', () => ({
     Admin: 'ADMIN',
     Anyone: 'ANYONE',
   },
+}));
+vi.mock('wix-http-functions', () => ({
+  ok: vi.fn((options) => ({ status: 200, ...options })),
+  badRequest: vi.fn((options) => ({ status: 400, ...options })),
+  unauthorized: vi.fn((options) => ({ status: 401, ...options })),
+  serverError: vi.fn((options) => ({ status: 500, ...options })),
 }));
 
 vi.mock('backend/booking/bookingSaga', () => ({
@@ -237,6 +244,40 @@ describe('Contratos de seguridad, inventario y horario', () => {
   it('expone getMyStaffContext en horario.web', async () => {
     const mod = await import('../src/backend/horario.web.js');
     expect(typeof mod.getMyStaffContext).toBe('function');
+  });
+  it('valida el webhook M365 con el secreto de Secrets Manager', async () => {
+    const { post_webhook_m365 } = await import('../src/backend/http-functions.js');
+    const { hmacSha256Hex } = await import('../src/backend/securityEngine.js');
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const body = JSON.stringify({ eventType: 'LEDGER_MOVEMENT' });
+    const signature = hmacSha256Hex('m365-secret', `${timestamp}.${body}`);
+
+    const result = await post_webhook_m365({
+      headers: { 'x-mm-signature': signature, 'x-mm-timestamp': timestamp },
+      body,
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ received: true, eventType: 'LEDGER_MOVEMENT' });
+  });
+
+  it('propaga los fallos de persistencia del inventario online', async () => {
+    const { recordOnlineInventoryOrderInternal } = await import('../src/backend/inventario.web.js');
+    const wixData = await import('wix-data');
+    const query = {
+      eq: vi.fn(),
+      limit: vi.fn(),
+      find: vi.fn(),
+    };
+    query.eq.mockReturnValue(query);
+    query.limit.mockReturnValue(query);
+    query.find.mockResolvedValue({ items: [{ _id: 'product-1', sku: 'SKU-1', stockActual: 4 }] });
+    wixData.default.query.mockReturnValue(query);
+    wixData.default.insert.mockRejectedValue(new Error('inventory write failed'));
+
+    await expect(recordOnlineInventoryOrderInternal({ _id: 'order-1', lineItems: [{ sku: 'SKU-1', quantity: 1 }] }, 'trace-1'))
+      .rejects.toThrow('inventory write failed');
+    expect(wixData.default.update).not.toHaveBeenCalled();
   });
 });
 

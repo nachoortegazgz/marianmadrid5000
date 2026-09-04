@@ -566,9 +566,12 @@ return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.me
 }
 
 export async function _forceStaffInPristineSlot(slot, resourceId, primaryServiceGuid, durationMinutes) {
-const legacyDurationSignature = typeof primaryServiceGuid === 'number' && durationMinutes === undefined;
+const legacyDurationSignature = durationMinutes === undefined && (
+  typeof primaryServiceGuid === 'number' ||
+  (typeof primaryServiceGuid === 'string' && /^\d+(?:\.\d+)?$/.test(primaryServiceGuid.trim()))
+);
 if (legacyDurationSignature) {
-durationMinutes = primaryServiceGuid;
+durationMinutes = Number(primaryServiceGuid);
 primaryServiceGuid = slot?.primaryServiceGuid || slot?.serviceId || null;
 }
 

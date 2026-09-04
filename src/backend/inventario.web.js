@@ -116,13 +116,13 @@ source: "WIX_ECOM_ORDER",
 traceId,
 createdAt: new Date(),
 };
-await wixData.insert(MOVIMIENTO_COL, movement, { suppressAuth: true }).catch(() => null);
+await wixData.insert(MOVIMIENTO_COL, movement, { suppressAuth: true });
 const { _createdDate, _updatedDate, _owner, ...safeProduct } = product;
 await wixData.update(INVENTARIO_COL, {
 ...safeProduct,
 stockActual: newStock,
 updatedAt: new Date(),
-}, { suppressAuth: true }).catch(() => null);
+}, { suppressAuth: true });
 recorded++;
 }
 return { status: "SUCCESS", data: { recorded }, error: null };
@@ -163,13 +163,13 @@ source: "WIX_ECOM_REFUND",
 traceId,
 createdAt: new Date(),
 };
-await wixData.insert(MOVIMIENTO_COL, movement, { suppressAuth: true }).catch(() => null);
+await wixData.insert(MOVIMIENTO_COL, movement, { suppressAuth: true });
 const { _createdDate, _updatedDate, _owner, ...safeProduct } = product;
 await wixData.update(INVENTARIO_COL, {
 ...safeProduct,
 stockActual: newStock,
 updatedAt: new Date(),
-}, { suppressAuth: true }).catch(() => null);
+}, { suppressAuth: true });
 recorded++;
 }
 return { status: "SUCCESS", data: { recorded }, error: null };

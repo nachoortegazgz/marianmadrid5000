@@ -16,7 +16,7 @@ import { COLLECTIONS, SDK_CONFIG } from "backend/internalConfig";
 import { SECRETS } from "backend/mmSecrets";
 import { requireMarianManager } from "backend/security";
 import { _toPublicError } from "backend/responseUtils";
-import { getQuarterlyTaxSummary, getLibroRegistroFacturasExpedidas } from "backend/fiscalAggregator.web";
+import { getQuarterlyTaxSummary, getLibroRegistroFacturasExpedidasInternal } from "backend/fiscalAggregator.web";
 
 const CMS_TIMEOUT_MS = Number(SDK_CONFIG?.TIMEOUTS?.CMS_MS) || 15000;
 
@@ -35,7 +35,7 @@ export const previewManagerPackage = webMethod(Permissions.SiteMember, async (pe
 
         const [summaryRes, bookRes] = await Promise.all([
             getQuarterlyTaxSummary(year, quarter, { traceId }),
-            getLibroRegistroFacturasExpedidas(year, quarter, { traceId }),
+            getLibroRegistroFacturasExpedidasInternal(year, quarter, { traceId, rateLimitKey: "manager" }),
         ]);
 
         return {
@@ -68,7 +68,7 @@ export const createManagerPackageVersion = webMethod(Permissions.SiteMember, asy
 
         const [summaryRes, bookRes] = await Promise.all([
             getQuarterlyTaxSummary(year, quarter, { traceId }),
-            getLibroRegistroFacturasExpedidas(year, quarter, { traceId }),
+            getLibroRegistroFacturasExpedidasInternal(year, quarter, { traceId, rateLimitKey: "manager" }),
         ]);
 
         const record = {

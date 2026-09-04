@@ -25,7 +25,7 @@ return authHeader.substring(7).trim();
 }
 return "";
 }
-function _validateHMACSignature(request, bodyString, traceId) {
+async function _validateHMACSignature(request, bodyString, traceId) {
 const signature = request.headers["x-mm-signature"] || "";
 const timestamp = request.headers["x-mm-timestamp"] || "";
 if (!signature || !timestamp) return false;
@@ -34,8 +34,13 @@ const reqTimestamp = parseInt(timestamp, 10);
 if (isNaN(reqTimestamp) || Math.abs(now - reqTimestamp) > HMAC_MAX_CLOCK_SKEW_SECONDS) {
 return false;
 }
+const secret = await getSecret(SECRETS.POWER_AUTOMATE).catch((error) => {
+log.error("M365 webhook secret lookup failed", { traceId, error: error?.message });
+return "";
+});
+if (!secret) return false;
 const payload = `${timestamp}.${bodyString}`;
-const expectedSignature = hmacSha256Hex("PENDING_SECRET", payload);
+const expectedSignature = hmacSha256Hex(secret, payload);
 return signature === expectedSignature;
 }
 export async function get_service(request) {
@@ -84,7 +89,7 @@ export async function post_webhook_m365(request) {
 const traceId = _safeTraceId("http-m365");
 try {
 const bodyString = typeof request.body === "string" ? request.body : JSON.stringify(request.body || {});
-const isValid = _validateHMACSignature(request, bodyString, traceId);
+const isValid = await _validateHMACSignature(request, bodyString, traceId);
 if (!isValid) {
 log.warn("M365 webhook HMAC validation failed", { traceId });
 return unauthorized({ body: { error: "UNAUTHORIZED" } });

@@ -223,11 +223,10 @@ export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (y
     }
 });
 
-export const getLibroRegistroFacturasExpedidas = webMethod(Permissions.Admin, async (year, quarter, options = {}) => {
+export async function getLibroRegistroFacturasExpedidasInternal(year, quarter, options = {}) {
     const traceId = options.traceId || makeTraceId("libro-registro");
     try {
-        _rateLimitOrThrow("fiscal.getLibroRegistroFacturasExpedidas", "admin", traceId);
-        await requireAdmin(traceId);
+        _rateLimitOrThrow("fiscal.getLibroRegistroFacturasExpedidas", options.rateLimitKey || "internal", traceId);
 
         const y = Number(year);
         const q = Number(quarter);
@@ -297,6 +296,21 @@ export const getLibroRegistroFacturasExpedidas = webMethod(Permissions.Admin, as
         };
     } catch (err) {
         log.error("getLibroRegistroFacturasExpedidas failed", { error: err?.message, traceId });
+        return { status: "ERROR", data: null, error: _toPublicError(err, "LIBRO_REGISTRO_FAIL") };
+    }
+}
+
+export const getLibroRegistroFacturasExpedidas = webMethod(Permissions.Admin, async (year, quarter, options = {}) => {
+    const traceId = options.traceId || makeTraceId("libro-registro");
+    try {
+        await requireAdmin(traceId);
+        return await getLibroRegistroFacturasExpedidasInternal(year, quarter, {
+            ...options,
+            traceId,
+            rateLimitKey: "admin",
+        });
+    } catch (err) {
+        log.error("getLibroRegistroFacturasExpedidas authorization failed", { error: err?.message, traceId });
         return { status: "ERROR", data: null, error: _toPublicError(err, "LIBRO_REGISTRO_FAIL") };
     }
 });

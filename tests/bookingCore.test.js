@@ -451,6 +451,24 @@ describe('bookingCore', () => {
       expect(result.localEndDate).toBeDefined();
     });
 
+    it('debe aceptar la duracion legacy serializada como string', async () => {
+      const slot = {
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        localStartDate: '2026-09-02T10:00:00',
+      };
+      const { _forceStaffInPristineSlot } = await import('../src/backend/booking/bookingCore.js');
+
+      const result = await _forceStaffInPristineSlot(
+        slot,
+        '33333333-3333-3333-3333-333333333333',
+        '30'
+      );
+
+      expect(result).not.toBeNull();
+      expect(result.localEndDate).toBeDefined();
+    });
+
     it('debe declinar cuando paymentStatus es DECLINED (regresion: no confirmar)', async () => {
       const wixBookings = await import('wix-bookings.v2');
       wixBookings.bookings.declineBooking.mockResolvedValue({});
