@@ -149,7 +149,7 @@ describe('bookingSaga - Integración Dinámica', () => {
     const { _forceStaffInPristineSlot } = await import('../src/backend/booking/bookingCore.js');
     
     const slot = {
-      primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+      serviceId: '11111111-1111-1111-1111-111111111111',
       scheduleId: '22222222-2222-2222-2222-222222222222',
       localStartDate: '2026-09-02T10:00:00',
     };
@@ -167,7 +167,6 @@ describe('bookingSaga - Integración Dinámica', () => {
     
     const slot = {
       serviceId: '11111111-1111-1111-1111-111111111111',
-      primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
       scheduleId: '22222222-2222-2222-2222-222222222222',
       resourceId: '44444444-4444-4444-4444-444444444444',
       localStartDate: '2026-09-02T10:00:00',

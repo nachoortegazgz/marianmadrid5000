@@ -10,7 +10,7 @@ describe('Integracion - flujos criticos', () => {
     const { _forceStaffInPristineSlot, createBookingElevated } = await import('../src/backend/booking/bookingCore.js');
     const { bookings } = await import('wix-bookings.v2');
     const service = createMockService();
-    const slot = createMockSlot({ primaryServiceGuid: service.serviceId });
+    const slot = createMockSlot({ serviceId: service.serviceId });
     bookings.createBooking = vi.fn().mockResolvedValue({
       booking: { _id: 'booking-123', revision: 1 }
     });

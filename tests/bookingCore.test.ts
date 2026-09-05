@@ -69,7 +69,7 @@ describe('bookingCore.ts', () => {
   describe('_generateSlotKey', () => {
     it('debe generar clave única para slot válido', () => {
       const slot = {
-        primaryServiceGuid: 'srv-1',
+        serviceId: 'srv-1',
         scheduleId: 'sch-1',
         localStartDate: '2026-09-02T10:00:00',
         resourceId: 'res-1'
@@ -79,7 +79,7 @@ describe('bookingCore.ts', () => {
     });
 
     it('debe retornar null si faltan campos requeridos', () => {
-      const slot = { primaryServiceGuid: 'srv-1' };
+      const slot = { serviceId: 'srv-1' };
       expect(_generateSlotKey(slot)).toBeNull();
     });
   });
@@ -87,7 +87,7 @@ describe('bookingCore.ts', () => {
   describe('_projectCertifiedSlot', () => {
     it('debe proyectar slot válido a formato certificado', () => {
       const slot = {
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: '22222222-2222-4222-8222-222222222222',
         localStartDate: '2026-09-02T10:00:00',
         localEndDate: '2026-09-02T10:30:00',
@@ -109,14 +109,14 @@ describe('bookingCore.ts', () => {
       });
     });
 
-    it('debe retornar null si falta primaryServiceGuid', () => {
+    it('debe retornar null si falta serviceId', () => {
       const slot = { resourceId: 'res-1' };
       expect(_projectCertifiedSlot(slot)).toBeNull();
     });
 
     it('debe retornar null si resourceId no es GUID válido', () => {
       const slot = {
-        primaryServiceGuid: 'srv-1',
+        serviceId: 'srv-1',
         resourceId: 'invalid-id'
       };
       expect(_projectCertifiedSlot(slot)).toBeNull();
@@ -141,13 +141,13 @@ describe('bookingCore.ts', () => {
     });
 
     it('debe retornar null si el resourceId no es GUID válido', async () => {
-      const slot = { primaryServiceGuid: 'srv-1' };
+      const slot = { serviceId: 'srv-1' };
       const result = await _forceStaffInPristineSlot(slot, 'invalid-id', 'srv-1', 30);
       expect(result).toBeNull();
     });
 
     it('debe retornar null si falta localStartDate', async () => {
-      const slot = { primaryServiceGuid: 'srv-1' };
+      const slot = { serviceId: 'srv-1' };
       const result = await _forceStaffInPristineSlot(
         slot, 
         '33333333-3333-4333-8333-333333333333', 
@@ -159,7 +159,7 @@ describe('bookingCore.ts', () => {
 
     it('debe retornar null si localStartDate es fecha inválida', async () => {
       const slot = { 
-        primaryServiceGuid: 'srv-1',
+        serviceId: 'srv-1',
         localStartDate: 'not-a-date'
       };
       const result = await _forceStaffInPristineSlot(
@@ -173,7 +173,7 @@ describe('bookingCore.ts', () => {
 
     it('debe proyectar slot con shape correcto cuando es válido', async () => {
       const slot = {
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: '22222222-2222-4222-8222-222222222222',
         localStartDate: '2026-09-02T10:00:00',
       };
@@ -205,21 +205,21 @@ describe('bookingCore.ts', () => {
         .rejects.toThrow('Missing required fields');
     });
 
-    it('debe lanzar error si primaryServiceGuid no es GUID válido', async () => {
+    it('debe lanzar error si serviceId no es GUID válido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        primaryServiceGuid: 'invalid-guid',
+        serviceId: 'invalid-guid',
         scheduleId: 'sch-1'
       };
       
       await expect(_persistBooking(params, 'trace-1'))
-        .rejects.toThrow('Invalid primaryServiceGuid');
+        .rejects.toThrow('Invalid serviceId');
     });
 
     it('debe lanzar error si tipo de booking es inválido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: 'sch-1',
         startDate: new Date(),
         endDate: new Date(),
@@ -234,7 +234,7 @@ describe('bookingCore.ts', () => {
     it('debe lanzar error si estado de pago es inválido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: 'sch-1',
         startDate: new Date(),
         endDate: new Date(),
@@ -250,7 +250,7 @@ describe('bookingCore.ts', () => {
       const params = {
         bookingId: 'book-123',
         revision: 1,
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: '22222222-2222-4222-8222-222222222222',
         resourceId: '33333333-3333-4333-8333-333333333333',
         startDate: new Date('2026-09-02T10:00:00'),

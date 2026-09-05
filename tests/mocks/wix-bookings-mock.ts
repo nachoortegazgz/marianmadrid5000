@@ -2,7 +2,7 @@
 // Mock de wix-bookings.v2 para tests unitarios
 
 export interface Slot {
-  primaryServiceGuid: string;
+  serviceId: string;
   scheduleId: string;
   resourceId?: string;
   localStartDate?: string;

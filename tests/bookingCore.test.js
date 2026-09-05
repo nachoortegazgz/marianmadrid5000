@@ -120,7 +120,7 @@ describe('bookingCore', () => {
 
     it('debe calcular localEndDate si no existe y se proporciona durationMinutes', async () => {
       const slot = {
-        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        serviceId: '11111111-1111-1111-1111-111111111111',
         scheduleId: '22222222-2222-2222-2222-222222222222',
         localStartDate: '2026-09-02T10:00:00',
       };

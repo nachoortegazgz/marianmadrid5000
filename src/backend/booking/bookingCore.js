@@ -566,19 +566,19 @@ return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.me
 }
 }
 
-export async function _forceStaffInPristineSlot(slot, resourceId, primaryServiceGuid, durationMinutes) {
+export async function _forceStaffInPristineSlot(slot, resourceId, serviceId, durationMinutes) {
 const legacyDurationSignature = durationMinutes === undefined && (
-  typeof primaryServiceGuid === 'number' ||
-  (typeof primaryServiceGuid === 'string' && /^\d+(?:\.\d+)?$/.test(primaryServiceGuid.trim()))
+  typeof serviceId === 'number' ||
+  (typeof serviceId === 'string' && /^\d+(?:\.\d+)?$/.test(serviceId.trim()))
 );
 if (legacyDurationSignature) {
-durationMinutes = Number(primaryServiceGuid);
-primaryServiceGuid = slot?.primaryServiceGuid || slot?.serviceId || null;
+durationMinutes = Number(serviceId);
+serviceId = slot?.serviceId || null;
 }
 
-// VALIDACION CRITICA: Verificar primaryServiceGuid
-if (!primaryServiceGuid) {
-logger.warn('[bookingCore] _forceStaffInPristineSlot: primaryServiceGuid missing', { slot });
+// VALIDACION CRITICA: Verificar serviceId
+if (!serviceId) {
+logger.warn('[bookingCore] _forceStaffInPristineSlot: serviceId missing', { slot });
 return null;
 }
 
@@ -602,7 +602,7 @@ return null;
 
 const pristineSlot = { ...slot };
 pristineSlot.resourceId = resourceId;
-pristineSlot.serviceId = primaryServiceGuid;
+pristineSlot.serviceId = serviceId;
 
 if (durationMinutes && !pristineSlot.localEndDate) {
 pristineSlot.localEndDate = getMadridLocalStringNoZ(new Date(startDate.getTime() + durationMinutes * 60000));
