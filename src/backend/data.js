@@ -54,9 +54,8 @@ if (!item || typeof item !== "object" || context?.suppressHooks === true) return
 _normalizeBoundedText(item, "title", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
 _normalizeBoundedText(item, "tagLine", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
 _normalizeBoundedText(item, "description", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
-_normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
-_normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
-_normalizeBoundedText(item, "descripcionLarga", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
+_normalizeBoundedText(item, "tagLine", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
+_normalizeBoundedText(item, "description", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
 const estado = _normalizeCatalogReference(item.estado);
 if (estado) {
 if (!SERVICE_STATES.has(estado)) {
@@ -69,24 +68,23 @@ if (categoria) {
 item.categoryName = categoria;
 item.nombreCategoria = categoria;
 }
-const moneda = _normalizeCatalogReference(item.moneda || item.monedaCatalogo);
-if (moneda && moneda !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
+const currency = _normalizeCatalogReference(item.currency || item.moneda);
+if (currency && currency !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
 throw new Error("SERVICE_VALIDATION: only EUR is supported by this catalog.");
 }
 if (item.price !== undefined && item.price !== null && item.price !== "") {
-const precio = Number(item.price);
-if (!Number.isFinite(precio) || precio < 0) {
-throw new Error("SERVICE_VALIDATION: precio must be a non-negative number.");
+const price = Number(item.price);
+if (!Number.isFinite(price) || price < 0) {
+throw new Error("SERVICE_VALIDATION: price must be a non-negative number.");
 }
-item.price = precio;
-item.precio = precio;
+item.price = price;
 }
-const f1 = _readDuration(item, "tiempoFaseUno") || _readDuration(item, "tiempoFase1");
-const gap = _readDuration(item, "tiempoExposicion");
-const f2 = _readDuration(item, "tiempoFaseDos") || _readDuration(item, "tiempoFase2");
-item.tiempoFaseUno = f1;
+const f1 = _readDuration(item, "phase1Duration") || _readDuration(item, "tiempoFase1");
+const gap = _readDuration(item, "exposureDuration") || _readDuration(item, "tiempoExposicion");
+const f2 = _readDuration(item, "phase2Duration") || _readDuration(item, "tiempoFase2");
+item.phase1Duration = f1;
 item.exposureDuration = gap;
-item.tiempoFaseDos = f2;
+item.phase2Duration = f2;
 const totalCalculado = f1 + gap + f2;
 if (totalCalculado > 0) {
 item.totalDuration = Math.round(totalCalculado * 100) / 100;

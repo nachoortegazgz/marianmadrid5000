@@ -72,12 +72,12 @@ const res = await wixData.default
 .find({ suppressAuth: true });
 const services = (res?.items || []).map((s) => ({
 serviceId: s.serviceId || s.serviceId || s._id,
-tituloServicio: s.title || s.title || "",
-slugUrl: s.slugUrl || "",
-precio: Number(s.precio || 0),
-duracionTotal: Number(s.totalDuration || 0),
-permitirCombinar: s.allowCombine === true,
-linkFases: _safeTrim(s.linkedPhases || s.idServicioFaseDos || ""),
+title: s.title || "",
+slug: s.slug || "",
+price: Number(s.price || 0),
+totalDuration: Number(s.totalDuration || 0),
+allowCombine: s.allowCombine === true,
+linkedPhases: _safeTrim(s.linkedPhases || ""),
 }));
 return ok({ body: { services } });
 } catch (error) {
