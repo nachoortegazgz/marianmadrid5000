@@ -617,10 +617,19 @@ export async function executeBookingSaga(unsafePayload) {
         ? Number(serviceData.phase2Duration) || 30
         : Number(serviceData.phase1Duration) || 30;
 
+      // Fix 4: firma legacy de 3 argumentos (slot, resourceId, durationMinutes).
+      // El serviceId canonico viaja dentro del slot validado; se normaliza aqui
+      // para que la resolucion interna (slot.primaryServiceGuid || slot.serviceId)
+      // use siempre el id de fase resuelto y no el valor crudo de linkedPhases.
+      p.validatedSlot = {
+        ...p.validatedSlot,
+        serviceId: p.serviceId,
+        primaryServiceGuid: p.serviceId
+      };
+
       p.pristineSlot = await _forceStaffInPristineSlot(
         p.validatedSlot,
         finalResourceId,
-        p.serviceId,
         durationMinutes
       );
       if (!p.pristineSlot) {

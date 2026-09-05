@@ -162,6 +162,25 @@ describe('bookingSaga - Integración Dinámica', () => {
     expect(result.scheduleId).toBe(slot.scheduleId);
   });
 
+  it('resuelve el serviceId desde el slot con la firma legacy de 3 argumentos (forma de llamada del saga)', async () => {
+    const { _forceStaffInPristineSlot } = await import('../src/backend/booking/bookingCore.js');
+    
+    const slot = {
+      serviceId: '11111111-1111-1111-1111-111111111111',
+      primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+      scheduleId: '22222222-2222-2222-2222-222222222222',
+      resourceId: '44444444-4444-4444-4444-444444444444',
+      localStartDate: '2026-09-02T10:00:00',
+    };
+    
+    const result = await _forceStaffInPristineSlot(slot, '33333333-3333-3333-3333-333333333333', 45);
+    
+    expect(result).toBeDefined();
+    expect(result.serviceId).toBe('11111111-1111-1111-1111-111111111111');
+    expect(result.resourceId).toBe('33333333-3333-3333-3333-333333333333');
+    expect(result.localEndDate).toBeDefined();
+  });
+
   it('debe rechazar slot sin localStartDate', async () => {
     const { _forceStaffInPristineSlot } = await import('../src/backend/booking/bookingCore.js');
     

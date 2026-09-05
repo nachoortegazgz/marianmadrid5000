@@ -1,3 +1,4 @@
 {
-  "extends": ["plugin:@wix/cli/recommended"]
+  "extends": ["plugin:@wix/cli/recommended"],
+  "ignorePatterns": ["**/*.ts"]
 }
