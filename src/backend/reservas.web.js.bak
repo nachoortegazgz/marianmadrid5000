@@ -327,7 +327,7 @@ export async function _getServiceBySlugOrIdInternal(slugOrId, externalTraceId = 
         let service = null;
         if (isGuid) {
             let res = await withTimeout(
-                wixData.query(SERVICIOS_COL).limit(1).eq("serviceId", clean).find({ suppressAuth: true }),
+                wixData.query(SERVICIOS_COL).limit(1).eq("idServicio", clean).find({ suppressAuth: true }),
                 WATCHDOG_TIMEOUT_MS,
                 "getServiceBySlugOrId:idServicio"
             );
@@ -343,7 +343,7 @@ export async function _getServiceBySlugOrIdInternal(slugOrId, externalTraceId = 
             }
         } else {
             let res = await withTimeout(
-                wixData.query(SERVICIOS_COL).limit(1).eq("slug", clean).find({ suppressAuth: true }),
+                wixData.query(SERVICIOS_COL).limit(1).eq("slugUrl", clean).find({ suppressAuth: true }),
                 WATCHDOG_TIMEOUT_MS,
                 "getServiceBySlugOrId:slugUrl"
             );
@@ -565,7 +565,7 @@ async function _getBookedMinutesByResourceForDay(dateYMD, resourceIds, traceId) 
 
     const q = wixData
         .query(CITAS_COL)
-        .eq("dateYmd", ymd)
+        .eq("fechaYmdMadrid", ymd)
         .in("status", ["CONFIRMED", "PENDING_PAYMENT"])
         .in("resourceId", ids)
         .limit(1000);
@@ -699,7 +699,7 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
     const service = serviceRes.data;
     const addonContext = _resolveAddonContext(service, requestedAddonIds);
     const secondaryServiceGuid = service.secondaryServiceGuid || null;
-    const isDual = service.allowCombine && !!secondaryServiceGuid;
+    const isDual = service.permitirCombinar && !!secondaryServiceGuid;
 
     const resourceIdsFilter = _normalizeResourceIds(resourceId, traceId);
     const fromLocalDate = `${dateYMD}T00:00:00`;
@@ -734,7 +734,7 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
         return { status: "SUCCESS", data: out, error: null };
     }
 
-    const exposureMs = Math.max(0, Number(service.exposureDuration || 0)) * 60 * 1000;
+    const exposureMs = Math.max(0, Number(service.tiempoExposicion || 0)) * 60 * 1000;
     const pairs = [];
 
     for (const s1 of slotsF1 || []) {
@@ -977,7 +977,7 @@ export const resolveStaffForSlot = webMethod(Permissions.Anyone, async (serviceI
         let slotF2 = null;
 
         if (dualContext && dualContext.start2) {
-            const resolvedSecondary = await resolveServiceId(serviceCfg.linkedPhases);
+            const resolvedSecondary = await resolveServiceId(serviceCfg.linkFases);
             const secondaryId = resolvedSecondary?.data;
             if (secondaryId) {
                 const nextF2 = await _findNextSlotForServiceInternal(
@@ -1016,7 +1016,7 @@ export const resolveStaffForSlot = webMethod(Permissions.Anyone, async (serviceI
             status: "SUCCESS",
             data: {
                 slotF1: { ...slotF1, serviceId: canonicalServiceId },
-                slotF2: slotF2 ? { ...slotF2, serviceId: serviceCfg.linkedPhases } : null,
+                slotF2: slotF2 ? { ...slotF2, serviceId: serviceCfg.linkFases } : null,
                 resourceId: finalResourceId,
                 resourceName: finalResourceName,
                 dayYMD: dateYMD,

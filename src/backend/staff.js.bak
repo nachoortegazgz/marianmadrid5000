@@ -21,7 +21,7 @@ if (staffCache && now - staffCacheTime < STAFF_CACHE_TTL_MS) return staffCache;
 try {
 const res = await wixData
 .query(MAPA_STAFF_COL)
-.eq("active", true)
+.eq("activo", true)
 .limit(100)
 .find({ suppressAuth: true });
 staffCache = res?.items || [];
@@ -46,7 +46,7 @@ const catalog = await _loadStaffCatalog();
 if (cleanId.toLowerCase() === "any" || cleanId.toLowerCase() === "all") return null;
 const byResourceId = catalog.find((s) => s.resourceId === cleanId);
 if (byResourceId) return byResourceId;
-const byMemberId = catalog.find((s) => s.staffMemberId === cleanId);
+const byMemberId = catalog.find((s) => s.idMiembroStaff === cleanId);
 if (byMemberId) return byMemberId;
 const byScheduleId = catalog.find((s) => s.scheduleId === cleanId);
 if (byScheduleId) return byScheduleId;

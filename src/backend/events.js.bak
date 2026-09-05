@@ -70,7 +70,7 @@ API_TIMEOUT_MS,
 log.error("Failed to write to AUDIT_LOG", { error: err?.message || String(err), traceId });
 }
 }
-async function _updateCitaStatus(bookingId, nuevoEstado, traceId) {
+async function _updateCitaEstado(bookingId, nuevoEstado, traceId) {
 await _updateCitaSafe(bookingId, (cita) => {
 if (String(cita[CITA_FIELDS.STATUS] || "").toUpperCase() === String(nuevoEstado || "").toUpperCase()) {
 return null;
@@ -107,7 +107,7 @@ const ids = Array.from(new Set(Array.isArray(bookingIds) ? bookingIds.map(String
 for (const bookingId of ids) {
 await _updateCitaSafe(bookingId, (cita) => {
 const meta = cita.meta || {};
-const alreadyPaid = String(meta.paymentStatus || cita.paymentStatus || "").toUpperCase() === ESTADO_PAGO.PAID;
+const alreadyPaid = String(meta.statusPago || cita.statusPago || "").toUpperCase() === ESTADO_PAGO.PAID;
 if (alreadyPaid) return null;
 return {
 ...cita,
@@ -128,7 +128,7 @@ const ids = Array.isArray(bookingIds) ? bookingIds.map(String).filter(Boolean) :
 for (const bookingId of ids) {
 await _updateCitaSafe(bookingId, (cita) => {
 const meta = cita.meta || {};
-const currentPaymentState = String(meta.paymentStatus || cita.paymentStatus || "").toUpperCase();
+const currentPaymentState = String(meta.statusPago || cita.statusPago || "").toUpperCase();
 if (currentPaymentState === ESTADO_PAGO.PAID) return null;
 return {
 ...cita,
@@ -148,7 +148,7 @@ const traceId = makeTraceId("whook-conf");
 try {
 const booking = event?.booking || event?.entity || {};
 const bookingId = booking?.id || booking?._id || "unknown";
-await _updateCitaStatus(bookingId, ESTADO_CITA.CONFIRMED, traceId);
+await _updateCitaEstado(bookingId, ESTADO_CITA.CONFIRMED, traceId);
 return { status: "OK" };
 } catch (error) {
 _handleError(error, "wixBookingsV2_onBookingConfirmed", traceId);
@@ -160,7 +160,7 @@ const traceId = makeTraceId("whook-cancel");
 try {
 const booking = event?.booking || event?.entity || {};
 const bookingId = booking?.id || booking?._id || "unknown";
-await _updateCitaStatus(bookingId, ESTADO_CITA.CANCELED, traceId);
+await _updateCitaEstado(bookingId, ESTADO_CITA.CANCELED, traceId);
 return { status: "OK" };
 } catch (error) {
 _handleError(error, "wixBookingsV2_onBookingCanceled", traceId);
@@ -337,7 +337,7 @@ orderId
 );
 return { status: "OK" };
 }
-const originalAmount = Number(originalMovement.totalAmount || 0);
+const originalAmount = Number(originalMovement.importeTotal || 0);
 const linkedBookingIds = originalMovement.reservaIdVinculada ?
 String(originalMovement.reservaIdVinculada).split(",").filter(Boolean) :
 [];
@@ -413,7 +413,7 @@ return { status: "OK" };
 const refundsRes = await withTimeout(
 wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
 .eq("orderId", orderId)
-.eq("movementType", TIPO_MOVIMIENTO.REEMBOLSO)
+.eq("tipoMovimiento", TIPO_MOVIMIENTO.REEMBOLSO)
 .limit(100)
 .find({ suppressAuth: true, consistentRead: true }),
 API_TIMEOUT_MS,
@@ -444,7 +444,7 @@ const bookingIds = lineItems
 .map((item) => item?.catalogReference?.catalogItemId)
 .filter(Boolean);
 for (const bId of bookingIds) {
-await _updateCitaStatus(bId, ESTADO_CITA.CANCELED, traceId);
+await _updateCitaEstado(bId, ESTADO_CITA.CANCELED, traceId);
 }
 }
 return { status: "OK" };

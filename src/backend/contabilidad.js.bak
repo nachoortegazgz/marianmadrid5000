@@ -27,25 +27,25 @@ periodoFiscal: local.slice(5, 7),
 }
 function _linePayload(line) {
 return [
-line.entryLineId,
-line.journalEntryId,
+line.idLineaAsiento,
+line.idAsiento,
 line.numeroLinea,
-line.accountCode,
-line.debitAmount,
-line.creditAmount,
-line.taxableAmount,
+line.codigoCuentaContable,
+line.importeDebe,
+line.importeHaber,
+line.baseImponible,
 line.tipoIva,
-line.taxAmount,
+line.cuotaIva,
 line.idTraza,
 ].join("|");
 }
 function _asAccountingLine(base, number, accountCode, accountName, debit, credit, tax) {
 const line = {
-_id: `${base.journalEntryId}_L${String(number).padStart(3, "0")}`,
-idLineaAsiento: `${base.journalEntryId}_L${String(number).padStart(3, "0")}`,
-idAsiento: base.journalEntryId,
+_id: `${base.idAsiento}_L${String(number).padStart(3, "0")}`,
+idLineaAsiento: `${base.idAsiento}_L${String(number).padStart(3, "0")}`,
+idAsiento: base.idAsiento,
 numeroLinea: number,
-fechaOperacion: base.operationDate,
+fechaOperacion: base.fechaOperacion,
 codigoCuentaContable: accountCode,
 nombreCuentaContable: accountName,
 grupoCuentaContable: "",
@@ -102,8 +102,8 @@ const idAsiento = `ASIENTO_${_cleanText(movimiento?._id, 120)}`;
 return {
 idAsiento,
 numeroAsiento: Number(movimiento?.seqGlobal || 0),
-ejercicioFiscal: keys.fiscalYear,
-periodoFiscal: keys.fiscalPeriod,
+ejercicioFiscal: keys.ejercicioFiscal,
+periodoFiscal: keys.periodoFiscal,
 fechaOperacion,
 fechaHoraRegistro: new Date(),
 zonaHorariaOperacion: SDK_CONFIG?.TZ || "Europe/Madrid",
@@ -168,8 +168,8 @@ lines.push(_asAccountingLine(base, 1, map.codigoCuentaHaberPredeterminada, map.n
 if (requiresVatLine) lines.push(_asAccountingLine(base, 2, vatCode, vatName, vat, 0, baseTax));
 lines.push(_asAccountingLine(base, requiresVatLine ? 3 : 2, map.codigoCuentaDebePredeterminada, map.nombreCuentaDebePredeterminada, 0, total, null));
 }
-const totalDebe = _roundMoney(lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0));
-const totalHaber = _roundMoney(lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0));
+const totalDebe = _roundMoney(lines.reduce((sum, line) => sum + Number(line.importeDebe || 0), 0));
+const totalHaber = _roundMoney(lines.reduce((sum, line) => sum + Number(line.importeHaber || 0), 0));
 if (Math.abs(totalDebe - totalHaber) > MONEY_EPSILON) throw new Error("ACCOUNTING_PROJECTION_UNBALANCED");
 return { lines, totalDebe, totalHaber };
 }
@@ -185,8 +185,8 @@ if (SDK_CONFIG?.ACCOUNTING?.ENABLED !== true) {
 return { status: "SKIPPED", reason: "ACCOUNTING_DISABLED" };
 }
 const base = _buildBase(movimiento);
-const existing = await _getExisting(base.journalEntryId);
-if (existing) return { status: "SUCCESS", idempotent: true, idAsiento: base.journalEntryId };
+const existing = await _getExisting(base.idAsiento);
+if (existing) return { status: "SUCCESS", idempotent: true, idAsiento: base.idAsiento };
 const map = await _findAccountMap(base.categoriaOperacion);
 if (!_isApprovedMap(map)) return { status: "SKIPPED", reason: "NO_APPROVED_ACCOUNT_MAP" };
 const projected = _buildLines(base, movimiento, map);
@@ -194,26 +194,26 @@ for (const line of projected.lines) await _insertLineIfMissing(line);
 const fiscalKey = await getSecret(SECRETS.FISCAL_KEY);
 if (!fiscalKey) throw new Error("ACCOUNTING_PROJECTION_SIGNING_KEY_MISSING");
 const headerPayload = [
-base.journalEntryId,
-base.entryNumber,
+base.idAsiento,
+base.numeroAsiento,
 base.idOrigen,
 base.idTransaccion,
-projected.totalDebit,
-projected.totalCredit,
+projected.totalDebe,
+projected.totalHaber,
 ...projected.lines.map((line) => line.hashLinea),
 ].join("|");
 const hashAsiento = hashChain(base.hashOrigen, headerPayload);
 const firmaAsiento = `${hmacSha256Hex(fiscalKey, headerPayload)}|${hashAsiento}`;
 const header = {
 ...base,
-totalDebe: projected.totalDebit,
-totalHaber: projected.totalCredit,
+totalDebe: projected.totalDebe,
+totalHaber: projected.totalHaber,
 hashAsiento,
 firmaAsiento,
 };
 delete header.hashOrigen;
 await wixData.insert(COLLECTIONS.ASIENTOS_CONTABLES, header, { suppressAuth: true });
-return { status: "SUCCESS", idempotent: false, idAsiento: base.journalEntryId, lineCount: projected.lines.length };
+return { status: "SUCCESS", idempotent: false, idAsiento: base.idAsiento, lineCount: projected.lines.length };
 }
 export function isAccountingProjectionError(error) {
 return String(error?.message || error || "").startsWith("ACCOUNTING_PROJECTION_");

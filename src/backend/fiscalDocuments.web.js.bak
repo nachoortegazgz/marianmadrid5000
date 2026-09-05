@@ -146,7 +146,7 @@ export const downloadManagerPackageVersion = webMethod(Permissions.SiteMember, a
         const invoices = Array.isArray(doc.invoiceData) ? doc.invoiceData : [];
         const csvHeader = "Numero;Fecha;Tipo;Base;Cuota;Total;FormaPago;Hash\n";
         const csvRows = invoices.map((inv) =>
-            `"${inv.invoiceNumber}";"${inv.fechaExpedicion}";"${inv.movementType}";${_roundMoney(inv.taxableAmount)};${_roundMoney(inv.taxAmount)};${_roundMoney(inv.totalAmount)};"${inv.paymentMethod}";"${inv.hashCompleto}"`
+            `"${inv.numTicketFactura}";"${inv.fechaExpedicion}";"${inv.tipoMovimiento}";${_roundMoney(inv.baseImponible)};${_roundMoney(inv.cuotaIva)};${_roundMoney(inv.importeTotal)};"${inv.formaPago}";"${inv.hashCompleto}"`
         ).join("\n");
         const csvContent = csvHeader + csvRows;
 

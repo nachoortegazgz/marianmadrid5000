@@ -35,7 +35,7 @@ if (!isCollab) {
 return { status: "ERROR", data: null, error: { code: ERROR_CODES.ACCESS_DENIED, message: "Staff access required" } };
 }
 const resourceId = _safeTrim(payload.resourceId);
-const tipoFichaje = _safeTrim(payload.clockEventType).toUpperCase();
+const tipoFichaje = _safeTrim(payload.tipoFichaje).toUpperCase();
 if (!resourceId) {
 return { status: "ERROR", data: null, error: { code: ERROR_CODES.INVALID_PAYLOAD, message: "resourceId required" } };
 }
@@ -46,7 +46,7 @@ return { status: "ERROR", data: null, error: { code: ERROR_CODES.INVALID_EMPLOYE
 if (!Object.values(TIPO_FICHAJE).includes(tipoFichaje)) {
 return { status: "ERROR", data: null, error: { code: ERROR_CODES.INVALID_CLOCK_TYPE, message: `Invalid clock type: ${tipoFichaje}` } };
 }
-if (tipoFichaje === TIPO_FICHAJE.AJUSTE && !payload.adjustmentReason) {
+if (tipoFichaje === TIPO_FICHAJE.AJUSTE && !payload.motivoAjuste) {
 return { status: "ERROR", data: null, error: { code: ERROR_CODES.INVALID_PAYLOAD, message: "motivoAjuste required for AJUSTE" } };
 }
 const now = new Date();
@@ -60,7 +60,7 @@ fechaHora: now,
 diaKey: madridStr.slice(0, 10),
 mesKey: madridStr.slice(0, 7),
 hora: madridStr.slice(11, 19),
-motivoAjuste: tipoFichaje === TIPO_FICHAJE.AJUSTE ? _safeTrim(payload.adjustmentReason) : null,
+motivoAjuste: tipoFichaje === TIPO_FICHAJE.AJUSTE ? _safeTrim(payload.motivoAjuste) : null,
 traceId,
 fechaCreacion: now,
 };
@@ -88,21 +88,21 @@ const todayStr = new Date().toLocaleDateString("sv-SE", { timeZone: tz });
 const res = await wixData
 .query(REGISTRO_COL)
 .eq("resourceId", staff.resourceId)
-.eq("operationDate", todayStr)
+.eq("diaKey", todayStr)
 .ascending("fechaHora")
 .limit(100)
 .find({ suppressAuth: true });
 const fichajes = res?.items || [];
 const ultimoFichaje = fichajes.length > 0 ? fichajes[fichajes.length - 1] : null;
 const enJornada = ultimoFichaje &&
-ultimoFichaje.clockEventType !== TIPO_FICHAJE.SALIDA &&
-ultimoFichaje.clockEventType !== TIPO_FICHAJE.PAUSA_FIN;
+ultimoFichaje.tipoFichaje !== TIPO_FICHAJE.SALIDA &&
+ultimoFichaje.tipoFichaje !== TIPO_FICHAJE.PAUSA_FIN;
 return {
 status: "SUCCESS",
 data: {
 enJornada,
 ultimoFichaje: ultimoFichaje ? {
-tipoFichaje: ultimoFichaje.clockEventType,
+tipoFichaje: ultimoFichaje.tipoFichaje,
 fechaHora: ultimoFichaje.fechaHora,
 hora: ultimoFichaje.hora,
 } : null,
@@ -175,9 +175,9 @@ const fichajes = res?.items || [];
 let totalMinutos = 0;
 let entrada = null;
 for (const f of fichajes) {
-if (f.clockEventType === TIPO_FICHAJE.ENTRADA || f.clockEventType === TIPO_FICHAJE.PAUSA_FIN) {
+if (f.tipoFichaje === TIPO_FICHAJE.ENTRADA || f.tipoFichaje === TIPO_FICHAJE.PAUSA_FIN) {
 entrada = new Date(f.fechaHora);
-} else if ((f.clockEventType === TIPO_FICHAJE.SALIDA || f.clockEventType === TIPO_FICHAJE.PAUSA_INICIO) && entrada) {
+} else if ((f.tipoFichaje === TIPO_FICHAJE.SALIDA || f.tipoFichaje === TIPO_FICHAJE.PAUSA_INICIO) && entrada) {
 const salida = new Date(f.fechaHora);
 const diffMin = Math.round((salida - entrada) / 60000);
 if (diffMin > 0) totalMinutos += diffMin;

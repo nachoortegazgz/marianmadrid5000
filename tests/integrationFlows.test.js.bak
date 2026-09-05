@@ -19,7 +19,7 @@ describe('Integracion - flujos criticos', () => {
       slot,
       slot.resourceId,
       service.serviceId,
-      service.phase1Duration
+      service.tiempoFase1
     );
     const result = await createBookingElevated({
       serviceId: service.serviceId,

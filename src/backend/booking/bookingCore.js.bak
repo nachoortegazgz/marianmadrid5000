@@ -7,7 +7,7 @@ FIX CRITICO C-02: COLLECTIONS, CONCURRENCY, SDK_CONFIG imported from
 FIX C-11: ERROR_CODES values cleaned (removed trailing spaces).
 FIX C-12: PII_KEYS values cleaned (removed trailing spaces).
 FIX C-13: Added all missing exported functions required by bookingSaga.js.
-FIX C-14: Removed _buildLockKeys_DEPRECATED - moved to bookingSaga.js as internal helper.
+FIX C-14: Removed _buildLockKeys - moved to bookingSaga.js as internal helper.
 =============================================================================
 */
 import { bookings } from "wix-bookings.v2";
@@ -218,7 +218,7 @@ return { ok: false, code: ERROR_CODES.TRANSACTION_FAILED, message: error.message
 }
 }
 
-export function _buildLockKeys_DEPRECATED(phases, lockResourceKey) {
+export function _buildLockKeys(phases, lockResourceKey) {
 const keys = [];
 for (const phase of phases) {
 const serviceId = phase.serviceId || "ANY_SERVICE";
@@ -340,10 +340,10 @@ export async function _persistBooking(params, traceId = 'no-trace') {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking payload is required', { traceId });
   }
 
-  if (!params.bookingId || !params.serviceId || !params.scheduleId) {
+  if (!params.bookingId || !params.primaryServiceGuid || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push('bookingId');
-    if (!params.serviceId) missingFields.push('primaryServiceGuid');
+    if (!params.primaryServiceGuid) missingFields.push('primaryServiceGuid');
     if (!params.scheduleId) missingFields.push('scheduleId');
 
     const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(', ')}`, { traceId, missingFields });
@@ -352,8 +352,8 @@ export async function _persistBooking(params, traceId = 'no-trace') {
   }
 
   // Validar GUIDs
-  if (!isValidGuid(params.serviceId)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid primaryServiceGuid: ${params.serviceId}`, { traceId, primaryServiceGuid: params.serviceId });
+  if (!isValidGuid(params.primaryServiceGuid)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid primaryServiceGuid: ${params.primaryServiceGuid}`, { traceId, primaryServiceGuid: params.primaryServiceGuid });
   }
 
   if (params.resourceId && !isValidGuid(params.resourceId)) {
@@ -386,7 +386,7 @@ export async function _persistBooking(params, traceId = 'no-trace') {
   const bookingRecord = {
     _id: params.bookingId,
     revision: params.revision,
-    primaryServiceGuid: params.serviceId,
+    primaryServiceGuid: params.primaryServiceGuid,
     scheduleId: params.scheduleId,
     resourceId: params.resourceId,
     startDate: params.startDate,
@@ -601,7 +601,7 @@ return null;
 
 const pristineSlot = { ...slot };
 pristineSlot.resourceId = resourceId;
-pristineSlot.serviceId = primaryServiceGuid;
+pristineSlot.primaryServiceGuid = primaryServiceGuid;
 
 if (durationMinutes && !pristineSlot.localEndDate) {
 pristineSlot.localEndDate = getMadridLocalStringNoZ(new Date(startDate.getTime() + durationMinutes * 60000));
@@ -861,7 +861,7 @@ export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate
   if (slotOrServiceId && typeof slotOrServiceId === 'object') {
     const slot = slotOrServiceId;
     const parts = [
-      slot.serviceId || slot.serviceId || '',
+      slot.primaryServiceGuid || slot.serviceId || '',
       slot.scheduleId || '',
       slot.localStartDate || slot.startDate || '',
       slot.resourceId || (slot.resource?.id) || ''
@@ -890,7 +890,7 @@ export function isValidGuid(id) {
  * Proyecta un slot de Wix a nuestro formato interno certificado
  */
 export function _projectCertifiedSlot(slot, resourceId) {
-  if (!slot || !slot.serviceId) {
+  if (!slot || !slot.primaryServiceGuid) {
     console.warn('[bookingCore] Slot inválido: falta primaryServiceGuid');
     return null;
   }
@@ -917,7 +917,7 @@ export function _projectCertifiedSlot(slot, resourceId) {
   }
   
   return {
-    serviceId: slot.serviceId,
+    serviceId: slot.primaryServiceGuid,
     scheduleId: slot.scheduleId || '',
     resourceId: targetResourceId,
     resource: {

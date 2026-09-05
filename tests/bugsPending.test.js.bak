@@ -13,7 +13,7 @@ describe('Regresiones de modulos', () => {
     const result = await _forceStaffInPristineSlot(slot, slot.resourceId, 30);
 
     expect(result).toMatchObject({
-      serviceId: slot.serviceId,
+      serviceId: slot.primaryServiceGuid,
       resourceId: slot.resourceId,
       scheduleId: slot.scheduleId,
     });
@@ -34,16 +34,16 @@ describe('Regresiones de modulos', () => {
   it('normaliza movimientos legacy para construir el payload fiscal', () => {
     const movimiento = createMockMovimiento();
     const payload = [
-      String(movimiento.previousRecordHash),
+      String(movimiento.prevHash),
       String(movimiento.transactionId),
-      String(movimiento.movementType),
-      Number(movimiento.accountingAmount),
-      String(movimiento.paymentMethod),
+      String(movimiento.tipoMovimiento),
+      Number(movimiento.importeContable),
+      String(movimiento.formaPago),
     ].join('|');
 
-    expect(payload).toContain(movimiento.previousRecordHash);
+    expect(payload).toContain(movimiento.prevHash);
     expect(payload).toContain(movimiento.transactionId);
     expect(payload).toContain('50');
-    expect(payload).toContain(movimiento.paymentMethod);
+    expect(payload).toContain(movimiento.formaPago);
   });
 });

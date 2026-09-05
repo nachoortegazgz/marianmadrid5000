@@ -71,15 +71,15 @@ function _initTaxAccumulator(months) {
 
 function _accumulatePage(items, state) {
     for (const m of items) {
-        state.totalOperations++;
-        const importeContable = Number(m.accountingAmount) || 0;
-        const base = Number(m.taxableAmount) || 0;
-        const cuota = Number(m.taxAmount) || 0;
+        state.totalOperaciones++;
+        const importeContable = Number(m.importeContable) || 0;
+        const base = Number(m.baseImponible) || 0;
+        const cuota = Number(m.cuotaIva) || 0;
         const mes = _safeTrim(m.mesKey);
-        const formaPago = _safeTrim(m.paymentMethod).toLowerCase();
-        const tasaIva = Number(m.taxRate) || 0;
+        const formaPago = _safeTrim(m.formaPago).toLowerCase();
+        const tasaIva = Number(m.tasaIva) || 0;
         const tasaIvaKey = String(tasaIva);
-        const tipoMovimiento = _safeTrim(m.movementType).toUpperCase();
+        const tipoMovimiento = _safeTrim(m.tipoMovimiento).toUpperCase();
         
         const naturaleza = _safeTrim(m.naturalezaOperacion).toUpperCase() || (
             tipoMovimiento === TIPO_MOVIMIENTO.PROPINA ? "PROPINA" :
@@ -108,10 +108,10 @@ function _accumulatePage(items, state) {
         state.totalFacturado += importeContable;
 
         if (naturaleza === "VENTA") {
-            state.grossSalesTotal += importeContable;
+            state.totalVentas += importeContable;
             state.countVentas++;
         } else {
-            state.totalRefunds += importeContable;
+            state.totalReembolsos += importeContable;
             state.countReembolsos++;
         }
 
@@ -148,8 +148,8 @@ export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (y
         const state = _initTaxAccumulator(months);
 
         let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
-            .hasSome("fiscalPeriod", months)
-            .ascending("sequenceNumber")
+            .hasSome("mesKey", months)
+            .ascending("seqGlobal")
             .limit(CHUNK_PAGE_SIZE);
 
         let res = await query.find({ suppressAuth: true, consistentRead: false });
@@ -168,7 +168,7 @@ export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (y
                 ejercicio: y,
                 trimestre: q,
                 periodoMeses: months,
-                totalOperaciones: state.totalOperations,
+                totalOperaciones: state.totalOperaciones,
                 totalOperacionesFiscales: state.countFiscal,
                 conteo: {
                     ventas: state.countVentas,
@@ -188,8 +188,8 @@ export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (y
                     nota: "No es un Modelo 130 oficial. Requiere validacion previa por gestoria.",
                 },
                 totales: {
-                    totalVentasBrutas: _roundMoney(state.grossSalesTotal),
-                    totalReembolsos: _roundMoney(state.totalRefunds),
+                    totalVentasBrutas: _roundMoney(state.totalVentas),
+                    totalReembolsos: _roundMoney(state.totalReembolsos),
                     totalFacturadoNeto: _roundMoney(state.totalFacturado),
                     totalPropinasSeparadas: _roundMoney(state.totalPropinas),
                     totalAjustesSeparados: _roundMoney(state.totalAjustes),
@@ -208,9 +208,9 @@ export const getQuarterlyTaxSummary = webMethod(Permissions.SiteMember, async (y
                     operaciones: state.breakdownByMonth[mesKey].count,
                 })),
                 desgloseTipoIva: Object.values(state.breakdownByVatRate).map((item) => ({
-                    tasaIva: item.taxRate,
-                    baseImponible: _roundMoney(item.taxableAmount),
-                    cuotaIva: _roundMoney(item.taxAmount),
+                    tasaIva: item.tasaIva,
+                    baseImponible: _roundMoney(item.baseImponible),
+                    cuotaIva: _roundMoney(item.cuotaIva),
                     total: _roundMoney(item.total),
                     operaciones: item.operaciones,
                 })),
@@ -239,8 +239,8 @@ export async function getLibroRegistroFacturasExpedidasInternal(year, quarter, o
         let orderIndex = 1;
 
         let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
-            .hasSome("fiscalPeriod", months)
-            .ascending("sequenceNumber")
+            .hasSome("mesKey", months)
+            .ascending("seqGlobal")
             .limit(CHUNK_PAGE_SIZE);
 
         let res = await query.find({ suppressAuth: true, consistentRead: false });
@@ -249,26 +249,26 @@ export async function getLibroRegistroFacturasExpedidasInternal(year, quarter, o
             for (const m of items) {
                 libroFilas.push({
                     orden: orderIndex++,
-                    numTicketFactura: _safeTrim(m.invoiceNumber || m.numeroTicket),
+                    numTicketFactura: _safeTrim(m.numTicketFactura || m.numeroTicket),
                     fechaExpedicion: _safeTrim(m.diaKey),
-                    tipoFactura: m.movementType === "REEMBOLSO" || Number(m.accountingAmount) < 0 ? "R1" : "BORRADOR_INTERNO",
-                    tipoMovimiento: _safeTrim(m.movementType),
+                    tipoFactura: m.tipoMovimiento === "REEMBOLSO" || Number(m.importeContable) < 0 ? "R1" : "BORRADOR_INTERNO",
+                    tipoMovimiento: _safeTrim(m.tipoMovimiento),
                     naturalezaOperacion: _safeTrim(m.naturalezaOperacion) || "VENTA",
                     tratamientoIva: _safeTrim(m.tratamientoIva) || "PENDIENTE_VALIDACION",
                     incluidoEnBorradorIva: _safeTrim(m.naturalezaOperacion).toUpperCase() !== "PROPINA" && _safeTrim(m.naturalezaOperacion).toUpperCase() !== "AJUSTE",
                     referenciaRectificativa: _safeTrim(m.referenciaRectificativa) || null,
-                    formaPago: _safeTrim(m.paymentMethod),
-                    baseImponible: _roundMoney(m.taxableAmount),
-                    tipoIva: `${Math.round((Number(m.taxRate) || 0) * 100)}%`,
-                    cuotaIva: _roundMoney(m.taxAmount),
-                    importeTotal: _roundMoney(m.accountingAmount),
+                    formaPago: _safeTrim(m.formaPago),
+                    baseImponible: _roundMoney(m.baseImponible),
+                    tipoIva: `${Math.round((Number(m.tasaIva) || 0) * 100)}%`,
+                    cuotaIva: _roundMoney(m.cuotaIva),
+                    importeTotal: _roundMoney(m.importeContable),
                     concepto: _safeTrim(m.concepto),
                     origen: _safeTrim(m.origen),
                     orderId: _safeTrim(m.orderId) || null,
                     refundId: _safeTrim(m.refundId) || null,
                     fechaHoraRegistro: m.fechaCreacion || null,
-                    huellaSha256: _safeTrim(m.currentRecordHash).slice(0, 8).toUpperCase(),
-                    hashCompleto: _safeTrim(m.currentRecordHash),
+                    huellaSha256: _safeTrim(m.hashCadena).slice(0, 8).toUpperCase(),
+                    hashCompleto: _safeTrim(m.hashCadena),
                     reservaVinculada: _safeTrim(m.reservaIdVinculada) || null,
                     transactionId: _safeTrim(m.transactionId),
                 });

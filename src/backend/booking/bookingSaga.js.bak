@@ -77,7 +77,7 @@ import {
   createBookingError,
   logger,
   _getDualPairFromCache,
-  _buildLockKeys_DEPRECATED,
+  _buildLockKeys,
   _initTransaction,
   _completeTransaction,
   _failTransaction
@@ -334,13 +334,13 @@ export async function executeBookingSaga(unsafePayload) {
 
     const serviceData = svc.data;
 
-    if (isDualRequested && !serviceData.allowCombine) {
+    if (isDualRequested && !serviceData.permitirCombinar) {
       return { status: 'ERROR', error: { code: 'DUAL_NOT_ALLOWED', message: 'Este servicio no permite combinacion en dos fases.' } };
     }
 
-    const tiempoFase1Ms = (Number(serviceData.phase1Duration) || 0) * 60 * 1000;
-    const exposureMs = (Number(serviceData.exposureDuration) || 0) * 60 * 1000;
-    const tiempoFase2Ms = (Number(serviceData.phase2Duration) || 0) * 60 * 1000;
+    const tiempoFase1Ms = (Number(serviceData.tiempoFase1) || 0) * 60 * 1000;
+    const exposureMs = (Number(serviceData.tiempoExposicion) || 0) * 60 * 1000;
+    const tiempoFase2Ms = (Number(serviceData.tiempoFase2) || 0) * 60 * 1000;
 
     const f1StartUtc = getUtcDateFromMadridLocal(f1LocalStart);
     if (!f1StartUtc) throw createBookingError('INVALID_DATES', 'Error al convertir la fecha local de la Fase 1.');
@@ -351,7 +351,7 @@ export async function executeBookingSaga(unsafePayload) {
 
     const isDual = !!(
       isDualRequested &&
-      serviceData.allowCombine &&
+      serviceData.permitirCombinar &&
       serviceData.secondaryServiceGuid
     );
 
@@ -466,7 +466,7 @@ export async function executeBookingSaga(unsafePayload) {
     // VECTOR E: MUTEX LOCKS ACQUIRED BEFORE TRANSACTION IDEMPOTENCY INIT
     // =====================================================================
     const lockResourceKey = finalResourceId ? String(finalResourceId) : 'ANY_RESOURCE';
-    lockKeys = _buildLockKeys_DEPRECATED(phases, lockResourceKey);
+    lockKeys = _buildLockKeys(phases, lockResourceKey);
     lockOwnerId = stableToken;
 
     for (const key of lockKeys) {
@@ -602,7 +602,7 @@ export async function executeBookingSaga(unsafePayload) {
       firstName: nameParts[0] || 'Cliente',
       lastName: nameParts.slice(1).join(' ') || '',
       email,
-      phone: _safePhone(cliente.phone || cliente.phone)
+      phone: _safePhone(cliente.telefono || cliente.phone)
     };
 
     const addonsNorm = _normalizeAddons(metaCita?.addons || []);
@@ -614,8 +614,8 @@ export async function executeBookingSaga(unsafePayload) {
 
     for (const p of phases) {
       const durationMinutes = p.key === 'F2'
-        ? Number(serviceData.phase2Duration) || 30
-        : Number(serviceData.phase1Duration) || 30;
+        ? Number(serviceData.tiempoFase2) || 30
+        : Number(serviceData.tiempoFase1) || 30;
 
       p.pristineSlot = await _forceStaffInPristineSlot(
         p.validatedSlot,

@@ -1,0 +1,226 @@
+# PAQUETE DE IMPORTACIÓN CMS: CSVs ACTUALIZADOS CON DATOS Y PLANTILLAS DE CABECERAS PARA WIX CMS
+
+A continuación se entregan los archivos CSV listos para ser importados en **Wix Studio / Editor X (Wix CMS > Import Items / Crear Colección desde CSV)**.
+
+### Instrucciones Técnicas de Importación en Wix CMS:
+1. **Creación Automática de Campos e IDs**: Al importar un archivo CSV por primera vez, Wix CMS genera automáticamente cada columna asignando como `Field Key` (`idCodigo`) exactamente el encabezado de la columna. Al estar normalizados en **camelCase canónico**, coincidirán al 100% con las consultas del backend (`wixData.query`).
+2. **Campos de Sistema**: Las columnas `_id`, `_createdDate`, `_updatedDate` y `_owner` son reconocidas automáticamente por Wix CMS como los campos internos de control.
+3. **Multi-Referencias (`MULTI_REFERENCE`)**: 
+   * `availableStaff` (en `SERVICIOS_CATALOGO`) ha sido transformado en un array JSON con los `_id` de `MAPA_STAFF` (`["1d39e32d...", "0383a98a..."]`).
+   * `addOnOptions` (en `SERVICIOS_CATALOGO`) contiene los arrays JSON con los `_id` de `COMPLEMENTOS_CATALOGO`.
+   * *Orden de importación recomendado*: Importe primero `MAPA_STAFF.csv` y `COMPLEMENTOS_CATALOGO.csv`. Luego importe `SERVICIOS_CATALOGO.csv` y configure los campos `availableStaff` y `addOnOptions` como tipo **Multi-Reference** vinculándolos a sus colecciones de destino.
+
+---
+
+## PARTE 1: CSVs Actualizados de los Archivos Adjuntos (Con Datos Íntegros)
+
+---
+
+### 1. `MAPA_STAFF.csv` (Datos Íntegros — 3 Empleados)
+*Contiene el personal activo con mapeo canónico de `displayName`, `staffMemberId`, `resourceId`, `scheduleId`, `locationId` y campos de sistema.*
+
+```csv
+displayName,staffMemberId,resourceId,scheduleId,email,phone,locationId,location,active,notes,_id,_createdDate,_updatedDate,_owner
+ANDREA STAFF,bf177b1a-483a-4c03-9960-8da0aa0b8b41,07f7344f-e7e4-4c53-854b-47fd82ac8d40,a494b829-8161-4b84-b78d-6ffed45b4abe,andrea@marianmadrid.es,+34876538870,7a12abfd-bf30-4847-bcdf-00dc573d4802,"C/ Maurice Ravel 35, Local, 50012 Zaragoza",True,Importado desde Wix Bookings (staff-members/query). Autoridad SSOT para fichajes y reservas.,0383a98a-343e-4882-a042-07f74702878a,2026-08-22T00:46:34Z,2026-08-25T01:54:10Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+MARIAN MADRID,0114748d-2806-3928-9b97-ff0d09853759,e556070a-6d6a-402e-8422-11133033ea76,06af20d4-1ec3-49fa-9075-f0691dfa7fd4,marian@marianmadrid.es,+34876538870,7a12abfd-bf30-4847-bcdf-00dc573d4802,"C/ Maurice Ravel 35, Local, 50012 Zaragoza",True,Importado desde Wix Bookings (staff-members/query). Autoridad SSOT para fichajes y reservas.,1d39e32d-b3a6-49f9-934a-1715e8faeacd,2026-08-22T00:46:34Z,2026-08-25T01:54:10Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+ALBA STAFF,c5563137-1124-4366-abe0-1afe56418968,9b905bfd-1a09-485d-9273-a24a20dfe648,94b8980d-63f4-43b1-ba86-41075e0eb63c,alba@marianmadrid.es,+34876538870,7a12abfd-bf30-4847-bcdf-00dc573d4802,"C/ Maurice Ravel 35, Local, 50012 Zaragoza",True,Importado desde Wix Bookings (staff-members/query). Autoridad SSOT para fichajes y reservas.,4c26949d-b8a8-4f2f-8934-e7323b38d397,2026-08-22T00:46:34Z,2026-08-25T01:54:10Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+```
+
+---
+
+### 2. `COMPLEMENTOS_CATALOGO.csv` (Datos Íntegros — 36 Complementos)
+*Catálogo de extras sanitizado: tipos derivados canónicos (`DURATION_BASED` y `QUANTITY_BASED`), duraciones, precios e identificadores limpios sin artefactos de importación.*
+
+```csv
+name,addOnId,type,price,durationInMinutes,maxQuantity,currency,prompt,taxGroup,internalGroup,active,availableOnline,shortSummary,description,mainMedia,_id,_createdDate,_updatedDate,_owner
+Trenzas decorativas,076322c7-b34d-4fa5-9661-be28c087ed93,DURATION_BASED,5,10,1,EUR,Trenzas decorativas,,GROUP_GENERAL,True,True,Trenzas decorativas,Trenzas decorativas,,076322c7-b34d-4fa5-9661-be28c087ed93,2026-08-22T01:04:01Z,2026-08-25T02:39:29Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Nail art básico,0afd4b30-e22e-4d7d-b97f-44cdd4158b17,DURATION_BASED,5,10,1,EUR,Nail art básico,,GROUP_GENERAL,True,True,Nail art básico,Nail art básico,,0afd4b30-e22e-4d7d-b97f-44cdd4158b17,2026-08-22T01:04:01Z,2026-08-25T02:39:34Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Prueba de peinado adicional,17b85d64-f751-4770-8e44-b78a3c318086,DURATION_BASED,5,10,1,EUR,Prueba de peinado adicional,,GROUP_GENERAL,True,True,Prueba de peinado adicional,Prueba de peinado adicional,,17b85d64-f751-4770-8e44-b78a3c318086,2026-08-22T01:04:01Z,2026-08-25T02:39:37Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Retoque post-evento,18f40a85-2212-4bf5-9fc6-c82d6dc6bde8,DURATION_BASED,5,10,1,EUR,Retoque post-evento,,GROUP_GENERAL,True,True,Retoque post-evento,Retoque post-evento,,18f40a85-2212-4bf5-9fc6-c82d6dc6bde8,2026-08-22T01:04:01Z,2026-08-25T02:39:39Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Extra hidratación  pro,1a1c1437-6fca-40a8-bead-b4b3f6c9b230,DURATION_BASED,15,10,1,EUR,Extra hidratación  pro,,GROUP_001,True,True,Extra hidratación  pro,Extra hidratación  pro,,1a1c1437-6fca-40a8-bead-b4b3f6c9b230,2026-08-22T01:04:01Z,2026-08-25T02:39:42Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Ampolla selladora puntas,1ce8821d-3b33-4a4e-af05-9acaeffa8ca8,DURATION_BASED,12,10,1,EUR,Ampolla selladora puntas,,GROUP_001,True,True,Ampolla selladora puntas,Ampolla selladora puntas,,1ce8821d-3b33-4a4e-af05-9acaeffa8ca8,2026-08-22T01:04:01Z,2026-08-25T02:39:45Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Servicio de asistencia día de la boda,26e16d13-d465-483e-a6f4-fe7acd911afd,DURATION_BASED,5,10,1,EUR,Servicio de asistencia día de la boda,,GROUP_GENERAL,True,True,Servicio de asistencia día de la boda,Servicio de asistencia día de la boda,,26e16d13-d465-483e-a6f4-fe7acd911afd,2026-08-22T01:04:01Z,2026-08-25T02:39:47Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Manicura semi (en silla),28b4ad4a-ea74-4626-895c-8ff1f65716fe,DURATION_BASED,28,10,1,EUR,Manicura semi (en silla),,GROUP_001,True,True,Manicura semi (en silla),Manicura semi (en silla),,28b4ad4a-ea74-4626-895c-8ff1f65716fe,2026-08-22T01:04:01Z,2026-08-25T02:40:06Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Olaplex express,2ad80b1b-4d30-4317-afdd-4cc22cbe2f2c,DURATION_BASED,5,10,1,EUR,Olaplex express,,GROUP_GENERAL,True,True,Olaplex express,Olaplex express,,2ad80b1b-4d30-4317-afdd-4cc22cbe2f2c,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Tratamiento anticaída express,3087ffcd-fe11-424d-b888-baf64e91040f,DURATION_BASED,5,10,1,EUR,Tratamiento anticaída express,,GROUP_GENERAL,True,True,Tratamiento anticaída express,Tratamiento anticaída express,,3087ffcd-fe11-424d-b888-baf64e91040f,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Prueba de estilo,34077d1b-1b29-4fbf-98c0-c3176d43a88f,DURATION_BASED,5,10,1,EUR,Prueba de estilo,,GROUP_GENERAL,True,True,Prueba de estilo,Prueba de estilo,,34077d1b-1b29-4fbf-98c0-c3176d43a88f,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Maquillaje express,3afe19bf-0adc-4a20-afd0-8fd9b0ce16de,DURATION_BASED,5,10,1,EUR,Maquillaje express,,GROUP_GENERAL,True,True,Maquillaje express,Maquillaje express,,3afe19bf-0adc-4a20-afd0-8fd9b0ce16de,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Prueba de peinado nupcial,3cf7a6b2-248f-4176-a2d7-aa48c5b4ee51,DURATION_BASED,15,10,1,EUR,Prueba de peinado nupcial,,GROUP_GENERAL,True,True,Prueba de peinado nupcial,Prueba de peinado nupcial,,3cf7a6b2-248f-4176-a2d7-aa48c5b4ee51,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Tratamiento cuidado e hidratación,3e2998d6-89f1-45ec-9c65-38740d1de21b,DURATION_BASED,12,10,1,EUR,Tratamiento cuidado e hidratación,,GROUP_001,True,True,Tratamiento cuidado e hidratación,Tratamiento cuidado e hidratación,,3e2998d6-89f1-45ec-9c65-38740d1de21b,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Peinado especial evento,3ebf17b0-0302-4a36-be83-fd6067819a25,DURATION_BASED,5,10,1,EUR,Peinado especial evento,,GROUP_GENERAL,True,True,Peinado especial evento,Peinado especial evento,,3ebf17b0-0302-4a36-be83-fd6067819a25,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Corte de puntas post-alisado,44e5b59b-e935-43d9-b5fb-17d26f535888,DURATION_BASED,28,10,1,EUR,Corte de puntas post-alisado,,GROUP_GENERAL,True,True,Corte de puntas post-alisado,Corte de puntas post-alisado,,44e5b59b-e935-43d9-b5fb-17d26f535888,2026-08-22T01:04:01Z,2026-08-25T02:40:13Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Masaje abdominal,4b62f9c0-fa6a-4dc4-91c3-014c29725c24,DURATION_BASED,5,10,1,EUR,Masaje abdominal,,GROUP_GENERAL,True,True,Masaje abdominal,Masaje abdominal,,4b62f9c0-fa6a-4dc4-91c3-014c29725c24,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Accesorios decorativos (flores/pasadores),4f896650-e1d6-474a-98db-0a9d07057e39,DURATION_BASED,5,10,1,EUR,Accesorios decorativos (flores/pasadores),,GROUP_GENERAL,True,True,Accesorios decorativos (flores/pasadores),Accesorios decorativos (flores/pasadores),,4f896650-e1d6-474a-98db-0a9d07057e39,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Perfilado de cejas,5256457c-7b87-4d3f-8004-07012539cf6c,DURATION_BASED,5,10,1,EUR,Perfilado de cejas,,GROUP_GENERAL,True,True,Perfilado de cejas,Perfilado de cejas,,5256457c-7b87-4d3f-8004-07012539cf6c,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Masaje capilar estimulante,5e82e987-486a-4ad9-bc14-629b163df62c,DURATION_BASED,5,10,1,EUR,Masaje capilar estimulante,,GROUP_GENERAL,True,True,Masaje capilar estimulante,Masaje capilar estimulante,,5e82e987-486a-4ad9-bc14-629b163df62c,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Afeitado de cuello,6059cc1c-15c3-41d3-9855-d4aa0d249a51,DURATION_BASED,15,10,1,EUR,Afeitado de cuello,,GROUP_GENERAL,True,True,Afeitado de cuello,Afeitado de cuello,,6059cc1c-15c3-41d3-9855-d4aa0d249a51,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Hidratación con aloe vera,620431a1-c321-404c-b3c7-46ceb65c4f5c,DURATION_BASED,12,10,1,EUR,Hidratación con aloe vera,,GROUP_GENERAL,True,True,Hidratación con aloe vera,Hidratación con aloe vera,,620431a1-c321-404c-b3c7-46ceb65c4f5c,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Retoque express,62652245-4184-4c65-9176-4d495697a554,DURATION_BASED,5,10,1,EUR,Retoque express,,GROUP_GENERAL,True,True,Retoque express,Retoque express,,62652245-4184-4c65-9176-4d495697a554,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Masaje capilar extendido,6561f03a-9325-4671-b7bc-ca379e4cc427,DURATION_BASED,28,10,1,EUR,Masaje capilar extendido,,GROUP_GENERAL,True,True,Masaje capilar extendido,Masaje capilar extendido,,6561f03a-9325-4671-b7bc-ca379e4cc427,2026-08-22T01:04:01Z,2026-08-25T02:40:18Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Manicura clásica express,6a5026ab-9d4e-4e20-a531-0daca24f736e,DURATION_BASED,5,10,1,EUR,Manicura clásica express,,GROUP_GENERAL,True,True,Manicura clásica express,Manicura clásica express,,6a5026ab-9d4e-4e20-a531-0daca24f736e,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Spray fijador,6aadde3b-f600-4859-ba19-e284c1a65f5e,DURATION_BASED,5,10,1,EUR,Spray fijador,,GROUP_GENERAL,True,True,Spray fijador,Spray fijador,,6aadde3b-f600-4859-ba19-e284c1a65f5e,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Champú sin sulfatos,6e817ffb-784b-494c-ac81-ed59e69ae68a,DURATION_BASED,5,10,1,EUR,Champú sin sulfatos,,GROUP_001,True,True,Champú sin sulfatos,Champú sin sulfatos,,6e817ffb-784b-494c-ac81-ed59e69ae68a,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Sellado de puntas con keratina,7055fa9d-0440-4fa6-b143-be165eb4835c,DURATION_BASED,5,10,1,EUR,Sellado de puntas con keratina,,GROUP_GENERAL,True,True,Sellado de puntas con keratina,Sellado de puntas con keratina,,7055fa9d-0440-4fa6-b143-be165eb4835c,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Masaje capilar relajante,7735cd23-6c3a-4349-8806-83fc01916b06,DURATION_BASED,15,10,1,EUR,Masaje capilar relajante,,GROUP_GENERAL,True,True,Masaje capilar relajante,Masaje capilar relajante,,7735cd23-6c3a-4349-8806-83fc01916b06,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Matizado corrector,85323026-f9e1-4a21-bead-877ee89a2561,DURATION_BASED,12,10,1,EUR,Matizado corrector,,GROUP_GENERAL,True,True,Matizado corrector,Matizado corrector,,85323026-f9e1-4a21-bead-877ee89a2561,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Matizado personalizado,931a126b-687a-43ae-bfb2-1d5b684cef92,DURATION_BASED,5,10,1,EUR,Matizado personalizado,,GROUP_GENERAL,True,True,Matizado personalizado,Matizado personalizado,,931a126b-687a-43ae-bfb2-1d5b684cef92,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Exfoliación suave,963ae9af-e228-41fb-bb0f-fe12183ab3b8,QUANTITY_BASED,28,0,1,EUR,Exfoliación suave,,GROUP_001,True,True,Exfoliación suave,Exfoliación suave,,963ae9af-e228-41fb-bb0f-fe12183ab3b8,2026-08-22T01:04:01Z,2026-08-25T02:40:20Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Laca de fijación extrafuerte,96ce655a-23cf-458f-85f6-1ec083045c9d,QUANTITY_BASED,0,0,1,EUR,Laca de fijación extrafuerte,,GROUP_001,True,True,Laca de fijación extrafuerte,Laca de fijación extrafuerte,,96ce655a-23cf-458f-85f6-1ec083045c9d,2026-08-22T01:04:01Z,2026-08-25T02:38:34Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Ampolla oro líquido,9a477858-6a89-41ee-b6c8-17ec2bdc385c,DURATION_BASED,15,5,1,EUR,Ampolla oro líquido,,GROUP_001,True,True,Ampolla oro líquido,Ampolla oro líquido,,9a477858-6a89-41ee-b6c8-17ec2bdc385c,2026-08-22T01:04:01Z,2026-08-25T02:38:34Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Esmaltado semipermanente,9af3dae5-12d3-459e-aea2-9ad94ad41d8e,QUANTITY_BASED,5,0,1,EUR,Esmaltado semipermanente,,GROUP_001,True,True,Esmaltado semipermanente,Esmaltado semipermanente,,9af3dae5-12d3-459e-aea2-9ad94ad41d8e,2026-08-22T01:04:01Z,2026-08-24T12:41:11Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+Parafina para pies,9fdee90a-966b-4ac1-910d-01dd62e572b3,DURATION_BASED,5,10,1,EUR,Parafina para pies,,GROUP_GENERAL,True,True,Parafina para pies,Parafina para pies,,9fdee90a-966b-4ac1-910d-01dd62e572b3,2026-08-22T01:04:01Z,2026-08-25T02:40:27Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+```
+
+---
+
+### 3. `SERVICIOS_CATALOGO.csv` (93 Servicios con Multi-Referencias Normalizadas)
+*Debido a su extensión (93 filas x 36 columnas, ~105 KB), a continuación se presenta la cabecera canónica y las filas representativas que demuestran la conversión de `availableStaff` a arrays de IDs de `MAPA_STAFF`, `addOnOptions` a arrays de IDs de `COMPLEMENTOS_CATALOGO`, y el formateo de servicios simples y duales:*
+
+```csv
+serviceId,title,slugUrl,serviceType,totalDuration,phase1Duration,exposureDuration,phase2Duration,buffer,linkedPhases,allowCombine,price,currency,pricingModel,depositAmount,depositType,onlinePayment,inPersonPayment,taxIncluded,taxRate,sku,categoryId,categoryName,locationId,location,availableStaff,addOnOptions,tagLine,description,mainMedia,hidden,internalNotes,_id,_createdDate,_updatedDate,_owner
+9c98d417-c6ff-4ac0-a410-f7f953c98dbd,Corte Clásico,corte-clasico,CITA,0,0,0,0,5,,False,19,EUR,FIXED,0,FIJO,True,True,True,0.21,SRV-HOM-a948fe79,ac56f807-82cd-48dd-b27b-3806382d5b21,PELUQUERIA HOMBRE,7a12abfd-bf30-4847-bcdf-00dc573d4802,"C/ Maurice Ravel 35, Local, 50012 Zaragoza","[""1d39e32d-b3a6-49f9-934a-1715e8faeacd"", ""0383a98a-343e-4882-a042-07f74702878a"", ""4c26949d-b8a8-4f2f-8934-e7323b38d397""]","[""620431a1-c321-404c-b3c7-46ceb65c4f5c"",""6a5026ab-9d4e-4e20-a531-0daca24f736e""]",El corte tradicional que nunca falla,"Corte de cabello clásico, adaptado a tu estilo y tipo de rostro. Incluye acabado con productos de styling si lo deseas. Duración: 30 min.",https://static.wixstatic.com/media/ab7708_374e5f7adb2f47f3944f3355da129b80~mv2.jpg,False,Servicio principal,0508f9a5-3b3f-43d8-a01d-9feefafeaf90,2026-08-22T01:01:35Z,2026-08-24T12:41:12Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+a90462eb-dae7-4180-82ae-89aaa9cbb394,Babylights: Mechas Naturales,babylights-mechas-naturales,CITA,150,50,40,60,5,87b13644-36b4-4679-b15b-307100ad3cae,True,89,EUR,FIXED,10,FIJO,True,True,True,0.21,SRV-COL-814dc348,b114ebba-13dd-461e-85b6-6801350686dc,COLOR PROFESIONAL,7a12abfd-bf30-4847-bcdf-00dc573d4802,"C/ Maurice Ravel 35, Local, 50012 Zaragoza","[""1d39e32d-b3a6-49f9-934a-1715e8faeacd"", ""0383a98a-343e-4882-a042-07f74702878a"", ""4c26949d-b8a8-4f2f-8934-e7323b38d397""]","[""3afe19bf-0adc-4a20-afd0-8fd9b0ce16de"",""28b4ad4a-ea74-4626-895c-8ff1f65716fe"",""26e16d13-d465-483e-a6f4-fe7acd911afd""]",Mechas súper sutiles que imitan el reflejo natural del sol en el cabello.,Técnica de mechas muy finas que aportan luminosidad y dimensión de forma natural. Efecto 'cabello de niño' o 'sunkissed'. Ideal para quienes buscan un cambio sutil y elegante. **NOTA IMPORTANTE:** Este servicio contiene tiempo de exposición de 40 minutos entre la Fase 1 (Aplicación: 50 min) y la Fase 2 (Aclarado y peinado: 60 min). Duración total: 150 min.,https://static.wixstatic.com/media/ab7708_374e5f7adb2f47f3944f3355da129b80~mv2.jpg,False,Servicio principal dual,124537c8-de36-4acc-8ad8-efe2d3e9283d,2026-08-22T01:01:35Z,2026-08-24T12:41:12Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+87b13644-36b4-4679-b15b-307100ad3cae,F2-Babylights: Mechas Naturales,babylights-mechas-naturales-oculto,CITA,60,0,0,0,5,,False,0,EUR,NO_FEE,0,FIJO,False,True,True,0.21,SRV-COL-87b13644,b114ebba-13dd-461e-85b6-6801350686dc,COLOR PROFESIONAL,7a12abfd-bf30-4847-bcdf-00dc573d4802,"C/ Maurice Ravel 35, Local, 50012 Zaragoza","[""1d39e32d-b3a6-49f9-934a-1715e8faeacd"", ""0383a98a-343e-4882-a042-07f74702878a"", ""4c26949d-b8a8-4f2f-8934-e7323b38d397""]","[""6e817ffb-784b-494c-ac81-ed59e69ae68a"",""6aadde3b-f600-4859-ba19-e284c1a65f5e"",""9af3dae5-12d3-459e-aea2-9ad94ad41d8e""]",Mechas súper sutiles que imitan el reflejo natural del sol en el cabello.,Técnica de mechas muy finas que aportan luminosidad y dimensión de forma natural. Efecto 'cabello de niño' o 'sunkissed'. Ideal para quienes buscan un cambio sutil y elegante. **NOTA IMPORTANTE:** Este servicio contiene tiempo de exposición de 40 minutos entre la Fase 1 (Aplicación: 50 min) y la Fase 2 (Aclarado y peinado: 60 min). Duración total: 150 min.,https://static.wixstatic.com/media/ab7708_374e5f7adb2f47f3944f3355da129b80~mv2.jpg,True,F2 Oculto para flujo dual,2ae50dde-912f-4603-b81d-fb49f2ca1e5c,2026-08-22T01:01:35Z,2026-08-24T12:41:12Z,ab7708e9-6471-441e-b5f9-93a9e02bf4b3
+```
+
+---
+
+## PARTE 2: Plantillas CSV de las 25 Colecciones Restantes (Solo Cabeceras / Campos)
+
+Para crear cualquiera de estas 25 colecciones en Wix CMS, cree un archivo `.csv` vacío, pegue la línea correspondiente de cabeceras e impórtelo:
+
+---
+
+### Misión 1: Catálogo y Citas Core
+* **`CITAS_F2.csv`**:
+```csv
+bookingId,serviceId,resourceId,scheduleId,pairToken,uiPairToken,startDate,endDate,startDateLocal,endDateLocal,dateYmd,status,paymentStatus,bookingType,revision,contactDetails,meta,traceId,_id,_createdDate,_updatedDate,_owner
+```
+
+---
+
+### Misión 2: Disponibilidad y Caché
+* **`AVAILABILITY_DAYS_CACHE.csv`**:
+```csv
+serviceId,phase1ServiceId,yearMonth,staffKey,resourceKeyHash,days,daysArr,version,generatedAt,expiresAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`DUAL_SLOT_CACHE.csv`**:
+```csv
+pairToken,serviceId,phase1ServiceId,phase2ServiceId,resourceId,candidateResourceIds,resourceKeyHash,dateYmd,fromLocal,toLocal,slotF1,slotF2,slots,bookingIdF2,status,expiresAt,_id,_createdDate,_updatedDate,_owner
+```
+
+---
+
+### Misión 3: Transacciones y Sincronización
+* **`BOOKING_TRANSACTIONS.csv`**:
+```csv
+pairToken,serviceId,sourceItemId,title,status,payloadHash,desiredHash,attempts,nextAttemptAt,completedAt,failedAt,errorCode,result,error,traceId,_id,_createdDate,_updatedDate,_owner
+```
+* **`COMPENSACIONES_PENDIENTES.csv`**:
+```csv
+bookingId,bookingIds,orderId,refundId,transactionId,resourceId,status,amount,concept,paymentMethod,movementType,kind,phase,origin,alertRequired,attempts,lastError,error,failedAt,completedAt,traceId,_id,_createdDate,_updatedDate,_owner
+```
+* **`M365_GRAPH_SYNC_QUEUE.csv`**:
+```csv
+externalRecordId,status,type,source,destination,payload,payloadHash,attempts,nextAttemptAt,completedAt,failedAt,blockedAt,syncDate,recordCount,errorCode,message,meta,traceId,_id,_createdDate,_updatedDate,_owner
+```
+
+---
+
+### Misión 4: Inventario y Proveedores
+* **`INVENTARIO_STOCK_VENTA.csv`**:
+```csv
+sku,productName,wixProductId,wixVariantId,stockExpected,minStock,lowStockAlert,reorderPoint,salePriceTaxIncluded,costExTax,location,active,needsWixReconciliation,supplier,supplierReference,unitsPerCase,category,collectionName,description,lastInventoryMovementId,lastInventoryMovementAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`MOVIMIENTOS_INVENTARIO.csv`**:
+```csv
+movementToken,movementId,sku,productId,variantId,wixProductId,wixVariantId,movementType,quantity,quantityDelta,stockBefore,stockAfter,stockExpected,locationCode,status,appliedAt,appliedByNote,requiresWixReconciliation,nativeCommercialMovement,orderId,refundId,referenceId,reason,note,source,productName,actorEmail,actorMemberId,traceId,_id,_createdDate,_updatedDate,_owner
+```
+* **`INVENTARIO_STOCK_VENTA_CIERRE.csv`**:
+```csv
+inventoryClosingId,fiscalYear,closingDate,closingType,sku,productId,productDescription,stockQuantity,unitCost,stockValue,accountCode,debitBalance,creditBalance,closingHash,closingSignature,traceId,_id,_createdDate,_updatedDate,_owner
+```
+* **`PROVEEDORES_LISTA.csv`**:
+```csv
+supplierName,commercialTermsSource,minimumOrderExTax,freeShippingThresholdExTax,leadTime,advantages,notes,active,_id,_createdDate,_updatedDate,_owner
+```
+
+---
+
+### Misión 5: Caja, TPV y Arqueos
+* **`CAJA_ACTUAL.csv`**:
+```csv
+operationDate,cashRegisterStatus,totalBalance,cashBalance,cardBalance,bizumBalance,onlineBalance,totalOperations,openedAt,closedAt,lastActivityAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`MOVIMIENTOS_CAJA.csv`**:
+```csv
+sequenceNumber,invoiceNumber,operationDate,fiscalPeriod,movementType,operationNature,paymentMethod,totalAmount,taxableAmount,taxAmount,taxRate,taxTreatment,accountingSign,accountingAmount,description,lineItems,rectifiedInvoiceReference,previousRecordHash,currentRecordHash,digitalSignature,businessTaxId,schemaIntegrityVersion,recordSource,registeredAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`CONTROL_PARCIAL_X.csv`**:
+```csv
+operationDate,countedCash,expectedCash,discrepancyAmount,reconciliationStatus,countedAt,reconciledAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`CIERRES_Z.csv`**:
+```csv
+operationDate,closingStatus,consolidatedTotalAmount,grossSalesTotal,netTaxableAmount,netTaxAmount,totalCash,totalCard,totalBizum,totalOnline,totalRefunds,totalTips,totalAdjustments,totalOperations,startSequence,endSequence,startTicketNumber,endTicketNumber,startRecordHash,endRecordHash,movementTypeBreakdown,taxTypeBreakdown,isIntegrityVerified,auditedRecordsCount,closingHash,closingSignature,closingSource,closingSchemaVersion,timeZone,closedAt,verifiedAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`SECUENCIA_TICKETS.csv`**:
+```csv
+sequenceCounters,_id,_createdDate,_updatedDate,_owner
+```
+
+---
+
+### Misión 6: Fiscalidad y Contabilidad PGC
+* **`CONFIGURACION_FISCAL.csv`**:
+```csv
+taxId,businessName,streetAddress,postalCode,city,subdivision,country,currency,timeZone,taxRegime,isSiiSubject,defaultInvoiceSeries,configVersion,active,_id,_createdDate,_updatedDate,_owner
+```
+* **`LIBRO_IVA_FACTURAS_EXPEDIDAS.csv`**:
+```csv
+taxRecordId,journalEntryId,invoiceNumber,invoiceSeries,finalInvoiceNumber,issueDate,operationDate,fiscalYear,fiscalPeriod,invoiceType,totalInvoiceAmount,taxableAmount,taxRate,outputTaxAmount,equivalenceSurchargeRate,equivalenceSurchargeAmount,incomeConcept,computableIncomeAmount,recipientTaxId,recipientName,recipientIdType,recipientCountryCode,operationKey,operationQualification,exemptOperation,activityCode,activityType,iaeHeading,paymentDate,collectedAmount,collectionMethod,collectionMethodIdentifier,withholdingTaxRate,withholdingTaxAmount,externalReference,rectifiedInvoiceId,traceId,registeredAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`LIBRO_IVA_FACTURAS_RECIBIDAS.csv`**:
+```csv
+taxRecordId,journalEntryId,receptionNumber,supplierInvoiceSeriesNumber,finalInvoiceNumber,finalReceptionNumber,issueDate,operationDate,receptionDate,fiscalYear,fiscalPeriod,invoiceType,totalInvoiceAmount,taxableAmount,taxRate,inputTaxAmount,deductibleTaxAmount,equivalenceSurchargeRate,equivalenceSurchargeAmount,expenseConcept,deductibleExpenseAmount,supplierTaxId,supplierName,supplierIdType,supplierCountryCode,operationKey,isInvestmentAsset,isReverseCharge,deductibleLaterPeriod,deductionYear,deductionPeriod,activityCode,activityType,iaeHeading,paymentDate,paidAmount,paymentMethod,paymentMethodIdentifier,withholdingTaxRate,withholdingTaxAmount,externalReference,traceId,registeredAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`PLAN_CUENTAS_CONTABLES.csv`**:
+```csv
+accountCode,accountName,accountGroup,accountSubgroup,accountNature,operationCategory,operationSubcategory,defaultTaxRate,outputTaxAccountCode,outputTaxAccountName,inputTaxAccountCode,inputTaxAccountName,defaultDebitAccountCode,defaultDebitAccountName,defaultCreditAccountCode,defaultCreditAccountName,defaultCostCenter,active,validatedByAgency,validationDate,_id,_createdDate,_updatedDate,_owner
+```
+* **`ASIENTOS_CONTABLES.csv`**:
+```csv
+journalEntryId,entryNumber,fiscalYear,fiscalPeriod,operationDate,fiscalOperationDate,entryConcept,totalDebit,totalCredit,totalDocumentAmount,entryType,entryStatus,operationCategory,operationSubcategory,currency,paymentMethod,wixOrderId,wixRefundId,wixBookingId,transactionId,invoiceSeries,invoiceNumber,invoiceIssueDate,invoiceType,externalReference,rectifiedEntryId,rectificationReason,operationalManagerId,recordingMemberId,recordingName,costCenterId,iaeActivityCode,recordSource,sourceId,schemaVersion,integrityAlgorithmVersion,previousHash,entryHash,entrySignature,traceId,registeredAt,operationTimeZone,_id,_createdDate,_updatedDate,_owner
+```
+* **`LINEAS_ASIENTO_CONTABLE.csv`**:
+```csv
+entryLineId,journalEntryId,lineNumber,accountCode,accountName,accountGroup,debitAmount,creditAmount,netAmount,lineDescription,taxableAmount,taxRate,taxAmount,vatOperationKey,counterpartyTaxId,counterpartyName,operationCategory,productServiceCode,costCenterId,operationalManagerId,externalReference,lineHash,traceId,operationDate,registeredAt,_id,_createdDate,_updatedDate,_owner
+```
+* **`MAYOR_CONTABLE_SALDOS.csv`**:
+```csv
+generalLedgerId,accountCode,accountName,fiscalYear,fiscalPeriod,initialDebitBalance,initialCreditBalance,debitMovements,creditMovements,finalDebitBalance,finalCreditBalance,calculationDate,traceId,_id,_createdDate,_updatedDate,_owner
+```
+
+---
+
+### Misión 7: Auditoría y Control Laboral
+* **`EVENTOS_SISTEMA_FACTURACION.csv`**:
+```csv
+systemEventId,eventDateTime,eventType,severity,result,eventSource,responsibleUserId,responsibleMemberId,journalEntryId,transactionId,referenceId,secureDetail,previousEventHash,eventHash,eventSignature,systemVersion,schemaVersion,traceId,_id,_createdDate,_updatedDate,_owner
+```
+* **`AUDITORIA.csv`**:
+```csv
+eventType,level,message,source,resourceId,traceId,loggedAt,data,_id,_createdDate,_updatedDate,_owner
+```
+* **`REGISTROS_HORARIOS_STAFF.csv`**:
+```csv
+resourceId,resourceName,recordedAt,recordedTime,dayKey,monthKey,clockEventType,type,employeeIdentifier,employeeName,registeredBy,registeredByMemberId,adjustmentReason,deviceIp,deviceIpAddress,signature,meta,traceId,_id,_createdDate,_updatedDate,_owner
+```
+
+---
+
+## PARTE 3: Descarga del Paquete Completo (28 Archivos en ZIP)
+
+El archivo comprimido con las 28 colecciones (`wix_cms_collections_csv.zip`) se encuentra generado y disponible en su entorno de trabajo:
+* **Archivos con datos completos**: `SERVICIOS_CATALOGO.csv` (104 KB), `COMPLEMENTOS_CATALOGO.csv` (11 KB) y `MAPA_STAFF.csv` (1.5 KB).
+* **Archivos de plantillas con encabezados**: Las 25 colecciones restantes listas para importación directa en el CMS.

@@ -65,7 +65,7 @@ tasaIva: Number(movement?.tasaIva || 0),
 naturalezaOperacion: String(movement?.naturalezaOperacion || ""),
 tratamientoIva: String(movement?.tratamientoIva || ""),
 referenciaRectificativa: String(movement?.referenciaRectificativa || ""),
-detalleLineas: Array.isArray(movement?.detalleLineas) ? movement.lineItems : [],
+detalleLineas: Array.isArray(movement?.detalleLineas) ? movement.detalleLineas : [],
 });
 }
 function _canonicalPayload(prevHash, transactionId, tipoMovimiento, importeContable, formaPago) {
@@ -101,9 +101,9 @@ if (retries === 0) throw error;
 async function _getAllDailyMovements(diaKey, options = {}) {
 if (!diaKey) return [];
 let allItems = [];
-let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA).eq("operationDate", String(diaKey));
-if (options.paymentMethod) query = query.eq("paymentMethod", options.paymentMethod);
-if (options.ascendingCreated) query = query.ascending("sequenceNumber");
+let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA).eq("diaKey", String(diaKey));
+if (options.formaPago) query = query.eq("formaPago", options.formaPago);
+if (options.ascendingCreated) query = query.ascending("seqGlobal");
 let res = await query.limit(1000).find({ suppressAuth: true });
 allItems = allItems.concat(res.items || []);
 while (res.hasNext()) {
@@ -116,17 +116,17 @@ function _buildCashierProjection(items) {
 const totals = { saldoEfectivo: 0, saldoTarjeta: 0, saldoBizum: 0, saldoOnline: 0 };
 for (const movement of items || []) {
 const amount = Number(movement?.importeContable) || 0;
-if (movement?.formaPago === FORMA_PAGO.EFECTIVO) totals.cashBalance += amount;
-if (movement?.formaPago === FORMA_PAGO.TARJETA) totals.cardBalance += amount;
-if (movement?.formaPago === FORMA_PAGO.BIZUM) totals.bizumBalance += amount;
-if (movement?.formaPago === FORMA_PAGO.ONLINE) totals.onlineBalance += amount;
+if (movement?.formaPago === FORMA_PAGO.EFECTIVO) totals.saldoEfectivo += amount;
+if (movement?.formaPago === FORMA_PAGO.TARJETA) totals.saldoTarjeta += amount;
+if (movement?.formaPago === FORMA_PAGO.BIZUM) totals.saldoBizum += amount;
+if (movement?.formaPago === FORMA_PAGO.ONLINE) totals.saldoOnline += amount;
 }
 return {
-saldoEfectivo: _roundMoney(totals.cashBalance),
-saldoTarjeta: _roundMoney(totals.cardBalance),
-saldoBizum: _roundMoney(totals.bizumBalance),
-saldoOnline: _roundMoney(totals.onlineBalance),
-saldoTotal: _roundMoney(totals.cashBalance + totals.cardBalance + totals.bizumBalance + totals.onlineBalance),
+saldoEfectivo: _roundMoney(totals.saldoEfectivo),
+saldoTarjeta: _roundMoney(totals.saldoTarjeta),
+saldoBizum: _roundMoney(totals.saldoBizum),
+saldoOnline: _roundMoney(totals.saldoOnline),
+saldoTotal: _roundMoney(totals.saldoEfectivo + totals.saldoTarjeta + totals.saldoBizum + totals.saldoOnline),
 totalOperaciones: Array.isArray(items) ? items.length : 0,
 };
 }
@@ -150,7 +150,7 @@ _id: "CAJA_PRINCIPAL",
 diaKey: day,
 ...projection,
 estado: (options.closed || keepClosed) ? CAJA_STATUS.CLOSED : CAJA_STATUS.OPEN,
-fechaApertura: isSameDay && current?.fechaApertura ? current.openedAt : now,
+fechaApertura: isSameDay && current?.fechaApertura ? current.fechaApertura : now,
 fechaCierre: options.closed ? now : (keepClosed ? current?.fechaCierre || null : null),
 ultimaActualizacion: now,
 };
@@ -205,7 +205,7 @@ const tz = SDK_CONFIG?.TZ || "Europe/Madrid";
 const madridDateStr = new Date().toLocaleDateString("sv-SE", { timeZone: tz });
 const year = parseInt(madridDateStr.slice(0, 4), 10) || new Date().getFullYear();
 const pad = (n) => String(n).padStart(5, "0");
-const tipoMov = _resolveMovementType(normalizedMethod, cleanAmount, options.movementType);
+const tipoMov = _resolveMovementType(normalizedMethod, cleanAmount, options.tipoMovimiento);
 const isRefund = tipoMov === TIPO_MOVIMIENTO.REEMBOLSO;
 const isTip = tipoMov === TIPO_MOVIMIENTO.PROPINA;
 const signo = isRefund ? -1 : 1;
@@ -244,7 +244,7 @@ orderId: options.orderId || null, refundId: options.refundId || null,
 importeTotal: absAmount, signo, importeContable, baseImponible, cuotaIva, tasaIva: taxRate,
 naturalezaOperacion, tratamientoIva, referenciaRectificativa, detalleLineas,
 integrityPayloadVersion: "LEDGER_V2", nifEmisor, numTicketFactura,
-prevHash: state.previousRecordHash, hashCadena: state.newHash, firmaDigital,
+prevHash: state.prevHash, hashCadena: state.newHash, firmaDigital,
 formaPago: normalizedMethod, reservaIdVinculada: bookingId || null,
 transactionId: transId, resourceId: options.resourceId || null,
 diaKey, mesKey: diaKey.substring(0, 7), traceId, fechaCreacion: new Date(),
@@ -273,27 +273,27 @@ if (firstSeqGlobal > 0) {
 const predecessor = await wixData
 .query(COLLECTIONS.MOVIMIENTOS_CAJA)
 .lt("seqGlobal", firstSeqGlobal)
-.descending("sequenceNumber")
+.descending("seqGlobal")
 .limit(1)
 .find({ suppressAuth: true, consistentRead: true });
 expectedPrevHash = predecessor?.items?.[0]?.hashCadena || SEED_SIGNATURE;
 }
 for (let i = 0; i < items.length; i++) {
 const m = items[i];
-if (m.previousRecordHash !== expectedPrevHash) {
+if (m.prevHash !== expectedPrevHash) {
 inconsistencies.push({ index: i, id: m._id, reason: "prevHash mismatch with global predecessor hashCadena" });
 }
-expectedPrevHash = m.currentRecordHash || "";
+expectedPrevHash = m.hashCadena || "";
 const payloadCanonico = m.integrityPayloadVersion === "LEDGER_V2" ?
 _canonicalPayloadV2(m) :
-_canonicalPayload(m.previousRecordHash, m.transactionId, m.movementType, m.accountingAmount, m.paymentMethod);
-const computedHashCadena = hashChain(m.previousRecordHash, payloadCanonico);
+_canonicalPayload(m.prevHash, m.transactionId, m.tipoMovimiento, m.importeContable, m.formaPago);
+const computedHashCadena = hashChain(m.prevHash, payloadCanonico);
 const computedFirma = hmacSha256Hex(fiscalKey, payloadCanonico);
 const firmaExpectedFull = `${computedFirma}|${computedHashCadena}`;
-if (m.currentRecordHash !== computedHashCadena) inconsistencies.push({ index: i, id: m._id, reason: "hashCadena mismatch" });
-if (m.digitalSignature !== firmaExpectedFull) inconsistencies.push({ index: i, id: m._id, reason: "signature mismatch" });
-if (m.invoiceNumber && typeof m.invoiceNumber === "string") {
-const parts = m.invoiceNumber.split("-");
+if (m.hashCadena !== computedHashCadena) inconsistencies.push({ index: i, id: m._id, reason: "hashCadena mismatch" });
+if (m.firmaDigital !== firmaExpectedFull) inconsistencies.push({ index: i, id: m._id, reason: "signature mismatch" });
+if (m.numTicketFactura && typeof m.numTicketFactura === "string") {
+const parts = m.numTicketFactura.split("-");
 if (parts.length === 3) {
 const ticketNum = parseInt(parts[2], 10);
 if (!isNaN(ticketNum)) {
@@ -491,7 +491,7 @@ if (!transactionId || !Number.isFinite(amount) || amount === 0) {
      origin: String(payload.origin || existing?.origin || "FISCAL_RECOVERY"),
      concept: String(payload.concept || "Fiscal ledger recovery"),
      resourceId: String(payload.resourceId || "online"),
-     tipoMovimiento: String(payload.movementType || TIPO_MOVIMIENTO.VENTA_ONLINE),
+     tipoMovimiento: String(payload.tipoMovimiento || TIPO_MOVIMIENTO.VENTA_ONLINE),
      phase: String(payload.phase || existing?.phase || ""),
      traceId,
      lastError: String(payload.lastError || existing?.lastError || ""),
@@ -540,11 +540,11 @@ let completed = 0;
          orderId: item.orderId || null,
          refundId: item.refundId || null,
          origen: item.origin || "FISCAL_RECOVERY",
-         tipoMovimiento: item.movementType,
+         tipoMovimiento: item.tipoMovimiento,
      });
      const { _createdDate, _updatedDate, _owner, ...safeItem } = item;
      if (ledger?.status === "SUCCESS") {
-         if (String(item.movementType || "").toUpperCase() === TIPO_MOVIMIENTO.VENTA_ONLINE && String(item.bookingIds || "").trim()) {
+         if (String(item.tipoMovimiento || "").toUpperCase() === TIPO_MOVIMIENTO.VENTA_ONLINE && String(item.bookingIds || "").trim()) {
              await _markCitasPaidAfterFiscalRecovery(item.bookingIds, item.orderId, item.traceId || traceId);
          }
          await wixData.update(COLLECTIONS.COMPENSATIONS, {
@@ -610,7 +610,7 @@ throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "metalicoCaja must be a no
 const movements = await _getAllDailyMovements(String(diaKey));
 const cashProjection = _buildCashierProjection(movements);
 const countedCash = _roundMoney(metalicoCaja);
-const totalEfectivoTeorico = cashProjection.cashBalance;
+const totalEfectivoTeorico = cashProjection.saldoEfectivo;
 const descuadre = _roundMoney(countedCash - totalEfectivoTeorico);
 const record = {
 diaKey: String(diaKey),

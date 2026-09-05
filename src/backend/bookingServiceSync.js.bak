@@ -16,7 +16,7 @@ import { logger } from "backend/booking/bookingCore";
 import { COLLECTIONS, SDK_CONFIG, SERVICE_CATALOG } from "backend/internalConfig";
 
 const log = logger;
-const QUEUE_COL = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE || "BookingTransactions";
+const QUEUE_COL = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE || "BookingsServiceSyncQueue";
 const MAX_ATTEMPTS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_MAX_ATTEMPTS || 5;
 const BATCH_SIZE = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BATCH_SIZE || 20;
 const BACKOFF_MS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BACKOFF_MS || 300000;
@@ -43,11 +43,11 @@ function _cleanGuidList(value) {
 }
 
 function _buildDesiredProjection(item) {
-    const title = _cleanText(item.title || item.title, 160);
-    const duration = Number(item.totalDuration || item.duration) || 0;
+    const title = _cleanText(item.tituloServicio || item.title, 160);
+    const duration = Number(item.duracionTotal || item.duration) || 0;
     const price = Number(item.precio || item.price) || 0;
     const currency = _safeTrim(item.moneda || item.currency) || SERVICE_CATALOG.CURRENCY;
-    const isHidden = item.hidden === true;
+    const isHidden = item.oculto === true;
     const isActive = _safeTrim(item.estado || item.status) === "ACTIVO";
 
     const staffIds = [];
@@ -63,14 +63,14 @@ function _buildDesiredProjection(item) {
     return {
         service: {
             name: title,
-            description: _cleanText(item.description || item.description, 6000),
-            tagLine: _cleanText(item.tagLine || item.tagLine, 120),
+            description: _cleanText(item.descripcionLarga || item.description, 6000),
+            tagLine: _cleanText(item.resumenCorto || item.tagLine, 120),
             categoryId: _cleanGuid(item.idCategoria || item.categoryId || "c97726db-84aa-4a08-b34e-7fda9e17702e", "SYNC_CATEGORY_INVALID"),
             status: isActive ? "CREATED" : "DRAFT",
             hidden: isHidden,
             paymentOptions: {
-                wixPayOnline: item.onlinePayment !== false,
-                wixPayInPerson: item.inPersonPayment !== false,
+                wixPayOnline: item.pagoOnline !== false,
+                wixPayInPerson: item.pagoPresencial !== false,
             },
             schedule: {
                 durationInMinutes: duration,
@@ -88,7 +88,7 @@ function _buildDesiredProjection(item) {
 
 export async function enqueueBookingsServiceSync(serviceItem) {
     if (!serviceItem || typeof serviceItem !== "object") return null;
-    const serviceId = _extractRelationalId(serviceItem.serviceId || serviceItem.serviceId);
+    const serviceId = _extractRelationalId(serviceItem.idServicio || serviceItem.serviceId);
     if (!_looksLikeGuid(serviceId)) return null;
 
     const desired = _buildDesiredProjection(serviceItem);

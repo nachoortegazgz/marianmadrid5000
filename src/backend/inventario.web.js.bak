@@ -34,11 +34,11 @@ _rateLimitOrThrow("inventario.getInventoryDashboard", "staff", traceId);
 await requireCajero(traceId);
 const res = await wixData
 .query(INVENTARIO_COL)
-.eq("active", true)
+.eq("activo", true)
 .limit(100)
 .find({ suppressAuth: true });
 const items = res?.items || [];
-const lowStock = items.filter((i) => Number(i.stockActual || 0) <= Number(i.minStock || 0));
+const lowStock = items.filter((i) => Number(i.stockActual || 0) <= Number(i.stockMinimo || 0));
 return {
 status: "SUCCESS",
 data: {
@@ -49,14 +49,14 @@ _id: i._id,
 sku: i.sku || "",
 nombre: i.nombre || i.nombreProducto || "",
 stockActual: Number(i.stockActual || 0),
-stockMinimo: Number(i.minStock || 0),
+stockMinimo: Number(i.stockMinimo || 0),
 categoria: i.categoria || "",
 })),
 lowStockItems: lowStock.map((i) => ({
 sku: i.sku || "",
 nombre: i.nombre || i.nombreProducto || "",
 stockActual: Number(i.stockActual || 0),
-stockMinimo: Number(i.minStock || 0),
+stockMinimo: Number(i.stockMinimo || 0),
 })),
 },
 error: null,

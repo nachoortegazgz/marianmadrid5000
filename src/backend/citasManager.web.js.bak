@@ -344,7 +344,7 @@ return { status: "ERROR", data: null, error: { code: "INVALID_PAYLOAD", message:
      let rev = Number(revision) || 0;
      if (!rev) rev = Number(citaExistente?.revision || 1) || 1;
      const slotObj = newSlot?.slot || newSlot;
-    const serviceId = _extractRelationalId(citaExistente.serviceId || citaExistente.serviceId);
+    const serviceId = _extractRelationalId(citaExistente.serviceId || citaExistente.primaryServiceGuid);
      const requestedServiceId = _extractRelationalId(slotObj.serviceId || slotObj?.slot?.serviceId || "");
      const resourceIdForReschedule = _safeTrim(slotObj.resourceId || slotObj.resource?.id || slotObj.resource?._id || "");
      if (!_looksLikeGuid(serviceId)) {
@@ -402,7 +402,7 @@ return { status: "ERROR", data: null, error: { code: "INVALID_PAYLOAD", message:
          resourceId: resourceIdForReschedule,
          revision: newRevision,
      }), traceId, "rescheduleExistingBooking");
-     const oldDateYMD = String(citaExistente.startDateLocal || citaExistente.dateYmd || "").slice(0, 10);
+     const oldDateYMD = String(citaExistente.startDateLocal || citaExistente.fechaYmdMadrid || "").slice(0, 10);
      const oldResourceId = _safeTrim(citaExistente.resourceId);
      const newDateYMD = startDateLocal.slice(0, 10);
      try {
@@ -526,9 +526,9 @@ try {
      if (!serviceConfig?.permitirCombinar || !_looksLikeGuid(linkedServiceId)) {
          return { status: "ERROR", data: null, error: { code: "DUAL_RESCHEDULE_CONFIG_INVALID", message: "SERVICIOS_RESERVA does not define a valid dual service configuration." } };
      }
-     const f1DurationMinutes = Number(serviceConfig.phase1Duration) || 0;
-     const f2DurationMinutes = Number(serviceConfig.phase2Duration) || 0;
-     const expectedGapMs = Math.max(0, Number(serviceConfig.exposureDuration) || 0) * 60 * 1000;
+     const f1DurationMinutes = Number(serviceConfig.tiempoFase1) || 0;
+     const f2DurationMinutes = Number(serviceConfig.tiempoFase2) || 0;
+     const expectedGapMs = Math.max(0, Number(serviceConfig.tiempoExposicion) || 0) * 60 * 1000;
      if (!f1DurationMinutes || !f2DurationMinutes) {
          return { status: "ERROR", data: null, error: { code: "DUAL_RESCHEDULE_DURATION_INVALID", message: "Dual phase durations are invalid." } };
      }
@@ -650,9 +650,9 @@ try {
              revision,
          }), traceId, "rescheduleDualBookings");
      }
-     const oldDateF1 = String(citaF1.startDateLocal || citaF1.dateYmd || "").slice(0, 10);
+     const oldDateF1 = String(citaF1.startDateLocal || citaF1.fechaYmdMadrid || "").slice(0, 10);
      const newDateF1 = getMadridLocalStringNoZ(newF1Start).slice(0, 10);
-     const oldDateF2 = String(citaF2.startDateLocal || citaF2.dateYmd || "").slice(0, 10);
+     const oldDateF2 = String(citaF2.startDateLocal || citaF2.fechaYmdMadrid || "").slice(0, 10);
      const newDateF2 = getMadridLocalStringNoZ(newF2Start).slice(0, 10);
      const resourceIdF1 = resIdF1;
      const resourceIdF2 = resIdF2;
