@@ -340,11 +340,11 @@ export async function _persistBooking(params, traceId = 'no-trace') {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking payload is required', { traceId });
   }
 
-  const serviceId = params.serviceId;
+  const serviceId = params.serviceId || params.primaryServiceGuid;
   if (!params.bookingId || !serviceId || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push('bookingId');
-    if (!serviceId) missingFields.push('serviceId');
+    if (!serviceId) missingFields.push('primaryServiceGuid');
     if (!params.scheduleId) missingFields.push('scheduleId');
 
     const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(', ')}`, { traceId, missingFields });
@@ -373,21 +373,22 @@ export async function _persistBooking(params, traceId = 'no-trace') {
   }
 
   const meta = (params.meta && typeof params.meta === 'object') ? params.meta : (typeof params.meta === 'string' ? (() => { try { return JSON.parse(params.meta); } catch { return null; } })() : null);
-  if (!meta || typeof meta !== 'object' || !('paymentStatus' in meta) || !meta.paymentStatus) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking meta is required and must include paymentStatus', { traceId, meta: params.meta });
+  const paymentStatus = meta?.paymentStatus || meta?.estadoPago;
+  if (!meta || typeof meta !== 'object' || !paymentStatus) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking meta is required and must include estadoPago (paymentStatus)', { traceId, meta: params.meta });
   }
 
   // Validar estado de pago
   const validPaymentStates = ['UNPAID', 'PENDING_PAYMENT', 'CONFIRMED_UNPAID', 'PAID'];
-  if (!validPaymentStates.includes(meta.paymentStatus)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state: ${meta.paymentStatus}`, { traceId, paymentStatus: meta.paymentStatus });
+  if (!validPaymentStates.includes(paymentStatus)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state (estadoPago): ${paymentStatus}`, { traceId, paymentStatus });
   }
 
   // Construir item para Wix Data
   const bookingRecord = {
     _id: params.bookingId,
     revision: params.revision,
-    serviceId,
+    primaryServiceGuid: serviceId,
     scheduleId: params.scheduleId,
     resourceId: params.resourceId,
     startDate: params.startDate,
@@ -573,7 +574,7 @@ const legacyDurationSignature = durationMinutes === undefined && (
 );
 if (legacyDurationSignature) {
 durationMinutes = Number(serviceId);
-serviceId = slot?.serviceId || null;
+serviceId = slot?.serviceId || slot?.primaryServiceGuid || null;
 }
 
 // VALIDACION CRITICA: Verificar serviceId
@@ -862,7 +863,7 @@ export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate
   if (slotOrServiceId && typeof slotOrServiceId === 'object') {
     const slot = slotOrServiceId;
     const parts = [
-      slot.serviceId || slot.serviceId || '',
+      slot.serviceId || slot.primaryServiceGuid || '',
       slot.scheduleId || '',
       slot.localStartDate || slot.startDate || '',
       slot.resourceId || (slot.resource?.id) || ''
