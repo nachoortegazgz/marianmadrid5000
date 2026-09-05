@@ -372,7 +372,7 @@ export async function _persistBooking(params, traceId = 'no-trace') {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid booking type: ${params.tipo}`, { traceId, tipo: params.tipo });
   }
 
-  const meta = (params.meta && typeof params.meta === 'object') ? params.meta : (typeof params.meta === 'string' ? (() => { try { return JSON.parse(params.meta); } catch { return null; } })() : null);
+  const meta = (params.meta && typeof params.meta === 'object') ? params.meta : (typeof params.meta === 'string' ? (() => { try { return JSON.parse(params.meta); } catch (_) { return null; } })() : null);
   const paymentStatus = meta?.paymentStatus || meta?.estadoPago;
   if (!meta || typeof meta !== 'object' || !paymentStatus) {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking meta is required and must include estadoPago (paymentStatus)', { traceId, meta: params.meta });
