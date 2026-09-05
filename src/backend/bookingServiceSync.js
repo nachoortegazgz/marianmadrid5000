@@ -45,18 +45,19 @@ function _cleanGuidList(value) {
 function _buildDesiredProjection(item) {
     const title = _cleanText(item.title || item.title, 160);
     const duration = Number(item.totalDuration || item.duration) || 0;
-    const price = Number(item.precio || item.price) || 0;
-    const currency = _safeTrim(item.moneda || item.currency) || SERVICE_CATALOG.CURRENCY;
+    const price = Number(item.price ?? item.precio) || 0;
+    const currency = _safeTrim(item.currency || item.moneda) || SERVICE_CATALOG.CURRENCY;
     const isHidden = item.hidden === true;
-    const isActive = _safeTrim(item.estado || item.status) === "ACTIVO";
+    const isActive = item.active === true || _safeTrim(item.estado || item.status) === "ACTIVO";
 
     const staffIds = [];
     try {
-        const parsed = typeof item.personalDisponible === "string" ? JSON.parse(item.personalDisponible) : item.personalDisponible;
+        const rawStaff = item.availableStaff || item.personalDisponible;
+        const parsed = typeof rawStaff === "string" ? JSON.parse(rawStaff) : rawStaff;
         if (parsed && Array.isArray(parsed.staffIds)) {
             staffIds.push(...parsed.staffIds);
-        } else if (Array.isArray(item.personalDisponible)) {
-            staffIds.push(...item.personalDisponible);
+        } else if (Array.isArray(rawStaff)) {
+            staffIds.push(...rawStaff);
         }
     } catch (_) {}
 

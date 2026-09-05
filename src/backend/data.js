@@ -51,6 +51,9 @@ return value;
 }
 function _validateServiciosCatalogo(item, context) {
 if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
+_normalizeBoundedText(item, "title", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
+_normalizeBoundedText(item, "tagLine", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
+_normalizeBoundedText(item, "description", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
 _normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
 _normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
 _normalizeBoundedText(item, "descripcionLarga", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
@@ -61,19 +64,21 @@ throw new Error("SERVICE_VALIDATION: estado must be selected from the approved c
 }
 item.estado = estado;
 }
-const categoria = _normalizeCatalogReference(item.nombreCategoria || item.categoria);
+const categoria = _normalizeCatalogReference(item.categoryName || item.nombreCategoria || item.categoria);
 if (categoria) {
+item.categoryName = categoria;
 item.nombreCategoria = categoria;
 }
 const moneda = _normalizeCatalogReference(item.moneda || item.monedaCatalogo);
 if (moneda && moneda !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
 throw new Error("SERVICE_VALIDATION: only EUR is supported by this catalog.");
 }
-if (item.precio !== undefined && item.precio !== null && item.precio !== "") {
-const precio = Number(item.precio);
+if (item.price !== undefined && item.price !== null && item.price !== "") {
+const precio = Number(item.price);
 if (!Number.isFinite(precio) || precio < 0) {
 throw new Error("SERVICE_VALIDATION: precio must be a non-negative number.");
 }
+item.price = precio;
 item.precio = precio;
 }
 const f1 = _readDuration(item, "tiempoFaseUno") || _readDuration(item, "tiempoFase1");
@@ -101,8 +106,9 @@ if (!item || typeof item !== "object" || context?.suppressHooks === true) return
 const resourceId = String(item.resourceId || "").trim();
 if (!GUID_RE.test(resourceId)) throw new Error("STAFF_VALIDATION: resourceId must be a valid Bookings resource GUID.");
 item.resourceId = resourceId;
+_normalizeBoundedText(item, "displayName", 80);
 _normalizeBoundedText(item, "nombreVisible", 80);
-if (!item.nombreVisible) throw new Error("STAFF_VALIDATION: nombreVisible is required.");
+if (!item.displayName && !item.nombreVisible) throw new Error("STAFF_VALIDATION: displayName is required.");
 _normalizeBoundedText(item, "idMiembroStaff", 120);
 _normalizeBoundedText(item, "email", 254);
 _normalizeBoundedText(item, "scheduleId", 120);
@@ -117,6 +123,18 @@ export function MapaStaff_beforeInsert(item, context) {
 return _validateMapaStaff(item, context);
 }
 export function MapaStaff_beforeUpdate(item, context) {
+return _validateMapaStaff(item, context);
+}
+export function SERVICIOS_CATALOGO_beforeInsert(item, context) {
+return _validateServiciosCatalogo(item, context);
+}
+export function SERVICIOS_CATALOGO_beforeUpdate(item, context) {
+return _validateServiciosCatalogo(item, context);
+}
+export function MAPA_STAFF_beforeInsert(item, context) {
+return _validateMapaStaff(item, context);
+}
+export function MAPA_STAFF_beforeUpdate(item, context) {
 return _validateMapaStaff(item, context);
 }
 export function CitasF2_beforeInsert(item, context) {

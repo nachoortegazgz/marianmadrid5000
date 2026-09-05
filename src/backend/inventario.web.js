@@ -38,7 +38,7 @@ const res = await wixData
 .limit(100)
 .find({ suppressAuth: true });
 const items = res?.items || [];
-const lowStock = items.filter((i) => Number(i.stockActual || 0) <= Number(i.minStock || 0));
+const lowStock = items.filter((i) => Number(i.stockExpected ?? i.stockActual ?? 0) <= Number(i.minStock || 0));
 return {
 status: "SUCCESS",
 data: {
@@ -47,15 +47,15 @@ lowStockCount: lowStock.length,
 products: items.map((i) => ({
 _id: i._id,
 sku: i.sku || "",
-nombre: i.nombre || i.nombreProducto || "",
-stockActual: Number(i.stockActual || 0),
+nombre: i.productName || i.nombre || i.nombreProducto || "",
+stockActual: Number(i.stockExpected ?? i.stockActual ?? 0),
 stockMinimo: Number(i.minStock || 0),
 categoria: i.categoria || "",
 })),
 lowStockItems: lowStock.map((i) => ({
 sku: i.sku || "",
-nombre: i.nombre || i.nombreProducto || "",
-stockActual: Number(i.stockActual || 0),
+nombre: i.productName || i.nombre || i.nombreProducto || "",
+stockActual: Number(i.stockExpected ?? i.stockActual ?? 0),
 stockMinimo: Number(i.minStock || 0),
 })),
 },
@@ -103,7 +103,7 @@ const productRes = await wixData
 .catch(() => null);
 const product = productRes?.items?.[0];
 if (!product) continue;
-const currentStock = Number(product.stockActual || 0);
+const currentStock = Number(product.stockExpected ?? product.stockActual ?? 0);
 const newStock = Math.max(0, currentStock - quantity);
 const movement = {
 sku,
@@ -120,6 +120,7 @@ await wixData.insert(MOVIMIENTO_COL, movement, { suppressAuth: true });
 const { _createdDate, _updatedDate, _owner, ...safeProduct } = product;
 await wixData.update(INVENTARIO_COL, {
 ...safeProduct,
+stockExpected: newStock,
 stockActual: newStock,
 updatedAt: new Date(),
 }, { suppressAuth: true });
@@ -149,7 +150,7 @@ const productRes = await wixData
 .catch(() => null);
 const product = productRes?.items?.[0];
 if (!product) continue;
-const currentStock = Number(product.stockActual || 0);
+const currentStock = Number(product.stockExpected ?? product.stockActual ?? 0);
 const newStock = currentStock + restockQty;
 const movement = {
 sku,
@@ -167,6 +168,7 @@ await wixData.insert(MOVIMIENTO_COL, movement, { suppressAuth: true });
 const { _createdDate, _updatedDate, _owner, ...safeProduct } = product;
 await wixData.update(INVENTARIO_COL, {
 ...safeProduct,
+stockExpected: newStock,
 stockActual: newStock,
 updatedAt: new Date(),
 }, { suppressAuth: true });

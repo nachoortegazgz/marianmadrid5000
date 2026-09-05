@@ -237,33 +237,34 @@ async function _mapServiceToPresentation(service, traceId) {
         throw new Error("SERVICIOS_RESERVA invalid: serviceId missing or not a GUID");
     }
 
-    const isHidden = service?.oculto === true;
-    const linkFases = _safeTrim(service?.linkFases || service?.idServicioFaseDos);
+    const isHidden = service?.hidden === true || service?.oculto === true;
+    const linkFases = _safeTrim(service?.linkedPhases || service?.linkFases || service?.idServicioFaseDos);
     const secondaryServiceGuid = linkFases && _looksLikeGuid(linkFases) ? linkFases : null;
-    const permitirCombinar = !isHidden && (service?.permitirCombinar === true) && Boolean(secondaryServiceGuid);
+    const permitirCombinar = !isHidden && (service?.allowCombine === true || service?.permitirCombinar === true) && Boolean(secondaryServiceGuid);
 
-    const tiempoFase1 = Number(service?.tiempoFase1 || service?.tiempoFaseUno) || 0;
-    const tiempoExposicion = Number(service?.tiempoExposicion) || 0;
-    const tiempoFase2 = Number(service?.tiempoFase2 || service?.tiempoFaseDos) || 0;
-    const duracionTotal = Number(service?.duracionTotal) || (tiempoFase1 + tiempoExposicion + tiempoFase2) || 30;
+    const tiempoFase1 = Number(service?.phase1Duration ?? service?.tiempoFase1 ?? service?.tiempoFaseUno) || 0;
+    const tiempoExposicion = Number(service?.exposureDuration ?? service?.tiempoExposicion) || 0;
+    const tiempoFase2 = Number(service?.phase2Duration ?? service?.tiempoFase2 ?? service?.tiempoFaseDos) || 0;
+    const duracionTotal = Number(service?.totalDuration ?? service?.duracionTotal) || (tiempoFase1 + tiempoExposicion + tiempoFase2) || 30;
 
-    const tituloServicio = _safeTrim(service?.tituloServicio || service?.title || "Servicio");
-    const precio = Number(service?.precio || service?.price) || 0;
+    const tituloServicio = _safeTrim(service?.title || service?.tituloServicio || "Servicio");
+    const precio = Number(service?.price ?? service?.precio) || 0;
     const slugUrl = _safeTrim(service?.slugUrl || service?.slug) || null;
     const imageUrl = _safeTrim(service?.imagenPrincipal || service?.imageUrl) || "";
-    const localizacion = _safeTrim(service?.localizacion) || "Marian Madrid";
+    const localizacion = _safeTrim(service?.location || service?.localizacion) || "Marian Madrid";
     const resumenCorto = _safeTrim(service?.resumenCorto || service?.tagLine) || null;
     const descripcionLarga = _safeTrim(service?.descripcionLarga || service?.description) || null;
 
     let addons = [];
-    const rawAddons = _parseServiceAddons(service?.addons);
+    const rawAddons = _parseServiceAddons(service?.addOnOptions || service?.addons);
     if (rawAddons.length > 0) {
         addons = rawAddons.map((addon, index) => _normalizeServiceAddon(addon, `addon${index + 1}`)).filter(Boolean);
     }
 
     let staffIds = [];
     try {
-        const parsed = typeof service?.personalDisponible === "string" ? JSON.parse(service.personalDisponible) : service?.personalDisponible;
+        const rawStaff = service?.availableStaff || service?.personalDisponible;
+        const parsed = typeof rawStaff === "string" ? JSON.parse(rawStaff) : rawStaff;
         if (parsed && Array.isArray(parsed.staffIds)) staffIds.push(...parsed.staffIds);
         else if (Array.isArray(service?.personalDisponible)) staffIds.push(...service.personalDisponible);
         else if (Array.isArray(service?.staffDisponible)) staffIds.push(...service.staffDisponible);
@@ -343,7 +344,7 @@ export async function _getServiceBySlugOrIdInternal(slugOrId, externalTraceId = 
             }
         } else {
             let res = await withTimeout(
-                wixData.query(SERVICIOS_COL).limit(1).eq("slug", clean).find({ suppressAuth: true }),
+                wixData.query(SERVICIOS_COL).limit(1).eq("slugUrl", clean).find({ suppressAuth: true }),
                 WATCHDOG_TIMEOUT_MS,
                 "getServiceBySlugOrId:slugUrl"
             );
