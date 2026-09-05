@@ -193,7 +193,7 @@ export const CAJA_STATUS = Object.freeze({ OPEN: "ABIERTA", CLOSED: "CERRADA" })
 export const SINGLETONS = Object.freeze({ CAJA: "CAJA_PRINCIPAL" });
 export const CITA_FIELDS = Object.freeze({
 STATUS: "status",
-STATUS_PAGO: "statusPago",
+STATUS_PAGO: "paymentStatus",
 });
 export const ESTADO_CITA = Object.freeze({
 CONFIRMED: "CONFIRMED",

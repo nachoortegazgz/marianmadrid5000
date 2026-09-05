@@ -237,37 +237,36 @@ async function _mapServiceToPresentation(service, traceId) {
         throw new Error("SERVICIOS_RESERVA invalid: serviceId missing or not a GUID");
     }
 
-    const isHidden = service?.hidden === true || service?.oculto === true;
-    const linkFases = _safeTrim(service?.linkedPhases || service?.linkFases || service?.idServicioFaseDos);
-    const secondaryServiceGuid = linkFases && _looksLikeGuid(linkFases) ? linkFases : null;
-    const permitirCombinar = !isHidden && (service?.allowCombine === true || service?.permitirCombinar === true) && Boolean(secondaryServiceGuid);
+    const isHidden = service?.hidden === true;
+    const linkedPhases = _safeTrim(service?.linkedPhases);
+    const secondaryServiceGuid = linkedPhases && _looksLikeGuid(linkedPhases) ? linkedPhases : null;
+    const allowCombine = !isHidden && service?.allowCombine === true && Boolean(secondaryServiceGuid);
 
-    const tiempoFase1 = Number(service?.phase1Duration ?? service?.tiempoFase1 ?? service?.tiempoFaseUno) || 0;
-    const tiempoExposicion = Number(service?.exposureDuration ?? service?.tiempoExposicion) || 0;
-    const tiempoFase2 = Number(service?.phase2Duration ?? service?.tiempoFase2 ?? service?.tiempoFaseDos) || 0;
-    const duracionTotal = Number(service?.totalDuration ?? service?.duracionTotal) || (tiempoFase1 + tiempoExposicion + tiempoFase2) || 30;
+    const phase1Duration = Number(service?.phase1Duration) || 0;
+    const exposureDuration = Number(service?.exposureDuration) || 0;
+    const phase2Duration = Number(service?.phase2Duration) || 0;
+    const totalDuration = Number(service?.totalDuration) || (phase1Duration + exposureDuration + phase2Duration) || 30;
 
-    const tituloServicio = _safeTrim(service?.title || service?.tituloServicio || "Servicio");
-    const precio = Number(service?.price ?? service?.precio) || 0;
-    const slugUrl = _safeTrim(service?.slugUrl || service?.slug) || null;
-    const imageUrl = _safeTrim(service?.imagenPrincipal || service?.imageUrl) || "";
-    const localizacion = _safeTrim(service?.location || service?.localizacion) || "Marian Madrid";
-    const resumenCorto = _safeTrim(service?.resumenCorto || service?.tagLine) || null;
-    const descripcionLarga = _safeTrim(service?.descripcionLarga || service?.description) || null;
+    const title = _safeTrim(service?.title || "Servicio");
+    const price = Number(service?.price) || 0;
+    const slug = _safeTrim(service?.slug) || null;
+    const imageUrl = _safeTrim(service?.mainMedia || service?.imageUrl) || "";
+    const location = _safeTrim(service?.location) || "Marian Madrid";
+    const tagLine = _safeTrim(service?.tagLine) || null;
+    const description = _safeTrim(service?.description) || null;
 
     let addons = [];
-    const rawAddons = _parseServiceAddons(service?.addOnOptions || service?.addons);
+    const rawAddons = _parseServiceAddons(service?.addOnOptions || service?.addOns);
     if (rawAddons.length > 0) {
         addons = rawAddons.map((addon, index) => _normalizeServiceAddon(addon, `addon${index + 1}`)).filter(Boolean);
     }
 
     let staffIds = [];
     try {
-        const rawStaff = service?.availableStaff || service?.personalDisponible;
+        const rawStaff = service?.availableStaff;
         const parsed = typeof rawStaff === "string" ? JSON.parse(rawStaff) : rawStaff;
         if (parsed && Array.isArray(parsed.staffIds)) staffIds.push(...parsed.staffIds);
-        else if (Array.isArray(service?.personalDisponible)) staffIds.push(...service.personalDisponible);
-        else if (Array.isArray(service?.staffDisponible)) staffIds.push(...service.staffDisponible);
+        else if (Array.isArray(service?.availableStaff)) staffIds.push(...service.availableStaff);
     } catch (_) {}
 
     const cleanStaffIds = Array.from(new Set(staffIds.map(_safeTrim).filter((id) => _looksLikeGuid(id))));
@@ -280,31 +279,28 @@ async function _mapServiceToPresentation(service, traceId) {
 
     return {
         serviceId,
-        idServicio: serviceId,
-        slugUrl,
-        slug: slugUrl,
-        linkFases: secondaryServiceGuid,
+        slug,
+        linkedPhases: secondaryServiceGuid,
         secondaryServiceGuid,
-        permitirCombinar,
-        tiempoFase1,
-        tiempoExposicion,
-        tiempoFase2,
-        duracionTotal,
-        staffDisponible: cleanStaffIds,
+        allowCombine,
+        phase1Duration,
+        exposureDuration,
+        phase2Duration,
+        totalDuration,
+        availableStaff: cleanStaffIds,
         staffOptions,
         metadata: {
-            titulo: tituloServicio,
-            tituloServicio,
-            precio,
-            duracionTotal,
-            localizacion,
-            resumenCorto,
-            descripcionLarga,
+            title,
+            price,
+            totalDuration,
+            location,
+            tagLine,
+            description,
             addons,
-            addonsPrecio: addons.map((addon) => Number(addon?.precio || 0)),
+            addonsPrice: addons.map((addon) => Number(addon?.price || 0)),
             imageUrl,
-            pricing: { base: precio, currency: MONEY?.DISPLAY_CURRENCY || "EUR" },
-            timing: { estimatedTotal: duracionTotal, totalDuration: duracionTotal },
+            pricing: { base: price, currency: MONEY?.DISPLAY_CURRENCY || "EUR" },
+            timing: { estimatedTotal: totalDuration, totalDuration: totalDuration },
         },
     };
 }

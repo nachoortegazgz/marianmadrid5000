@@ -607,8 +607,8 @@ export async function executeBookingSaga(unsafePayload) {
 
     const addonsNorm = _normalizeAddons(metaCita?.addons || []);
     const addonsTotal = _sumAddons(addonsNorm);
-    const serviceName = metaCita?.servicioNombre || serviceData?.metadata?.titulo || 'Servicio';
-    const basePrice = Number(metaCita?.precioBase || serviceData?.metadata?.pricing?.base || 0);
+    const serviceName = metaCita?.serviceName || serviceData?.metadata?.title || 'Servicio';
+    const basePrice = Number(metaCita?.basePrice || serviceData?.metadata?.pricing?.base || 0);
     const totalBilled = basePrice + addonsTotal;
     const madridDateYMD = f1LocalStart.slice(0, 10);
 
@@ -838,9 +838,9 @@ export async function executeBookingSaga(unsafePayload) {
         tipo: phase.tipo,
         meta: {
           ...baseMeta,
-          estadoPago: paymentPlan.estadoPago,
-          metodoPago: paymentPlan.metodoPago,
-          precioAuditado: totalBilled
+          paymentStatus: paymentPlan.paymentStatus,
+          paymentMethod: paymentPlan.paymentMethod,
+          auditedPrice: totalBilled
         }
       }, traceId);
     });
@@ -864,7 +864,7 @@ export async function executeBookingSaga(unsafePayload) {
         horaF2: isDual && f2StartUtcFinal ? (getMadridLocalStringNoZ(f2StartUtcFinal).split('T')[1] || '').slice(0, 5) : null,
         estilista: finalResourceName,
         total: totalBilled,
-        moneda: MONEY?.DISPLAY_CURRENCY || 'EUR'
+        currency: MONEY?.DISPLAY_CURRENCY || 'EUR'
       } : null
     };
 

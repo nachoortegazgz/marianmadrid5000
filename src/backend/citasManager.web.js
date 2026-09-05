@@ -522,8 +522,8 @@ try {
      }
      const serviceInfo = await getServiceForBookingInternal(serviceId, traceId);
      const serviceConfig = serviceInfo?.status === "SUCCESS" ? serviceInfo.data : null;
-     const linkedServiceId = _extractRelationalId(serviceConfig?.linkFases || "");
-     if (!serviceConfig?.permitirCombinar || !_looksLikeGuid(linkedServiceId)) {
+     const linkedServiceId = _extractRelationalId(serviceConfig?.linkedPhases || "");
+     if (!serviceConfig?.allowCombine || !_looksLikeGuid(linkedServiceId)) {
          return { status: "ERROR", data: null, error: { code: "DUAL_RESCHEDULE_CONFIG_INVALID", message: "SERVICIOS_RESERVA does not define a valid dual service configuration." } };
      }
      const f1DurationMinutes = Number(serviceConfig.phase1Duration) || 0;

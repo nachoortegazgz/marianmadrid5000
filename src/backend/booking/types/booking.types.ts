@@ -21,10 +21,10 @@ export interface BookingMeta {
   traceId: string;
   esCombinado: boolean;
   fechaYmdMadrid: string;
-  servicioNombre: string;
-  estadoPago: 'UNPAID' | 'PENDING_PAYMENT' | 'CONFIRMED_UNPAID' | 'PAID';
-  metodoPago: 'ONLINE' | 'PRESENCIAL';
-  precioAuditado: number;
+  serviceName: string;
+  paymentStatus: 'UNPAID' | 'PENDING_PAYMENT' | 'CONFIRMED_UNPAID' | 'PAID';
+  paymentMethod: 'ONLINE' | 'PRESENCIAL';
+  auditedPrice: number;
   checkoutId?: string;
   bookingIdF2?: string | null;
 }
@@ -32,7 +32,7 @@ export interface BookingMeta {
 export interface PersistBookingParams {
   bookingId: string;
   revision: number;
-  primaryServiceGuid: string;
+  serviceId: string;
   scheduleId: string;
   resourceId: string;
   startDate: Date;

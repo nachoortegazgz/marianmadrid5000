@@ -15,12 +15,12 @@ export function createMockSlot(overrides = {}) {
 export function createMockService(overrides = {}) {
   return {
     serviceId: '11111111-1111-1111-1111-111111111111',
-    tituloServicio: 'Test Service',
-    tiempoFase1: 30,
-    tiempoExposicion: 0,
-    tiempoFase2: 0,
-    duracionTotal: 30,
-    precio: 50,
+    title: 'Test Service',
+    phase1Duration: 30,
+    exposureDuration: 0,
+    phase2Duration: 0,
+    totalDuration: 30,
+    price: 50,
     ...overrides,
   };
 }
@@ -28,12 +28,12 @@ export function createMockService(overrides = {}) {
 export function createMockCita(overrides = {}) {
   return {
     bookingId: 'mock-booking-id',
-    primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+    serviceId: '11111111-1111-1111-1111-111111111111',
     resourceId: '22222222-2222-2222-2222-222222222222',
     startDate: new Date('2026-09-03T10:00:00Z'),
     endDate: new Date('2026-09-03T10:30:00Z'),
     status: 'CONFIRMED',
-    statusPago: 'UNPAID',
+    paymentStatus: 'UNPAID',
     ...overrides,
   };
 }
