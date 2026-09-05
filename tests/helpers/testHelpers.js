@@ -3,6 +3,7 @@
 export function createMockSlot(overrides = {}) {
   return {
     primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+    serviceId: '11111111-1111-1111-1111-111111111111',
     resourceId: '22222222-2222-2222-2222-222222222222',
     scheduleId: '33333333-3333-3333-3333-333333333333',
     localStartDate: '2026-09-03T10:00:00',
@@ -41,10 +42,14 @@ export function createMockMovimiento(overrides = {}) {
   return {
     _id: 'mock-movimiento-id',
     prevHash: '0000000000000000000000000000000000000000000000000000000000000000',
+    previousRecordHash: '0000000000000000000000000000000000000000000000000000000000000000',
     transactionId: 'TX-001',
     tipoMovimiento: 'VENTA_EFECTIVO',
+    movementType: 'VENTA_EFECTIVO',
     importeContable: 50,
+    accountingAmount: 50,
     formaPago: 'EFECTIVO',
+    paymentMethod: 'EFECTIVO',
     integrityPayloadVersion: 'LEDGER_V1',
     ...overrides,
   };

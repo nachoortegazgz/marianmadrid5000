@@ -340,10 +340,11 @@ export async function _persistBooking(params, traceId = 'no-trace') {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking payload is required', { traceId });
   }
 
-  if (!params.bookingId || !params.serviceId || !params.scheduleId) {
+  const primaryServiceGuid = params.serviceId || params.primaryServiceGuid;
+  if (!params.bookingId || !primaryServiceGuid || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push('bookingId');
-    if (!params.serviceId) missingFields.push('primaryServiceGuid');
+    if (!primaryServiceGuid) missingFields.push('primaryServiceGuid');
     if (!params.scheduleId) missingFields.push('scheduleId');
 
     const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(', ')}`, { traceId, missingFields });
@@ -352,8 +353,8 @@ export async function _persistBooking(params, traceId = 'no-trace') {
   }
 
   // Validar GUIDs
-  if (!isValidGuid(params.serviceId)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid primaryServiceGuid: ${params.serviceId}`, { traceId, primaryServiceGuid: params.serviceId });
+  if (!isValidGuid(primaryServiceGuid)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid primaryServiceGuid: ${primaryServiceGuid}`, { traceId, primaryServiceGuid });
   }
 
   if (params.resourceId && !isValidGuid(params.resourceId)) {
@@ -386,7 +387,7 @@ export async function _persistBooking(params, traceId = 'no-trace') {
   const bookingRecord = {
     _id: params.bookingId,
     revision: params.revision,
-    primaryServiceGuid: params.serviceId,
+    primaryServiceGuid,
     scheduleId: params.scheduleId,
     resourceId: params.resourceId,
     startDate: params.startDate,
@@ -861,7 +862,7 @@ export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate
   if (slotOrServiceId && typeof slotOrServiceId === 'object') {
     const slot = slotOrServiceId;
     const parts = [
-      slot.serviceId || slot.serviceId || '',
+      slot.serviceId || slot.primaryServiceGuid || '',
       slot.scheduleId || '',
       slot.localStartDate || slot.startDate || '',
       slot.resourceId || (slot.resource?.id) || ''
@@ -890,7 +891,8 @@ export function isValidGuid(id) {
  * Proyecta un slot de Wix a nuestro formato interno certificado
  */
 export function _projectCertifiedSlot(slot, resourceId) {
-  if (!slot || !slot.serviceId) {
+  const serviceId = slot?.serviceId || slot?.primaryServiceGuid;
+  if (!slot || !serviceId) {
     console.warn('[bookingCore] Slot inválido: falta primaryServiceGuid');
     return null;
   }
@@ -917,7 +919,7 @@ export function _projectCertifiedSlot(slot, resourceId) {
   }
   
   return {
-    serviceId: slot.serviceId,
+    serviceId,
     scheduleId: slot.scheduleId || '',
     resourceId: targetResourceId,
     resource: {
