@@ -131,10 +131,10 @@ return _validateServiciosCatalogo(item, context);
 export function SERVICIOS_CATALOGO_beforeUpdate(item, context) {
 return _validateServiciosCatalogo(item, context);
 }
-export function MAPA_STAFF_beforeInsert(item, context) {
+export function MapaStaff_beforeInsert(item, context) {
 return _validateMapaStaff(item, context);
 }
-export function MAPA_STAFF_beforeUpdate(item, context) {
+export function MapaStaff_beforeUpdate(item, context) {
 return _validateMapaStaff(item, context);
 }
 export function CitasF2_beforeInsert(item, context) {

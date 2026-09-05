@@ -340,7 +340,7 @@ export async function _persistBooking(params, traceId = 'no-trace') {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking payload is required', { traceId });
   }
 
-  const primaryServiceGuid = params.serviceId || params.primaryServiceGuid;
+  const primaryServiceGuid = params.serviceId || params.serviceId;
   if (!params.bookingId || !primaryServiceGuid || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push('bookingId');
@@ -727,7 +727,7 @@ export async function _rankResourcesByLoad(resourceIds, dateYMD, traceId) {
  * @returns {Promise<Object>} Resultado con slots emparejados o error.
  */
 export async function getCertifiedDualSlotsOptimized(serviceId, resourceId, dateYMD, addonIds = []) {
-  const traceId = crypto.randomUUID ? crypto.randomUUID() : 'trace-opt-' + Date.now();
+  const traceId = makeTraceId('opt');
   const startTime = Date.now();
   
   console.log(`[${traceId}] Iniciando busqueda optimizada dual-slot para ${serviceId} en ${dateYMD}`);
@@ -862,7 +862,7 @@ export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate
   if (slotOrServiceId && typeof slotOrServiceId === 'object') {
     const slot = slotOrServiceId;
     const parts = [
-      slot.serviceId || slot.primaryServiceGuid || '',
+      slot.serviceId || slot.serviceId || '',
       slot.scheduleId || '',
       slot.localStartDate || slot.startDate || '',
       slot.resourceId || (slot.resource?.id) || ''

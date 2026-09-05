@@ -344,7 +344,7 @@ export async function _getServiceBySlugOrIdInternal(slugOrId, externalTraceId = 
             }
         } else {
             let res = await withTimeout(
-                wixData.query(SERVICIOS_COL).limit(1).eq("slugUrl", clean).find({ suppressAuth: true }),
+                wixData.query(SERVICIOS_COL).limit(1).eq("slug", clean).find({ suppressAuth: true }),
                 WATCHDOG_TIMEOUT_MS,
                 "getServiceBySlugOrId:slugUrl"
             );

@@ -619,7 +619,7 @@ export async function executeBookingSaga(unsafePayload) {
 
       // Fix 4: firma legacy de 3 argumentos (slot, resourceId, durationMinutes).
       // El serviceId canonico viaja dentro del slot validado; se normaliza aqui
-      // para que la resolucion interna (slot.primaryServiceGuid || slot.serviceId)
+      // para que la resolucion interna (slot.serviceId || slot.serviceId)
       // use siempre el id de fase resuelto y no el valor crudo de linkedPhases.
       p.validatedSlot = {
         ...p.validatedSlot,

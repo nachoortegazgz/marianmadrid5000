@@ -1,0 +1,752 @@
+# MATRIZ DE CORRESPONDENCIA TÉCNICA PARA REFACTORIZACIÓN DE CÓDIGO
+### `idOcultoAnterior` > `idPrimarioActual` (Wix V2 Canónico)
+
+Esta matriz proporciona la correlación campo a campo para realizar labores de búsqueda, reemplazo y refactorización en el código backend (`.web.js`, `.js`, `.jsw`), funciones HTTP (`http-functions.js`), hooks de datos (`data.js`) y controladores de página en Wix Velo:
+```javascript
+// Patrón de refactorización en consultas Wix Data:
+// ANTERIOR:
+wixData.query("ServiciosCatalogo").eq("tipoServicio", "APPOINTMENT").find();
+// ACTUAL:
+wixData.query("ServiciosCatalogo").eq("serviceType", "APPOINTMENT").find();
+```
+
+---
+
+## MISIÓN 1: Catálogo, Servicios y Recursos de Reserva (Wix Bookings Core)
+
+### 1. `SERVICIOS_CATALOGO — ServiciosCatalogo`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `title` | > | `title` | `titulo` | `TEXT` | Sin cambio de clave |
+| `tituloServicio` | > | `title` | `titulo` | `TEXT` | Consolidado en `title` |
+| `slugUrl` | > | `slug` | `enlaceSlug` | `TEXT` | Renombrado a estándar Wix |
+| `tipoServicio` | > | `serviceType` | `servicioTipo` | `TEXT` | Renombrado a Wix V2 |
+| `duracionTotal` | > | `totalDuration` | `duracionTotal` | `NUMBER` | Renombrado a camelCase inglés |
+| `tiempoFase1` | > | `phase1Duration` | `fase1Duracion` | `NUMBER` | Renombrado a camelCase inglés |
+| `tiempoExposicion` | > | `exposureDuration` | `exposicionDuracion` | `NUMBER` | Renombrado a camelCase inglés |
+| `tiempoFase2` | > | `phase2Duration` | `fase2Duracion` | `NUMBER` | Renombrado a camelCase inglés |
+| `buffer` | > | `buffer` | `buffer` | `NUMBER` | Sin cambio de clave |
+| `linkFases` | > | `linkedPhases` | `enlazadasFases` | `TEXT` | Renombrado a camelCase inglés |
+| `permitirCombinar` | > | `allowCombine` | `permitirCombinar` | `BOOLEAN` | Renombrado a camelCase inglés |
+| `precio` | > | `price` | `precio` | `NUMBER` | Renombrado a Wix V2 |
+| `moneda` | > | `currency` | `moneda` | `TEXT` | Renombrado a estándar ISO |
+| `modeloPrecio` | > | `pricingModel` | `tarificacionModelo` | `TEXT` | Renombrado a Wix V2 |
+| `depositoValor` | > | `depositAmount` | `depositoMonto` | `NUMBER` | Renombrado a Wix V2 |
+| `depositoTipo` | > | `depositType` | `depositoTipo` | `TEXT` | Renombrado a Wix V2 |
+| `pagoOnline` | > | `onlinePayment` | `onlinePago` | `BOOLEAN` | Renombrado a Wix V2 |
+| `pagoPresencial` | > | `inPersonPayment` | `presencialPago` | `BOOLEAN` | Renombrado a Wix V2 |
+| `impuestoIncluido` | > | `taxIncluded` | `impuestoIncluido` | `BOOLEAN` | Renombrado a Wix eCom |
+| `impuestoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom |
+| `codigoSku` | > | `sku` | `articuloSku` | `TEXT` | Renombrado a Wix V2 |
+| `categoriaId` | > | `categoryId` | `categoriaId` | `TEXT` | Renombrado a Wix V2 |
+| `categoriaNombre` | > | `categoryName` | `categoriaNombre` | `TEXT` | Renombrado a Wix V2 |
+| `localizacionId` | > | `locationId` | `ubicacionId` | `TEXT` | Renombrado a Wix V2 |
+| `localizacion` | > | `location` | `ubicacion` | `TEXT` | Renombrado a Wix V2 |
+| `staffDisponible` | > | `availableStaff` | `disponiblePersonal` | `OBJECT` | Renombrado a Wix V2 |
+| `addonsOptions` | > | `addOnOptions` | `complementoOpciones` | `MULTI_REFERENCE` | Renombrado a Wix V2 |
+| `tituloAddons` | > | `addOnTitles` | `complementoTitulos` | `MULTI_REFERENCE` | Renombrado a Wix V2 |
+| `resumenCorto` | > | `tagLine` | `lemaEtiqueta` | `TEXT` | Renombrado a Wix V2 |
+| `descripcionLarga` | > | `description` | `descripcion` | `TEXT` | Renombrado a Wix V2 |
+| `imagenPrincipal` | > | `mainMedia` | `principalMultimedia` | `TEXT` | Renombrado a Wix V2 |
+| `oculto` | > | `hidden` | `oculto` | `BOOLEAN` | Renombrado a Wix V2 |
+| `notasInternas` | > | `internalNotes` | `internasNotas` | `TEXT` | Renombrado a camelCase inglés |
+| `_id` | > | `_id` | `idElemento` | `TEXT` | Clave de sistema nativa |
+| `_createdDate` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Clave de sistema nativa |
+| `_updatedDate` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Clave de sistema nativa |
+| `_owner` | > | `_owner` | `propietario` | `TEXT` | Clave de sistema nativa |
+
+---
+
+### 2. `MAPA_STAFF — MapaStaff`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `staffMemberId` | > | `staffMemberId` | `personalMiembroId` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `displayName` | > | `displayName` | `mostradoNombre` | `TEXT` | Sin cambio de clave |
+| `scheduleId` | > | `scheduleId` | `horarioId` | `TEXT` | Sin cambio de clave |
+| `email` | > | `email` | `correoElectronico` | `TEXT` | Sin cambio de clave |
+| `telefono` | > | `phone` | `telefono` | `TEXT` | Renombrado a Wix V2 |
+| `localizacionId` | > | `locationId` | `ubicacionId` | `TEXT` | Renombrado a Wix V2 |
+| `localizacion` | > | `location` | `ubicacion` | `TEXT` | Renombrado a Wix V2 |
+| `activo` | > | `active` | `activo` | `BOOLEAN` | Renombrado a Wix V2 |
+| `notas` | > | `notes` | `notas` | `TEXT` | Renombrado a Wix V2 |
+| `_id` | > | `_id` | `idElemento` | `TEXT` | Clave de sistema nativa |
+| `_createdDate` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Clave de sistema nativa |
+| `_updatedDate` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Clave de sistema nativa |
+| `_owner` | > | `_owner` | `propietario` | `TEXT` | Clave de sistema nativa |
+
+---
+
+### 3. `CITAS_F2 — CitasF2`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `bookingId` | > | `bookingId` | `reservaId` | `TEXT` | Sin cambio de clave |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `scheduleId` | > | `scheduleId` | `horarioId` | `TEXT` | Sin cambio de clave |
+| `pairToken` | > | `pairToken` | `parToken` | `TEXT` | Sin cambio de clave |
+| `uiPairToken` | > | `uiPairToken` | `uiParToken` | `TEXT` | Sin cambio de clave |
+| `startDate` | > | `startDate` | `inicioFecha` | `DATETIME` | Sin cambio de clave |
+| `endDate` | > | `endDate` | `finFecha` | `DATETIME` | Sin cambio de clave |
+| `startDateLocal` | > | `startDateLocal` | `inicioFechaLocal` | `TEXT` | Sin cambio de clave |
+| `endDateLocal` | > | `endDateLocal` | `finFechaLocal` | `TEXT` | Sin cambio de clave |
+| `fechaYmdMadrid` | > | `dateYmd` | `fechaYmd` | `TEXT` | Renombrado a estándar técnico |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `statusPago` | > | `paymentStatus` | `pagoEstado` | `TEXT` | Renombrado a Wix eCom/Payments |
+| `tipo` | > | `bookingType` | `reservaTipo` | `TEXT` | Renombrado a Wix Bookings V2 |
+| `revision` | > | `revision` | `revision` | `NUMBER` | Sin cambio de clave |
+| `contactDetails` | > | `contactDetails` | `contactoDetalles` | `OBJECT` | Sin cambio de clave |
+| `meta` | > | `meta` | `meta` | `OBJECT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+| `fechaCreacion` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Consolidado en campo de sistema |
+| `fechaActualizacion`| > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+| `Owner` | > | `_owner` | `propietario` | `TEXT` | Consolidado en campo de sistema |
+
+---
+
+## MISIÓN 2: Motor de Disponibilidad, Slots y Caché (Availability & Cache Engine)
+
+### 4. `AVAILABILITY_DAYS_CACHE — AvailabilityDaysCache`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `phase1ServiceId` | > | `phase1ServiceId` | `servicioFase1Id` | `TEXT` | Sin cambio de clave |
+| `yearMonth` | > | `yearMonth` | `anioMes` | `TEXT` | Sin cambio de clave |
+| `staffKey` | > | `staffKey` | `personalClave` | `TEXT` | Sin cambio de clave |
+| `resourceKeyHash` | > | `resourceKeyHash` | `recursoClaveHash` | `TEXT` | Sin cambio de clave |
+| `days` | > | `days` | `dias` | `OBJECT` | Sin cambio de clave |
+| `daysArr` | > | `daysArr` | `diasArreglo` | `ARRAY_STRING` | Sin cambio de clave |
+| `version` | > | `version` | `version` | `NUMBER` | Sin cambio de clave |
+| `generatedAt` | > | `generatedAt` | `generadoFecha` | `DATETIME` | Sin cambio de clave |
+| `expiresAt` | > | `expiresAt` | `expiraFecha` | `DATETIME` | Sin cambio de clave |
+| `createdAt` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 5. `DUAL_SLOT_CACHE — DualSlotCache`
+*(Incluye absorción completa de campos de la eliminada `AVAILABILITY_SLOTS_CACHE`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `pairToken` | > | `pairToken` | `parToken` | `TEXT` | Sin cambio de clave |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `phase1ServiceId` | > | `phase1ServiceId` | `servicioFase1Id` | `TEXT` | Sin cambio de clave |
+| `phase2ServiceId` | > | `phase2ServiceId` | `servicioFase2Id` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `candidateResourceIds`| > | `candidateResourceIds`| `candidatoRecursoIds`| `ARRAY_STRING`| Sin cambio de clave |
+| `resourceKeyHash` | > | `resourceKeyHash` | `recursoClaveHash` | `TEXT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `dateYMD` | > | `dateYmd` | `fechaYmd` | `TEXT` | Normalizado a camelCase |
+| `fromLocal` | > | `fromLocal` | `desdeLocal` | `TEXT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `toLocal` | > | `toLocal` | `hastaLocal` | `TEXT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `slotF1` | > | `slotF1` | `franjaF1` | `OBJECT` | Sin cambio de clave |
+| `slotF2` | > | `slotF2` | `franjaF2` | `OBJECT` | Sin cambio de clave |
+| `slots` | > | `slots` | `franjas` | `OBJECT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `bookingIdF2` | > | `bookingIdF2` | `reservaIdF2` | `TEXT` | Sin cambio de clave |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `expiresAt` | > | `expiresAt` | `expiraFecha` | `DATETIME` | Sin cambio de clave |
+| `createdAt` / `updatedAt`| > | `_createdDate` / `_updatedDate` | `fechaCreacion` / `fechaActualizacion` | `DATETIME` | Consolidados en sistema |
+
+---
+
+## MISIÓN 3: Orquestación Transaccional, Colas y Sincronización (Transaction & Sync Orchestration)
+
+### 6. `BOOKING_TRANSACTIONS — BookingTransactions`
+*(Incluye absorción completa de campos de la eliminada `BOOKINGS_SERVICE_SYNC_QUEUE`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `pairToken` | > | `pairToken` | `parToken` | `TEXT` | Sin cambio de clave |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `sourceItemId` | > | `sourceItemId` | `origenElementoId` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `title` | > | `title` | `titulo` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `payloadHash` | > | `payloadHash` | `cargaHash` | `TEXT` | Sin cambio de clave |
+| `desiredHash` | > | `desiredHash` | `deseadoHash` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `attempts` | > | `attempts` | `intentos` | `NUMBER` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `nextAttemptAt` | > | `nextAttemptAt` | `siguienteIntentoFecha`| `DATETIME` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `completedAt` | > | `completedAt` | `completadoFecha` | `DATETIME` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `failedAt` | > | `failedAt` | `fallidoFecha` | `DATETIME` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `errorCode` | > | `errorCode` | `errorCodigo` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `result` | > | `result` | `resultado` | `OBJECT` | Sin cambio de clave |
+| `error` | > | `error` | `error` | `TEXT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+### 7. `COMPENSACIONES_PENDIENTES — PendingCompensations`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `bookingId` | > | `bookingId` | `reservaId` | `TEXT` | Sin cambio de clave |
+| `bookingIds` | > | `bookingIds` | `reservaIds` | `TEXT` | Sin cambio de clave |
+| `orderId` | > | `orderId` | `pedidoId` | `TEXT` | Sin cambio de clave |
+| `refundId` | > | `refundId` | `devolucionId` | `TEXT` | Sin cambio de clave |
+| `transactionId` | > | `transactionId` | `transaccionId` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `amount` | > | `amount` | `monto` | `NUMBER` | Sin cambio de clave |
+| `concept` | > | `concept` | `concepto` | `TEXT` | Sin cambio de clave |
+| `paymentMethod` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Sin cambio de clave |
+| `tipoMovimiento` | > | `movementType` | `movimientoTipo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `kind` | > | `kind` | `clase` | `TEXT` | Sin cambio de clave |
+| `phase` | > | `phase` | `fase` | `TEXT` | Sin cambio de clave |
+| `origin` | > | `origin` | `origen` | `TEXT` | Sin cambio de clave |
+| `alertRequired` | > | `alertRequired` | `alertaRequerida` | `BOOLEAN` | Sin cambio de clave |
+| `attempts` | > | `attempts` | `intentos` | `NUMBER` | Sin cambio de clave |
+| `lastError` | > | `lastError` | `ultimoError` | `TEXT` | Sin cambio de clave |
+| `error` | > | `error` | `error` | `TEXT` | Sin cambio de clave |
+| `failedAt` / `fechaFallo` | > | `failedAt` | `fallidoFecha` | `DATETIME` | Desduplicado en `failedAt` |
+| `completedAt` / `fechaProcesado` | > | `completedAt` | `completadoFecha` | `DATETIME` | Desduplicado en `completedAt` |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+### 8. `M365_GRAPH_SYNC_QUEUE — M365GraphSyncQueue`
+*(Incluye absorción completa de campos de la eliminada `SYNC_M365`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `externalRecordId` | > | `externalRecordId` | `externoRegistroId` | `TEXT` | Sin cambio de clave |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `tipo` | > | `type` | `tipo` | `TEXT` | **Absorbido de `SyncM365`** |
+| `origen` | > | `source` | `origen` | `TEXT` | **Absorbido de `SyncM365`** |
+| `destino` | > | `destination` | `destino` | `TEXT` | **Absorbido de `SyncM365`** |
+| `payload` | > | `payload` | `carga` | `OBJECT` | Sin cambio de clave |
+| `payloadHash` | > | `payloadHash` | `cargaHash` | `TEXT` | Sin cambio de clave |
+| `attempts` | > | `attempts` | `intentos` | `NUMBER` | Sin cambio de clave |
+| `nextAttemptAt` | > | `nextAttemptAt` | `siguienteIntentoFecha`| `DATETIME` | Sin cambio de clave |
+| `completedAt` | > | `completedAt` | `completadoFecha` | `DATETIME` | Sin cambio de clave |
+| `failedAt` | > | `failedAt` | `fallidoFecha` | `DATETIME` | Sin cambio de clave |
+| `blockedAt` | > | `blockedAt` | `bloqueadoFecha` | `DATETIME` | Sin cambio de clave |
+| `fechaSync` | > | `syncDate` | `sincronizacionFecha` | `DATETIME` | **Absorbido de `SyncM365`** |
+| `cantidadRegistros` | > | `recordCount` | `registrosCantidad` | `NUMBER` | **Absorbido de `SyncM365`** |
+| `errorCode` | > | `errorCode` | `errorCodigo` | `TEXT` | Sin cambio de clave |
+| `mensaje` | > | `message` | `mensaje` | `TEXT` | **Absorbido de `SyncM365`** |
+| `meta` | > | `meta` | `meta` | `OBJECT` | **Absorbido de `SyncM365`** |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+## MISIÓN 4: Gestión de Inventario, Catálogo de Venta y Proveedores (Stores & Inventory)
+
+### 9. `INVENTARIO_STOCK_VENTA — InventarioStockVenta`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `sku` | > | `sku` | `articuloSku` | `TEXT` | Sin cambio de clave |
+| `productName` | > | `productName` | `productoNombre` | `TEXT` | Sin cambio de clave |
+| `wixProductId` | > | `wixProductId` | `wixProductoId` | `TEXT` | Sin cambio de clave |
+| `wixVariantId` | > | `wixVariantId` | `wixVarianteId` | `TEXT` | Sin cambio de clave |
+| `stockExpected` | > | `stockExpected` | `stockEsperado` | `NUMBER` | Sin cambio de clave |
+| `stockMinimo` | > | `minStock` | `minimoStock` | `NUMBER` | Renombrado a Wix Inventory |
+| `lowStockAlert` | > | `lowStockAlert` | `bajoStockAlerta` | `NUMBER` | Sin cambio de clave |
+| `reorderPoint` | > | `reorderPoint` | `reordenPunto` | `NUMBER` | Sin cambio de clave |
+| `salePriceTaxIncluded` | > | `salePriceTaxIncluded` | `ventaPrecioImpuestoIncluido` | `NUMBER` | Sin cambio de clave |
+| `costExTax` | > | `costExTax` | `costoSinImpuesto` | `NUMBER` | Sin cambio de clave |
+| `location` | > | `location` | `ubicacion` | `TEXT` | Sin cambio de clave |
+| `active` | > | `active` | `activo` | `BOOLEAN` | Sin cambio de clave |
+| `needsWixReconciliation`| > | `needsWixReconciliation`| `necesitaWixConciliacion`| `BOOLEAN`| Sin cambio de clave |
+| `supplier` | > | `supplier` | `proveedor` | `TEXT` | Sin cambio de clave |
+| `supplierReference` | > | `supplierReference` | `proveedorReferencia` | `TEXT` | Sin cambio de clave |
+| `unitsPerCase` | > | `unitsPerCase` | `unidadesPorCaja` | `NUMBER` | Sin cambio de clave |
+| `category` | > | `category` | `categoria` | `TEXT` | Sin cambio de clave |
+| `collectionName` | > | `collectionName` | `coleccionNombre` | `TEXT` | Sin cambio de clave |
+| `description` | > | `description` | `descripcion` | `TEXT` | Sin cambio de clave |
+| `lastInventoryMovementId`| > | `lastInventoryMovementId`| `ultimoInventarioMovimientoId`| `TEXT` | Sin cambio de clave |
+| `lastInventoryMovementAt`| > | `lastInventoryMovementAt`| `ultimoInventarioMovimientoFecha`| `DATETIME` | Sin cambio de clave |
+
+---
+
+### 10. `MOVIMIENTOS_INVENTARIO — MovimientoInventario`
+*(Incluye absorción completa de campos de la eliminada `CONCILIACION_STOCK_WIX`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `movementToken` | > | `movementToken` | `movimientoToken` | `TEXT` | Sin cambio de clave |
+| `movementId` | > | `movementId` | `movimientoId` | `TEXT` | **Absorbido de `ConciliacionStockWix`** |
+| `sku` | > | `sku` | `articuloSku` | `TEXT` | Sin cambio de clave |
+| `productId` | > | `productId` | `productoId` | `TEXT` | Sin cambio de clave |
+| `variantId` | > | `variantId` | `varianteId` | `TEXT` | Sin cambio de clave |
+| `wixProductId` | > | `wixProductId` | `wixProductoId` | `TEXT` | Sin cambio de clave |
+| `wixVariantId` | > | `wixVariantId` | `wixVarianteId` | `TEXT` | Sin cambio de clave |
+| `movementType` | > | `movementType` | `movimientoTipo` | `TEXT` | Sin cambio de clave |
+| `quantity` | > | `quantity` | `cantidad` | `NUMBER` | Sin cambio de clave |
+| `quantityDelta` | > | `quantityDelta` | `cantidadDelta` | `NUMBER` | Sin cambio de clave |
+| `stockBefore` | > | `stockBefore` | `stockPrevio` | `NUMBER` | Sin cambio de clave |
+| `stockAfter` | > | `stockAfter` | `stockPosterior` | `NUMBER` | Sin cambio de clave |
+| `stockExpected` | > | `stockExpected` | `stockEsperado` | `NUMBER` | Sin cambio de clave |
+| `locationCode` | > | `locationCode` | `ubicacionCodigo` | `TEXT` | **Absorbido de `ConciliacionStockWix`** |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `appliedAt` | > | `appliedAt` | `aplicadoFecha` | `DATETIME` | Sin cambio de clave |
+| `appliedByNote` | > | `appliedByNote` | `aplicadoPorNota` | `TEXT` | **Absorbido de `ConciliacionStockWix`** |
+| `requiresWixReconciliation`| > | `requiresWixReconciliation`| `requiereWixConciliacion`| `BOOLEAN` | Sin cambio de clave |
+| `nativeCommercialMovement`| > | `nativeCommercialMovement`| `nativoComercialMovimiento`| `BOOLEAN` | Sin cambio de clave |
+| `orderId` | > | `orderId` | `pedidoId` | `TEXT` | Sin cambio de clave |
+| `refundId` | > | `refundId` | `devolucionId` | `TEXT` | Sin cambio de clave |
+| `referenceId` | > | `referenceId` | `referenciaId` | `TEXT` | Sin cambio de clave |
+| `reason` | > | `reason` | `motivo` | `TEXT` | Sin cambio de clave |
+| `note` | > | `note` | `nota` | `TEXT` | Sin cambio de clave |
+| `source` | > | `source` | `origen` | `TEXT` | Sin cambio de clave |
+| `productName` | > | `productName` | `productoNombre` | `TEXT` | Sin cambio de clave |
+| `actorEmail` | > | `actorEmail` | `actorCorreo` | `TEXT` | Sin cambio de clave |
+| `actorMemberId` | > | `actorMemberId` | `actorMiembroId` | `TEXT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+### 11. `INVENTARIO_STOCK_VENTA_CIERRE — InventarioStockVentaCierre`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idCierreInventario` | > | `inventoryClosingId` | `inventarioCierreId` | `TEXT` | Renombrado a camelCase inglés |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `fechaCierre` | > | `closingDate` | `cierreFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `tipoCierre` | > | `closingType` | `cierreTipo` | `TEXT` | Renombrado a camelCase inglés |
+| `sku` | > | `sku` | `articuloSku` | `TEXT` | Sin cambio de clave |
+| `idProducto` | > | `productId` | `productoId` | `TEXT` | Renombrado a Wix V2 |
+| `descripcionProducto` | > | `productDescription` | `productoDescripcion` | `TEXT` | Renombrado a Wix V2 |
+| `cantidadExistencias` | > | `stockQuantity` | `existenciasCantidad` | `NUMBER` | Renombrado a Wix Inventory |
+| `costeUnitario` | > | `unitCost` | `unitarioCosto` | `NUMBER` | Renombrado a Wix Inventory |
+| `valorExistencias` | > | `stockValue` | `existenciasValor` | `NUMBER` | Renombrado a camelCase inglés |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `saldoDebe` | > | `debitBalance` | `debeSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `saldoHaber` | > | `creditBalance` | `haberSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `hashCierre` | > | `closingHash` | `cierreHash` | `TEXT` | Renombrado a camelCase inglés |
+| `firmaCierre` | > | `closingSignature` | `cierreFirma` | `TEXT` | Renombrado a camelCase inglés |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+
+---
+
+### 12. `PROVEEDORES_LISTA — ProveedoresLista`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `supplierName` | > | `supplierName` | `proveedorNombre` | `TEXT` | Sin cambio de clave |
+| `commercialTermsSource`| > | `commercialTermsSource`| `comercialesTerminosOrigen`| `TEXT` | Sin cambio de clave |
+| `minimumOrderExTax` | > | `minimumOrderExTax` | `minimoPedidoSinImpuesto`| `NUMBER` | Sin cambio de clave |
+| `freeShippingThresholdExTax`| >| `freeShippingThresholdExTax`| `gratisEnvioUmbralSinImpuesto`| `NUMBER` | Sin cambio de clave |
+| `leadTime` | > | `leadTime` | `plazoEntregaTiempo` | `TEXT` | Sin cambio de clave |
+| `advantages` | > | `advantages` | `ventajas` | `TEXT` | Sin cambio de clave |
+| `notes` | > | `notes` | `notas` | `TEXT` | Sin cambio de clave |
+| `active` | > | `active` | `activo` | `BOOLEAN` | Sin cambio de clave |
+
+---
+
+## MISIÓN 5: TPV, Control de Caja Diaria, Arqueos y Secuencia Fiscal (POS & Cash Management)
+
+### 13. `CAJA_ACTUAL — CajaActual`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `estadoCaja` | > | `cashRegisterStatus` | `cajaRegistroEstado` | `TEXT` | Renombrado a Wix POS |
+| `saldoTotal` | > | `totalBalance` | `totalSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoEfectivo` | > | `cashBalance` | `efectivoSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoTarjeta` | > | `cardBalance` | `tarjetaSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoBizum` | > | `bizumBalance` | `bizumSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoOnline` | > | `onlineBalance` | `onlineSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `totalOperaciones` | > | `totalOperations` | `totalOperaciones` | `NUMBER` | Renombrado a Wix POS |
+| `fechaHoraApertura` | > | `openedAt` | `aperturaFecha` | `DATETIME` | Renombrado a Wix POS |
+| `fechaHoraCierre` | > | `closedAt` | `cierreFecha` | `DATETIME` | Renombrado a Wix POS |
+| `fechaHoraUltimoMovimiento`| > | `lastActivityAt` | `ultimaActividadFecha` | `DATETIME` | Renombrado a Wix POS |
+| `fechaHoraActualizacion`| > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 14. `MOVIMIENTOS_CAJA — MovimientosCaja`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `secuenciaGlobal` | > | `sequenceNumber` | `secuenciaNumero` | `NUMBER` | Renombrado a Wix Invoicing/POS |
+| `numeroTicketFactura` | > | `invoiceNumber` | `facturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a Wix Invoicing |
+| `tipoMovimiento` | > | `movementType` | `movimientoTipo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `naturalezaOperacion` | > | `operationNature` | `operacionNaturaleza` | `TEXT` | Renombrado a estándar fiscal |
+| `medioPago` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `importeTotal` | > | `totalAmount` | `totalMonto` | `NUMBER` | Renombrado a Wix eCom/Payments |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `cuotaIva` | > | `taxAmount` | `impuestoMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tipoImpositivo` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tratamientoIva` | > | `taxTreatment` | `impuestoTratamiento` | `TEXT` | Renombrado a estándar fiscal |
+| `signoContable` | > | `accountingSign` | `contableSigno` | `NUMBER` | Renombrado a estándar contable |
+| `importeContable` | > | `accountingAmount` | `contableMonto` | `NUMBER` | Renombrado a estándar contable |
+| `descripcionOperacion` | > | `description` | `descripcion` | `TEXT` | Renombrado a Wix V2 |
+| `detalleLineas` | > | `lineItems` | `lineaArticulos` | `ARRAY` | Renombrado a Wix eCom V2 |
+| `referenciaFacturaRectificada`| > | `rectifiedInvoiceReference`| `rectificadaFacturaReferencia`| `TEXT` | Renombrado a Wix Invoicing |
+| `hashRegistroAnterior` | > | `previousRecordHash` | `previoRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashRegistroActual` | > | `currentRecordHash` | `actualRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaDigital` | > | `digitalSignature` | `digitalFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `nifEmisor` | > | `businessTaxId` | `negocioTributariaId` | `TEXT` | Renombrado a Wix Settings |
+| `versionEsquemaIntegridad`| > | `schemaIntegrityVersion`| `esquemaIntegridadVersion`| `TEXT` | Renombrado a estándar técnico |
+| `origenRegistro` | > | `recordSource` | `registroOrigen` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 15. `CONTROL_PARCIAL_X — ControlParcialX`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `efectivoContado` | > | `countedCash` | `contadoEfectivo` | `NUMBER` | Renombrado a Wix POS |
+| `efectivoTeorico` | > | `expectedCash` | `esperadoEfectivo` | `NUMBER` | Renombrado a Wix POS |
+| `importeDescuadre` | > | `discrepancyAmount` | `descuadreMonto` | `NUMBER` | Renombrado a Wix POS |
+| `estadoCuadre` | > | `reconciliationStatus` | `cuadreEstado` | `TEXT` | Renombrado a Wix POS |
+| `fechaHoraConteo` | > | `countedAt` | `contadoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaHoraArqueo` | > | `reconciledAt` | `arqueadoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+
+---
+
+### 16. `CIERRES_Z — HistoricoCierresZ`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `estadoCierre` | > | `closingStatus` | `cierreEstado` | `TEXT` | Renombrado a camelCase inglés |
+| `importeTotalConsolidado`| > | `consolidatedTotalAmount`| `consolidadoTotalMonto`| `NUMBER` | Renombrado a camelCase inglés |
+| `totalVentasBrutas` | > | `grossSalesTotal` | `brutasVentasTotal` | `NUMBER` | Renombrado a Wix eCom |
+| `baseImponibleNeta` | > | `netTaxableAmount` | `netaGravableMonto` | `NUMBER` | Renombrado a Wix eCom |
+| `cuotaIvaNeta` | > | `netTaxAmount` | `netaImpuestoMonto` | `NUMBER` | Renombrado a Wix eCom |
+| `totalEfectivo` | > | `totalCash` | `totalEfectivo` | `NUMBER` | Renombrado a Wix POS |
+| `totalTarjeta` | > | `totalCard` | `totalTarjeta` | `NUMBER` | Renombrado a Wix POS |
+| `totalBizum` | > | `totalBizum` | `totalBizum` | `NUMBER` | Renombrado a Wix Payments |
+| `totalOnline` | > | `totalOnline` | `totalOnline` | `NUMBER` | Renombrado a Wix Payments |
+| `totalDevoluciones` | > | `totalRefunds` | `totalDevoluciones` | `NUMBER` | Renombrado a Wix eCom/Payments |
+| `totalPropinas` | > | `totalTips` | `totalPropinas` | `NUMBER` | Renombrado a Wix eCom |
+| `totalAjustes` | > | `totalAdjustments` | `totalAjustes` | `NUMBER` | Renombrado a camelCase inglés |
+| `totalOperaciones` | > | `totalOperations` | `totalOperaciones` | `NUMBER` | Renombrado a Wix POS |
+| `secuenciaInicio` | > | `startSequence` | `inicioSecuencia` | `NUMBER` | Renombrado a camelCase inglés |
+| `secuenciaFin` | > | `endSequence` | `finSecuencia` | `NUMBER` | Renombrado a camelCase inglés |
+| `numeroTicketInicio` | > | `startTicketNumber` | `inicioTicketNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `numeroTicketFin` | > | `endTicketNumber` | `finTicketNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `hashRegistroInicio` | > | `startRecordHash` | `inicioRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashRegistroFin` | > | `endRecordHash` | `finRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `desgloseTipoMovimiento` | > | `movementTypeBreakdown` | `movimientoTipoDesglose`| `OBJECT` | Renombrado a camelCase inglés |
+| `desgloseTipoIva` | > | `taxTypeBreakdown` | `impuestoTipoDesglose` | `OBJECT` | Renombrado a Wix eCom |
+| `integridadVerificada` | > | `isIntegrityVerified` | `esIntegridadVerificada`| `BOOLEAN`| Renombrado a estándar técnico |
+| `totalRegistrosAuditados`| > | `auditedRecordsCount` | `auditadosRegistrosCantidad`| `NUMBER` | Renombrado a estándar técnico |
+| `hashCierre` | > | `closingHash` | `cierreHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaCierre` | > | `closingSignature` | `cierreFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `origenCierre` | > | `closingSource` | `cierreOrigen` | `TEXT` | Renombrado a camelCase inglés |
+| `versionEsquemaCierre` | > | `closingSchemaVersion` | `cierreEsquemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `zonaHoraria` | > | `timeZone` | `horariaZona` | `TEXT` | Renombrado a Wix Settings |
+| `fechaHoraCierre` | > | `closedAt` | `cierreFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaHoraVerificacion`| > | `verifiedAt` | `verificadoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+
+---
+
+### 17. `SECUENCIA_TICKETS — SecuenciaTickets`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `contadoresSecuencia` | > | `sequenceCounters` | `secuenciaContadores` | `OBJECT` | Renombrado a Wix POS/Invoicing |
+
+---
+
+## MISIÓN 6: Fiscalidad, Libros de IVA y Contabilidad General (Fiscal, Accounting & Tax)
+
+### 18. `CONFIGURACION_FISCAL — ConfiguracionFiscal`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `nifEmisor` | > | `taxId` | `tributariaId` | `TEXT` | Renombrado a Wix Business Settings |
+| `nombreRazonSocial` | > | `businessName` | `negocioNombre` | `TEXT` | Renombrado a Wix Business Settings |
+| `direccionFiscal` | > | `streetAddress` | `calleDireccion` | `TEXT` | Renombrado a Wix Business Settings |
+| `codigoPostalFiscal` | > | `postalCode` | `postalCodigo` | `TEXT` | Renombrado a Wix Business Settings |
+| `municipioFiscal` | > | `city` | `ciudad` | `TEXT` | Renombrado a Wix Business Settings |
+| `provinciaFiscal` | > | `subdivision` | `subdivisionProvincia` | `TEXT` | Renombrado a Wix Business Settings |
+| `paisFiscal` | > | `country` | `pais` | `TEXT` | Renombrado a Wix Business Settings |
+| `moneda` | > | `currency` | `moneda` | `TEXT` | Renombrado a Wix Business Settings |
+| `zonaHoraria` | > | `timeZone` | `horariaZona` | `TEXT` | Renombrado a Wix Business Settings |
+| `regimenIva` | > | `taxRegime` | `tributarioRegimen` | `TEXT` | Renombrado a estándar fiscal |
+| `sujetoSii` | > | `isSiiSubject` | `esSiiSujeto` | `BOOLEAN` | Renombrado a estándar técnico |
+| `serieFacturaPredeterminada`| > | `defaultInvoiceSeries` | `predeterminadaFacturaSerie`| `TEXT` | Renombrado a Wix Invoicing |
+| `versionConfiguracion` | > | `configVersion` | `configuracionVersion` | `TEXT` | Renombrado a estándar técnico |
+| `activo` | > | `active` | `activo` | `BOOLEAN` | Renombrado a Wix V2 |
+| `fechaActualizacion` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 19. `LIBRO_IVA_FACTURAS_EXPEDIDAS — LibroIvaFacturasExpedidas`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idRegistroIva` | > | `taxRecordId` | `tributarioRegistroId` | `TEXT` | Renombrado a camelCase inglés |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroFactura` | > | `invoiceNumber` | `facturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `serieFactura` | > | `invoiceSeries` | `facturaSerie` | `TEXT` | Renombrado a Wix Invoicing |
+| `numeroFacturaFinal` | > | `finalInvoiceNumber` | `finalFacturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `fechaExpedicion` | > | `issueDate` | `expedicionFecha` | `DATETIME` | Renombrado a Wix Invoicing |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a Wix Invoicing |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoFactura` | > | `invoiceType` | `facturaTipo` | `TEXT` | Renombrado a Wix Invoicing |
+| `importeTotalFactura` | > | `totalInvoiceAmount` | `totalFacturaMonto` | `NUMBER` | Renombrado a Wix Invoicing |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tipoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `cuotaIvaRepercutida` | > | `outputTaxAmount` | `repercutidoImpuestoMonto`| `NUMBER` | Renombrado a estándar contable |
+| `tipoRecargoEquivalencia`| > | `equivalenceSurchargeRate`| `equivalenciaRecargoTasa`| `NUMBER` | Renombrado a estándar fiscal |
+| `cuotaRecargoEquivalencia`| >| `equivalenceSurchargeAmount`| `equivalenciaRecargoMonto`| `NUMBER`| Renombrado a estándar fiscal |
+| `conceptoIngreso` | > | `incomeConcept` | `ingresoConcepto` | `TEXT` | Renombrado a estándar fiscal |
+| `importeIngresoComputable`| >| `computableIncomeAmount`| `computableIngresoMonto`| `NUMBER` | Renombrado a estándar fiscal |
+| `nifDestinatario` | > | `recipientTaxId` | `destinatarioTributariaId`| `TEXT` | Renombrado a Wix Invoicing |
+| `nombreDestinatario` | > | `recipientName` | `destinatarioNombre` | `TEXT` | Renombrado a Wix Invoicing |
+| `tipoIdentificacionDestinatario`| > | `recipientIdType` | `destinatarioIdentificacionTipo`| `TEXT` | Renombrado a Wix Invoicing |
+| `codigoPaisDestinatario`| > | `recipientCountryCode` | `destinatarioPaisCodigo` | `TEXT` | Renombrado a Wix Invoicing |
+| `claveOperacion` | > | `operationKey` | `operacionClave` | `TEXT` | Renombrado a estándar AEAT |
+| `calificacionOperacion` | > | `operationQualification` | `operacionCalificacion`| `TEXT` | Renombrado a estándar AEAT |
+| `operacionExenta` | > | `exemptOperation` | `exentaOperacion` | `TEXT` | Renombrado a estándar AEAT |
+| `codigoActividad` | > | `activityCode` | `actividadCodigo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoActividad` | > | `activityType` | `actividadTipo` | `TEXT` | Renombrado a estándar fiscal |
+| `epigrafeIae` | > | `iaeHeading` | `iaeEpigrafe` | `TEXT` | Renombrado a estándar fiscal |
+| `fechaCobro` | > | `paymentDate` | `pagoFecha` | `DATETIME` | Renombrado a Wix Payments |
+| `importeCobrado` | > | `collectedAmount` | `cobradoMonto` | `NUMBER` | Renombrado a Wix Payments |
+| `medioCobro` | > | `collectionMethod` | `cobroMedio` | `TEXT` | Renombrado a Wix Payments |
+| `identificacionMedioCobro`| >| `collectionMethodIdentifier`| `cobroMedioIdentificacion`| `TEXT` | Renombrado a Wix Payments |
+| `tipoRetencionIrpf` | > | `withholdingTaxRate` | `retencionTasa` | `NUMBER` | Renombrado a estándar fiscal |
+| `importeRetenidoIrpf` | > | `withholdingTaxAmount` | `retencionMonto` | `NUMBER` | Renombrado a estándar fiscal |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `idFacturaRectificada` | > | `rectifiedInvoiceId` | `rectificadaFacturaId` | `TEXT` | Renombrado a Wix Invoicing |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 20. `LIBRO_IVA_FACTURAS_RECIBIDAS — LibroIvaFacturasRecibidas`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idRegistroIva` | > | `taxRecordId` | `tributarioRegistroId` | `TEXT` | Renombrado a camelCase inglés |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroRecepcion` | > | `receptionNumber` | `recepcionNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `serieNumeroFacturaProveedor`| > | `supplierInvoiceSeriesNumber`| `proveedorFacturaSerieNumero`| `TEXT` | Renombrado a camelCase inglés |
+| `numeroFacturaFinal` | > | `finalInvoiceNumber` | `finalFacturaNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `numeroRecepcionFinal` | > | `finalReceptionNumber` | `finalRecepcionNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `fechaExpedicion` | > | `issueDate` | `expedicionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaRecepcion` | > | `receptionDate` | `recepcionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoFactura` | > | `invoiceType` | `facturaTipo` | `TEXT` | Renombrado a camelCase inglés |
+| `importeTotalFactura` | > | `totalInvoiceAmount` | `totalFacturaMonto` | `NUMBER` | Renombrado a camelCase inglés |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom |
+| `tipoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom |
+| `cuotaIvaSoportado` | > | `inputTaxAmount` | `soportadoImpuestoMonto`| `NUMBER` | Renombrado a estándar contable |
+| `cuotaIvaDeducible` | > | `deductibleTaxAmount` | `deducibleImpuestoMonto`| `NUMBER` | Renombrado a estándar contable |
+| `tipoRecargoEquivalencia`| > | `equivalenceSurchargeRate`| `equivalenciaRecargoTasa`| `NUMBER` | Renombrado a estándar fiscal |
+| `cuotaRecargoEquivalencia`| >| `equivalenceSurchargeAmount`| `equivalenciaRecargoMonto`| `NUMBER`| Renombrado a estándar fiscal |
+| `conceptoGasto` | > | `expenseConcept` | `gastoConcepto` | `TEXT` | Renombrado a estándar contable |
+| `importeGastoDeducible` | > | `deductibleExpenseAmount`| `deducibleGastoMonto` | `NUMBER` | Renombrado a estándar fiscal |
+| `nifProveedor` | > | `supplierTaxId` | `proveedorTributariaId` | `TEXT` | Renombrado a camelCase inglés |
+| `nombreProveedor` | > | `supplierName` | `proveedorNombre` | `TEXT` | Renombrado a camelCase inglés |
+| `tipoIdentificacionProveedor`| > | `supplierIdType` | `proveedorIdentificacionTipo`| `TEXT` | Renombrado a camelCase inglés |
+| `codigoPaisProveedor` | > | `supplierCountryCode` | `proveedorPaisCodigo` | `TEXT` | Renombrado a camelCase inglés |
+| `claveOperacion` | > | `operationKey` | `operacionClave` | `TEXT` | Renombrado a estándar AEAT |
+| `bienInversion` | > | `isInvestmentAsset` | `esInversionBien` | `BOOLEAN` | Renombrado a estándar técnico |
+| `inversionSujetoPasivo`| > | `isReverseCharge` | `esInversionSujetoPasivo`| `BOOLEAN`| Renombrado a estándar técnico |
+| `deduciblePeriodoPosterior`| > | `deductibleLaterPeriod` | `deduciblePosteriorPeriodo`| `BOOLEAN`| Renombrado a estándar técnico |
+| `ejercicioDeduccion` | > | `deductionYear` | `deduccionEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoDeduccion` | > | `deductionPeriod` | `deduccionPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `codigoActividad` | > | `activityCode` | `actividadCodigo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoActividad` | > | `activityType` | `actividadTipo` | `TEXT` | Renombrado a estándar fiscal |
+| `epigrafeIae` | > | `iaeHeading` | `iaeEpigrafe` | `TEXT` | Renombrado a estándar fiscal |
+| `fechaPago` | > | `paymentDate` | `pagoFecha` | `DATETIME` | Renombrado a Wix Payments |
+| `importePagado` | > | `paidAmount` | `pagadoMonto` | `NUMBER` | Renombrado a Wix Payments |
+| `medioPago` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Renombrado a Wix Payments |
+| `identificacionMedioPago`| > | `paymentMethodIdentifier`| `pagoMetodoIdentificacion`| `TEXT` | Renombrado a Wix Payments |
+| `tipoRetencionIrpf` | > | `withholdingTaxRate` | `retencionTasa` | `NUMBER` | Renombrado a estándar fiscal |
+| `importeRetenidoIrpf` | > | `withholdingTaxAmount` | `retencionMonto` | `NUMBER` | Renombrado a estándar fiscal |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 21. `PLAN_CUENTAS_CONTABLES — PlanCuentasContables`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaContable` | > | `accountName` | `cuentaNombre` | `TEXT` | Renombrado a estándar contable |
+| `grupoCuentaContable` | > | `accountGroup` | `cuentaGrupo` | `TEXT` | Renombrado a estándar contable |
+| `subgrupoCuentaContable`| > | `accountSubgroup` | `cuentaSubgrupo` | `TEXT` | Renombrado a estándar contable |
+| `naturalezaCuenta` | > | `accountNature` | `cuentaNaturaleza` | `TEXT` | Renombrado a estándar contable |
+| `categoriaOperacion` | > | `operationCategory` | `operacionCategoria` | `TEXT` | Renombrado a estándar contable |
+| `subcategoriaOperacion`| > | `operationSubcategory`| `operacionSubcategoria`| `TEXT` | Renombrado a estándar contable |
+| `tipoIvaPredeterminado`| > | `defaultTaxRate` | `predeterminadaImpuestoTasa`| `NUMBER` | Renombrado a Wix eCom |
+| `codigoCuentaIvaRepercutido`| >| `outputTaxAccountCode`| `repercutidoImpuestoCuentaCodigo`| `TEXT`| Renombrado a estándar contable |
+| `nombreCuentaIvaRepercutido`| >| `outputTaxAccountName`| `repercutidoImpuestoCuentaNombre`| `TEXT`| Renombrado a estándar contable |
+| `codigoCuentaIvaSoportado`| > | `inputTaxAccountCode` | `soportadoImpuestoCuentaCodigo`| `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaIvaSoportado`| > | `inputTaxAccountName` | `soportadoImpuestoCuentaNombre`| `TEXT` | Renombrado a estándar contable |
+| `codigoCuentaDebePredeterminada`| >| `defaultDebitAccountCode`| `predeterminadaDebeCuentaCodigo`| `TEXT`| Renombrado a estándar contable |
+| `nombreCuentaDebePredeterminada`| >| `defaultDebitAccountName`| `predeterminadaDebeCuentaNombre`| `TEXT`| Renombrado a estándar contable |
+| `codigoCuentaHaberPredeterminada`|>| `defaultCreditAccountCode`| `predeterminadaHaberCuentaCodigo`| `TEXT`| Renombrado a estándar contable |
+| `nombreCuentaHaberPredeterminada`|>| `defaultCreditAccountName`| `predeterminadaHaberCuentaNombre`| `TEXT`| Renombrado a estándar contable |
+| `centroCostePredeterminado`| > | `defaultCostCenter` | `predeterminadoCosteCentro`| `TEXT` | Renombrado a estándar contable |
+| `activa` | > | `active` | `activo` | `BOOLEAN` | Renombrado a Wix V2 |
+| `validadaPorGestoria` | > | `validatedByAgency` | `validadaPorGestoria` | `BOOLEAN` | Renombrado a camelCase inglés |
+| `fechaValidacion` | > | `validationDate` | `validacionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaActualizacion` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 22. `ASIENTOS_CONTABLES — AsientosContables`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroAsiento` | > | `entryNumber` | `asientoNumero` | `NUMBER` | Renombrado a estándar contable |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a estándar contable |
+| `fechaOperacionFiscal` | > | `fiscalOperationDate` | `fiscalOperacionFecha` | `DATETIME` | Renombrado a estándar fiscal |
+| `conceptoAsiento` | > | `entryConcept` | `asientoConcepto` | `TEXT` | Renombrado a estándar contable |
+| `totalDebe` | > | `totalDebit` | `totalDebe` | `NUMBER` | Renombrado a estándar contable |
+| `totalHaber` | > | `totalCredit` | `totalHaber` | `NUMBER` | Renombrado a estándar contable |
+| `importeTotalDocumento`| > | `totalDocumentAmount` | `totalDocumentoMonto` | `NUMBER` | Renombrado a camelCase inglés |
+| `tipoAsiento` | > | `entryType` | `asientoTipo` | `TEXT` | Renombrado a estándar contable |
+| `estadoAsiento` | > | `entryStatus` | `asientoEstado` | `TEXT` | Renombrado a estándar contable |
+| `categoriaOperacion` | > | `operationCategory` | `operacionCategoria` | `TEXT` | Renombrado a estándar contable |
+| `subcategoriaOperacion`| > | `operationSubcategory`| `operacionSubcategoria`| `TEXT` | Renombrado a estándar contable |
+| `moneda` | > | `currency` | `moneda` | `TEXT` | Renombrado a Wix V2 |
+| `medioPago` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `idPedidoWix` | > | `wixOrderId` | `wixPedidoId` | `TEXT` | Renombrado a Wix eCom V2 |
+| `idDevolucionWix` | > | `wixRefundId` | `wixDevolucionId` | `TEXT` | Renombrado a Wix eCom V2 |
+| `idReservaWix` | > | `wixBookingId` | `wixReservaId` | `TEXT` | Renombrado a Wix Bookings V2 |
+| `idTransaccion` | > | `transactionId` | `transaccionId` | `TEXT` | Renombrado a Wix Payments V2 |
+| `serieFactura` | > | `invoiceSeries` | `facturaSerie` | `TEXT` | Renombrado a Wix Invoicing |
+| `numeroFactura` | > | `invoiceNumber` | `facturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `fechaExpedicionFactura`| > | `invoiceIssueDate` | `facturaExpedicionFecha`| `DATETIME` | Renombrado a Wix Invoicing |
+| `tipoFactura` | > | `invoiceType` | `facturaTipo` | `TEXT` | Renombrado a Wix Invoicing |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `idAsientoRectificado` | > | `rectifiedEntryId` | `rectificadoAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `motivoRectificacion` | > | `rectificationReason` | `rectificacionMotivo` | `TEXT` | Renombrado a estándar contable |
+| `idResponsableOperativo`| > | `operationalManagerId` | `operativoResponsableId`| `TEXT` | Renombrado a camelCase inglés |
+| `idMiembroRegistrador` | > | `recordingMemberId` | `registradorMiembroId` | `TEXT` | Renombrado a Wix Members |
+| `nombreRegistrador` | > | `recordingName` | `registradorNombre` | `TEXT` | Renombrado a camelCase inglés |
+| `idCentroCoste` | > | `costCenterId` | `costeCentroId` | `TEXT` | Renombrado a estándar contable |
+| `codigoActividadIae` | > | `iaeActivityCode` | `iaeActividadCodigo` | `TEXT` | Renombrado a estándar fiscal |
+| `origenRegistro` | > | `recordSource` | `registroOrigen` | `TEXT` | Renombrado a estándar técnico |
+| `idOrigen` | > | `sourceId` | `origenId` | `TEXT` | Renombrado a estándar técnico |
+| `versionEsquema` | > | `schemaVersion` | `esquemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `versionAlgoritmoIntegridad`| >| `integrityAlgorithmVersion`| `integridadAlgoritmoVersion`| `TEXT`| Renombrado a estándar Veri*factu |
+| `hashAnterior` | > | `previousHash` | `previoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashAsiento` | > | `entryHash` | `asientoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaAsiento` | > | `entrySignature` | `asientoFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+| `zonaHorariaOperacion` | > | `operationTimeZone` | `operacionHorariaZona` | `TEXT` | Renombrado a Wix Settings |
+
+---
+
+### 23. `LINEAS_ASIENTO_CONTABLE — LineasAsientoContable`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idLineaAsiento` | > | `entryLineId` | `asientoLineaId` | `TEXT` | Renombrado a estándar contable |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroLinea` | > | `lineNumber` | `lineaNumero` | `NUMBER` | Renombrado a estándar contable |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaContable` | > | `accountName` | `cuentaNombre` | `TEXT` | Renombrado a estándar contable |
+| `grupoCuentaContable` | > | `accountGroup` | `cuentaGrupo` | `TEXT` | Renombrado a estándar contable |
+| `importeDebe` | > | `debitAmount` | `debeMonto` | `NUMBER` | Renombrado a estándar contable |
+| `importeHaber` | > | `creditAmount` | `haberMonto` | `NUMBER` | Renombrado a estándar contable |
+| `importeNeto` | > | `netAmount` | `netoMonto` | `NUMBER` | Renombrado a estándar contable |
+| `descripcionLinea` | > | `lineDescription` | `lineaDescripcion` | `TEXT` | Renombrado a estándar contable |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tipoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `cuotaIva` | > | `taxAmount` | `impuestoMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `claveOperacionIva` | > | `vatOperationKey` | `ivaOperacionClave` | `TEXT` | Renombrado a estándar fiscal |
+| `nifContraparte` | > | `counterpartyTaxId` | `contraparteTributariaId`| `TEXT` | Renombrado a estándar fiscal |
+| `nombreContraparte` | > | `counterpartyName` | `contraparteNombre` | `TEXT` | Renombrado a estándar fiscal |
+| `categoriaOperacion` | > | `operationCategory` | `operacionCategoria` | `TEXT` | Renombrado a estándar contable |
+| `codigoProductoServicio`| > | `productServiceCode` | `productoServicioCodigo`| `TEXT` | Renombrado a estándar contable |
+| `idCentroCoste` | > | `costCenterId` | `costeCentroId` | `TEXT` | Renombrado a estándar contable |
+| `idResponsableOperativo`| > | `operationalManagerId` | `operativoResponsableId`| `TEXT` | Renombrado a camelCase inglés |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `hashLinea` | > | `lineHash` | `lineaHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a estándar contable |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 24. `MAYOR_CONTABLE_SALDOS — MayorContableSaldos`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idMayor` | > | `generalLedgerId` | `generalMayorId` | `TEXT` | Renombrado a estándar contable |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaContable` | > | `accountName` | `cuentaNombre` | `TEXT` | Renombrado a estándar contable |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `saldoInicialDebe` | > | `initialDebitBalance` | `inicialDebeSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `saldoInicialHaber` | > | `initialCreditBalance` | `inicialHaberSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `movimientosDebe` | > | `debitMovements` | `debeMovimientos` | `NUMBER` | Renombrado a estándar contable |
+| `movimientosHaber` | > | `creditMovements` | `haberMovimientos` | `NUMBER` | Renombrado a estándar contable |
+| `saldoFinalDebe` | > | `finalDebitBalance` | `finalDebeSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `saldoFinalHaber` | > | `finalCreditBalance` | `finalHaberSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `fechaCalculo` | > | `calculationDate` | `calculoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+
+---
+
+## MISIÓN 7: Auditoría, Seguridad y Control Horario de Personal (Audit, Security & HR)
+
+### 25. `EVENTOS_SISTEMA_FACTURACION — EventosSistemaFacturacion`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idEventoSistema` | > | `systemEventId` | `sistemaEventoId` | `TEXT` | Renombrado a estándar Veri*factu |
+| `fechaHoraEvento` | > | `eventDateTime` | `eventoFechaHora` | `DATETIME` | Renombrado a estándar técnico |
+| `tipoEvento` | > | `eventType` | `eventoTipo` | `TEXT` | Renombrado a estándar técnico |
+| `severidad` | > | `severity` | `severidad` | `TEXT` | Renombrado a estándar técnico |
+| `resultado` | > | `result` | `resultado` | `TEXT` | Renombrado a estándar técnico |
+| `origenEvento` | > | `eventSource` | `eventoOrigen` | `TEXT` | Renombrado a estándar técnico |
+| `idUsuarioResponsable` | > | `responsibleUserId` | `responsableUsuarioId` | `TEXT` | Renombrado a camelCase inglés |
+| `idMiembroResponsable` | > | `responsibleMemberId` | `responsableMiembroId` | `TEXT` | Renombrado a Wix Members |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `idTransaccion` | > | `transactionId` | `transaccionId` | `TEXT` | Renombrado a Wix Payments V2 |
+| `idReferencia` | > | `referenceId` | `referenciaId` | `TEXT` | Renombrado a estándar técnico |
+| `detalleSeguro` | > | `secureDetail` | `seguroDetalle` | `OBJECT` | Renombrado a estándar Veri*factu |
+| `hashEventoAnterior` | > | `previousEventHash` | `previoEventoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashEvento` | > | `eventHash` | `eventoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaEvento` | > | `eventSignature` | `eventoFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `versionSistema` | > | `systemVersion` | `sistemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `versionEsquema` | > | `schemaVersion` | `esquemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+
+---
+
+### 26. `AUDITORIA — MmAuditLog`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `tipoEvento` | > | `eventType` | `eventoTipo` | `TEXT` | Renombrado a estándar técnico |
+| `level` | > | `level` | `nivel` | `TEXT` | Sin cambio de clave |
+| `message` | > | `message` | `mensaje` | `TEXT` | Sin cambio de clave |
+| `source` | > | `source` | `origen` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+| `fechaLog` | > | `loggedAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+| `data` | > | `data` | `datos` | `OBJECT` | Sin cambio de clave |
+| `Owner` | > | `_owner` | `propietario` | `TEXT` | Consolidado en campo de sistema |
+
+---
+
+### 27. `REGISTROS_HORARIOS_STAFF — RegistrosHorariosStaff`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `resourceName` | > | `resourceName` | `recursoNombre` | `TEXT` | Sin cambio de clave |
+| `fechaHora` | > | `recordedAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+| `hora` | > | `recordedTime` | `registradaHora` | `TEXT` | Renombrado a camelCase inglés |
+| `diaKey` | > | `dayKey` | `diaClave` | `TEXT` | Renombrado a camelCase inglés |
+| `mesKey` | > | `monthKey` | `mesClave` | `TEXT` | Renombrado a camelCase inglés |
+| `tipoFichaje` | > | `clockEventType` | `fichajeEventoTipo` | `TEXT` | Renombrado a estándar HR |
+| `tipo` | > | `type` | `tipo` | `TEXT` | Renombrado a camelCase inglés |
+| `empleada` | > | `employeeIdentifier` | `empleadaIdentificador` | `TEXT` | Renombrado a estándar HR |
+| `empleadaNombre` | > | `employeeName` | `empleadaNombre` | `TEXT` | Renombrado a estándar HR |
+| `registradoPor` | > | `registeredBy` | `registradoPor` | `TEXT` | Renombrado a camelCase inglés |
+| `registradoPorMemberId` | > | `registeredByMemberId` | `registradoPorMiembroId` | `TEXT` | Renombrado a Wix Members |
+| `motivoAjuste` | > | `adjustmentReason` | `ajusteMotivo` | `TEXT` | Renombrado a estándar HR |
+| `ip` | > | `deviceIp` | `dispositivoIp` | `TEXT` | Renombrado a estándar técnico |
+| `ipDispositivo` | > | `deviceIpAddress` | `dispositivoIpDireccion`| `TEXT` | Renombrado a estándar técnico |
+| `firma` | > | `signature` | `firma` | `TEXT` | Renombrado a estándar técnico |
+| `meta` | > | `meta` | `meta` | `OBJECT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+| `fechaCreacion` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Consolidado en campo de sistema |
+| `Owner` | > | `_owner` | `propietario` | `TEXT` | Consolidado en campo de sistema |
+
+---
+
+## 2. Correspondencia de Colecciones Eliminadas y Prescindibles
+
+| Colección Eliminada / Prescindible | Destino Arquitectónico | Instrucción para Refactorización de Código |
+| :--- | :--- | :--- |
+| **`CONCILIACION_STOCK_WIX`** | Colección **`MOVIMIENTOS_INVENTARIO`** | Sustituir consultas a `ConciliacionStockWix` por consultas a `MovimientosInventario` filtrando por `.eq("requiresWixReconciliation", true)`. |
+| **`SYNC_M365`** | Colección **`M365_GRAPH_SYNC_QUEUE`** | Redirigir lecturas de logs históricos a `M365GraphSyncQueue` consultando registros con `.hasSome("status", ["COMPLETED", "FAILED"])`. |
+| **`AVAILABILITY_SLOTS_CACHE`**| Colección **`DUAL_SLOT_CACHE`** | Redirigir lecturas de franjas cacheadas a `DualSlotCache` o consultar la disponibilidad en memoria edge mediante `wix-web-module` (`cache: { tags, ttl }`). |
+| **`BOOKINGS_SERVICE_SYNC_QUEUE`**| Colección **`BOOKING_TRANSACTIONS`** | Encaminar las tareas asíncronas de sincronización a `BookingTransactions` utilizando `serviceId` y `desiredHash`. |
+| **`MUTEXES`** | **Motor de reservas nativo V2** | Eliminar inserciones y lecturas en `MmLocks`. Capturar el rechazo transaccional de Wix Bookings V2 cuando devuelva el error nativo `SLOT_NOT_AVAILABLE`. |
+| **`COMPLEMENTOS_CATALOGO`** | **Wix Bookings V2 Add-ons API** | Sustituir consultas CMS a `ComplementosCatalogo` por llamadas al SDK `@wix/bookings` mediante `services.getService()` inspeccionando `service.addOnGroups` y `service.addOns`. |
