@@ -26,13 +26,13 @@ let bridge = null;
 function _parseUrlParams() {
 const query = wixLocation.query || {};
 const serviceId = _safeTrim(query.serviceId || "");
-const slugUrl = _safeSlugOrId(query.slugUrl || query.slug || "");
+const slug = _safeSlugOrId(query.slug || "");
 const referral = _safeTrim(query.referral || "");
-return { serviceId, slugUrl, referral };
+return { serviceId, slug, referral };
 }
 async function _resolveServiceFromParams(params) {
 if (params.serviceId && _looksLikeGuid(params.serviceId)) {
-return { serviceId: params.serviceId, slugUrl: params.slugUrl || null };
+return { serviceId: params.serviceId, slug: params.slug || null };
 }
 if (params.slugUrl) {
 return { serviceId: null, slugUrl: params.slugUrl };
@@ -48,7 +48,7 @@ console.error("[calendario-2] No service resolved from URL params", { traceId })
 return;
 }
 currentServiceId = resolved.serviceId;
-currentSlug = resolved.slugUrl;
+currentSlug = resolved.slug;
 const widget = $w("#htmlWidgetCalendario");
 if (!widget || typeof widget.postMessage !== "function") {
 console.error("[calendario-2] HTML widget not found or incompatible", { traceId });
@@ -62,7 +62,7 @@ contextTimeoutMs: UI.CONTEXT_TIMEOUT_MS,
 onContextReady: async () => {
 return {
 serviceId: currentServiceId,
-slugUrl: currentSlug,
+slug: currentSlug,
 referral: params.referral,
 };
 },

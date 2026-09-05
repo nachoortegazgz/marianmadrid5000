@@ -25,11 +25,11 @@ function showError(message) {
 
 async function resolveServiceLookup() {
     const query = wixLocation.query || {};
-    const slugCandidates = [query.slugUrl, query.slug, query.serviceKey];
+    const slugCandidates = [query.slug, query.serviceKey];
     
     for (const candidate of slugCandidates) {
-        const slugUrl = _safeSlugOrId(candidate);
-        if (slugUrl) return slugUrl;
+        const slug = _safeSlugOrId(candidate);
+        if (slug) return slug;
     }
 
     const path = Array.isArray(wixLocation.path) ? wixLocation.path : [];
@@ -82,7 +82,7 @@ $w.onReady(async () => {
                 if (type === MESSAGE_TYPES.BOOK) {
                     const base = URLS?.CALENDARIO_2 || "/booking-calendar/calendario-2";
                     const query = [
-                        `slugUrl=${encodeURIComponent(resolvedService.slugUrl)}`,
+                        `slug=${encodeURIComponent(resolvedService.slug)}`,
                         `serviceId=${encodeURIComponent(resolvedService.serviceId)}`,
                         "referral=servicio-2"
                     ];

@@ -340,11 +340,11 @@ export async function _persistBooking(params, traceId = 'no-trace') {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking payload is required', { traceId });
   }
 
-  const primaryServiceGuid = params.serviceId || params.serviceId;
-  if (!params.bookingId || !primaryServiceGuid || !params.scheduleId) {
+  const serviceId = params.serviceId;
+  if (!params.bookingId || !serviceId || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push('bookingId');
-    if (!primaryServiceGuid) missingFields.push('primaryServiceGuid');
+    if (!serviceId) missingFields.push('serviceId');
     if (!params.scheduleId) missingFields.push('scheduleId');
 
     const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(', ')}`, { traceId, missingFields });
@@ -353,8 +353,8 @@ export async function _persistBooking(params, traceId = 'no-trace') {
   }
 
   // Validar GUIDs
-  if (!isValidGuid(primaryServiceGuid)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid primaryServiceGuid: ${primaryServiceGuid}`, { traceId, primaryServiceGuid });
+  if (!isValidGuid(serviceId)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid serviceId: ${serviceId}`, { traceId, serviceId });
   }
 
   if (params.resourceId && !isValidGuid(params.resourceId)) {
@@ -373,21 +373,21 @@ export async function _persistBooking(params, traceId = 'no-trace') {
   }
 
   const meta = (params.meta && typeof params.meta === 'object') ? params.meta : (typeof params.meta === 'string' ? (() => { try { return JSON.parse(params.meta); } catch { return null; } })() : null);
-  if (!meta || typeof meta !== 'object' || !('estadoPago' in meta) || !meta.estadoPago) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking meta is required and must include estadoPago', { traceId, meta: params.meta });
+  if (!meta || typeof meta !== 'object' || !('paymentStatus' in meta) || !meta.paymentStatus) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking meta is required and must include paymentStatus', { traceId, meta: params.meta });
   }
 
   // Validar estado de pago
   const validPaymentStates = ['UNPAID', 'PENDING_PAYMENT', 'CONFIRMED_UNPAID', 'PAID'];
-  if (!validPaymentStates.includes(meta.estadoPago)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state: ${meta.estadoPago}`, { traceId, estadoPago: meta.estadoPago });
+  if (!validPaymentStates.includes(meta.paymentStatus)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state: ${meta.paymentStatus}`, { traceId, paymentStatus: meta.paymentStatus });
   }
 
   // Construir item para Wix Data
   const bookingRecord = {
     _id: params.bookingId,
     revision: params.revision,
-    primaryServiceGuid,
+    serviceId,
     scheduleId: params.scheduleId,
     resourceId: params.resourceId,
     startDate: params.startDate,
