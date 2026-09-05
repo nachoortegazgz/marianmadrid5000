@@ -216,19 +216,23 @@ if (tipoFichaje === TIPO_FICHAJE.AJUSTE && !String(item.adjustmentReason || "").
 throw new Error("INVALID_CLOCK_ADJUSTMENT: motivoAjuste is required for manual adjustments.");
 }
 const now = new Date();
-const fechaHora = _toDate(item.fechaHora) || now;
-if (fechaHora.getTime() > now.getTime() + 60000) {
+const recordedAt = _toDate(item.recordedAt || item.fechaHora) || now;
+if (recordedAt.getTime() > now.getTime() + 60000) {
 throw new Error("INVALID_TIMESTAMP: Future timestamps are forbidden.");
 }
 const madrid = getMadridLocalStringNoZ(fechaHora);
 item.resourceId = staff.resourceId;
 item.resourceName = staff.displayName || staff.nombreVisible;
 item.clockEventType = tipoFichaje;
-item.fechaHora = fechaHora;
+item.recordedAt = recordedAt;
+item.recordedTime = madrid.slice(11, 19);
+item.dayKey = madrid.slice(0, 10);
+item.monthKey = madrid.slice(0, 7);
+item.fechaHora = recordedAt;
 item.fechaCreacion = now;
-item.diaKey = madrid.slice(0, 10);
-item.mesKey = madrid.slice(0, 7);
-item.hora = madrid.slice(11, 19);
+item.diaKey = item.dayKey;
+item.mesKey = item.monthKey;
+item.hora = item.recordedTime;
 return item;
 }
 export function RegistrosHorariosStaff_beforeUpdate(_item) {
@@ -254,3 +258,14 @@ return item;
 export function CajaActual_beforeRemove(_itemId) {
 throw new Error("SINGLETON_PROTECTED: Direct deletion of cajaActual is forbidden.");
 }
+export const MOVIMIENTOS_CAJA_beforeInsert = MovimientosCaja_beforeInsert;
+export const MOVIMIENTOS_CAJA_beforeUpdate = MovimientosCaja_beforeUpdate;
+export const MOVIMIENTOS_CAJA_beforeRemove = MovimientosCaja_beforeRemove;
+export const REGISTROS_HORARIOS_STAFF_beforeInsert = RegistrosHorariosStaff_beforeInsert;
+export const REGISTROS_HORARIOS_STAFF_beforeUpdate = RegistrosHorariosStaff_beforeUpdate;
+export const REGISTROS_HORARIOS_STAFF_beforeRemove = RegistrosHorariosStaff_beforeRemove;
+export const CIERRES_Z_beforeUpdate = HistoricoCierresZ_beforeUpdate;
+export const CIERRES_Z_beforeRemove = HistoricoCierresZ_beforeRemove;
+export const CAJA_ACTUAL_beforeInsert = CajaActual_beforeInsert;
+export const CAJA_ACTUAL_beforeUpdate = CajaActual_beforeUpdate;
+export const CAJA_ACTUAL_beforeRemove = CajaActual_beforeRemove;
