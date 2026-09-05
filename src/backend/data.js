@@ -220,7 +220,7 @@ const recordedAt = _toDate(item.recordedAt || item.fechaHora) || now;
 if (recordedAt.getTime() > now.getTime() + 60000) {
 throw new Error("INVALID_TIMESTAMP: Future timestamps are forbidden.");
 }
-const madrid = getMadridLocalStringNoZ(fechaHora);
+const madrid = getMadridLocalStringNoZ(recordedAt);
 item.resourceId = staff.resourceId;
 item.resourceName = staff.displayName || staff.nombreVisible;
 item.clockEventType = tipoFichaje;

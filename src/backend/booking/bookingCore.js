@@ -330,12 +330,12 @@ return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.me
 }
 
 /**
- * Persiste un booking en Wix Data con validación de tipos
- * @param {Object} params - Parámetros del booking
+ * Persiste un booking en Wix Data con validacion de tipos
+ * @param {Object} params - Parametros del booking
  * @param {string} traceId - ID de traza para logs
  */
 export async function _persistBooking(params, traceId = 'no-trace') {
-  // Validaciones en tiempo de ejecución
+  // Validaciones en tiempo de ejecucion
   if (!params || typeof params !== 'object') {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, 'Booking payload is required', { traceId });
   }
@@ -576,19 +576,19 @@ durationMinutes = Number(primaryServiceGuid);
 primaryServiceGuid = slot?.primaryServiceGuid || slot?.serviceId || null;
 }
 
-// VALIDACIÓN CRÍTICA: Verificar primaryServiceGuid
+// VALIDACION CRITICA: Verificar primaryServiceGuid
 if (!primaryServiceGuid) {
 logger.warn('[bookingCore] _forceStaffInPristineSlot: primaryServiceGuid missing', { slot });
 return null;
 }
 
-// Validar que resourceId sea GUID válido
+// Validar que resourceId sea GUID valido
 if (!_looksLikeGuid(resourceId)) {
-logger.warn('[bookingCore] _forceStaffInPristineSlot: resourceId no es GUID válido', { resourceId });
+logger.warn('[bookingCore] _forceStaffInPristineSlot: resourceId no es GUID valido', { resourceId });
 return null;
 }
 
-// VALIDACIÓN CRÍTICA: Verificar que el slot tenga localStartDate válido
+// VALIDACION CRITICA: Verificar que el slot tenga localStartDate valido
 if (!slot || !slot.localStartDate) {
 logger.warn('[bookingCore] _forceStaffInPristineSlot: localStartDate missing', { slot });
 return null;
@@ -634,12 +634,12 @@ new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), ms))
 ]);
 }
 // ============================================================================
-// OPTIMIZACIÓN: Bucket Indexing para Dual Slots
+// OPTIMIZACION: Bucket Indexing para Dual Slots
 // ============================================================================
 
 /**
- * Extrae IDs de recursos válidos (GUIDs) de un slot.
- * Soporta múltiples formatos: resourceId string, objeto resource, array resources, staffMemberId
+ * Extrae IDs de recursos validos (GUIDs) de un slot.
+ * Soporta multiples formatos: resourceId string, objeto resource, array resources, staffMemberId
  * @param {Object|null|undefined} slot - Slot de Wix Bookings.
  * @returns {string[]} Array de resourceIds deduplicados y validados como GUID.
  */
@@ -677,7 +677,7 @@ export function _extractResourceIdsFromSlot(slot) {
     resources.add(slot.staffMemberId);
   }
   
-  // Filtrar solo GUIDs válidos
+  // Filtrar solo GUIDs validos
   const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return [...resources].filter(id => guidRegex.test(id));
 }
@@ -694,12 +694,12 @@ export async function _rankResourcesByLoad(resourceIds, dateYMD, traceId) {
   if (!Array.isArray(resourceIds) || resourceIds.length === 0) return [];
   
   try {
-    // Simulación de carga: En producción esto consultaría Wix Data/Bookings API
-    // Aquí usamos un hash determinista basado en ID + Fecha para mockear carga variable
+    // Simulacion de carga: En produccion esto consultaria Wix Data/Bookings API
+    // Aqui usamos un hash determinista basado en ID + Fecha para mockear carga variable
     const loadMap = new Map();
     
     for (const resId of resourceIds) {
-      // Mock: Carga basada en últimos caracteres del GUID para distribución uniforme
+      // Mock: Carga basada en ultimos caracteres del GUID para distribucion uniforme
       const pseudoLoad = parseInt(resId.slice(-2), 16) % 10; 
       loadMap.set(resId, pseudoLoad);
     }
@@ -717,8 +717,8 @@ export async function _rankResourcesByLoad(resourceIds, dateYMD, traceId) {
 }
 
 /**
- * VERSIÓN OPTIMIZADA: Obtiene slots duales certificados usando Bucket Indexing.
- * Complejidad: O(N log N) vs O(N^2) de la versión naive.
+ * VERSION OPTIMIZADA: Obtiene slots duales certificados usando Bucket Indexing.
+ * Complejidad: O(N log N) vs O(N^2) de la version naive.
  * 
  * @param {string} serviceId - GUID del servicio principal.
  * @param {string} resourceId - GUID del recurso (staff/equipo).
@@ -730,21 +730,21 @@ export async function getCertifiedDualSlotsOptimized(serviceId, resourceId, date
   const traceId = crypto.randomUUID ? crypto.randomUUID() : 'trace-opt-' + Date.now();
   const startTime = Date.now();
   
-  console.log(`[${traceId}] Iniciando búsqueda optimizada dual-slot para ${serviceId} en ${dateYMD}`);
+  console.log(`[${traceId}] Iniciando busqueda optimizada dual-slot para ${serviceId} en ${dateYMD}`);
 
   // 1. Validaciones iniciales
   if (!serviceId || !resourceId || !dateYMD) {
     return { error: 'PARAMS_MISSING', traceId };
   }
 
-  // 2. Obtención de slots primarios (Simulado para el ejemplo, usaría wix-bookings v2)
+  // 2. Obtencion de slots primarios (Simulado para el ejemplo, usaria wix-bookings v2)
   const slotsF1 = await _mockFetchPrimarySlots(serviceId, resourceId, dateYMD);
   
   if (!slotsF1 || slotsF1.length === 0) {
     return { slots: [], count: 0, traceId, duration: Date.now() - startTime };
   }
 
-  // 3. BUCKET INDEXING: Construir índice por recurso UNA SOLA VEZ
+  // 3. BUCKET INDEXING: Construir indice por recurso UNA SOLA VEZ
   const slotsByResource = new Map();
   
   for (const slot of slotsF1) {
@@ -798,7 +798,7 @@ export async function getCertifiedDualSlotsOptimized(serviceId, resourceId, date
   }
 
   const duration = Date.now() - startTime;
-  console.log(`[${traceId}] Búsqueda completada en ${duration}ms. Pares encontrados: ${finalPairs.length}`);
+  console.log(`[${traceId}] Busqueda completada en ${duration}ms. Pares encontrados: ${finalPairs.length}`);
 
   return {
     slots: finalPairs,
@@ -821,7 +821,7 @@ export function _areSlotsContiguous(s1, s2) {
 }
 
 /**
- * Helper: Sanitiza datos del slot para respuesta pública.
+ * Helper: Sanitiza datos del slot para respuesta publica.
  */
 function _sanitizeSlot(slot) {
   return {
@@ -833,7 +833,7 @@ function _sanitizeSlot(slot) {
 }
 
 /**
- * Mock para simulación de fetch de slots primarios.
+ * Mock para simulacion de fetch de slots primarios.
  */
 async function _mockFetchPrimarySlots(serviceId, resourceId, dateYMD) {
   const baseDate = new Date(dateYMD + 'T09:00:00');
@@ -856,7 +856,7 @@ async function _mockFetchPrimarySlots(serviceId, resourceId, dateYMD) {
 }
 
 /**
- * Genera una clave única para identificar un slot
+ * Genera una clave unica para identificar un slot
  */
 export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate) {
   if (slotOrServiceId && typeof slotOrServiceId === 'object') {
@@ -881,7 +881,7 @@ export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate
 }
 
 /**
- * Valida que un string sea un GUID válido (formato UUID v4)
+ * Valida que un string sea un GUID valido (formato UUID v4)
  */
 export function isValidGuid(id) {
   return _looksLikeGuid(id);
@@ -893,20 +893,20 @@ export function isValidGuid(id) {
 export function _projectCertifiedSlot(slot, resourceId) {
   const serviceId = slot?.serviceId || slot?.primaryServiceGuid;
   if (!slot || !serviceId) {
-    console.warn('[bookingCore] Slot inválido: falta primaryServiceGuid');
+    console.warn('[bookingCore] Slot invalido: falta primaryServiceGuid');
     return null;
   }
   
   const targetResourceId = resourceId || slot.resourceId || (slot.resource?.id);
   
   if (!isValidGuid(targetResourceId)) {
-    console.warn(`[bookingCore] ResourceId inválido: ${targetResourceId}`);
+    console.warn(`[bookingCore] ResourceId invalido: ${targetResourceId}`);
     return null;
   }
   
   // Validar fechas
   if (!slot.localStartDate || !slot.localEndDate) {
-    console.warn('[bookingCore] Slot inválido: faltan fechas');
+    console.warn('[bookingCore] Slot invalido: faltan fechas');
     return null;
   }
   
@@ -914,7 +914,7 @@ export function _projectCertifiedSlot(slot, resourceId) {
   const endDate = new Date(slot.localEndDate);
   
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    console.warn('[bookingCore] Fechas inválidas en slot');
+    console.warn('[bookingCore] Fechas invalidas en slot');
     return null;
   }
   
@@ -979,7 +979,7 @@ export async function _projectWriterSlotFromAvailability(slot, resourceId, servi
 }
 
 /**
- * Genera un token único para emparejar slots duales
+ * Genera un token unico para emparejar slots duales
  */
 export function _generatePairToken(traceId) {
   const timestamp = Date.now().toString(36);
@@ -996,18 +996,18 @@ export function _areSlotsCompatible(slot1, slot2, maxGapMinutes = 15) {
     return false;
   }
   
-  // El slot2 debe empezar después del slot1
+  // El slot2 debe empezar despues del slot1
   const end1 = new Date(slot1.localEndDate).getTime();
   const start2 = new Date(slot2.localStartDate).getTime();
   
   const gapMinutes = (start2 - end1) / 60000;
   
-  // Gap dentro del límite permitido
+  // Gap dentro del limite permitido
   return gapMinutes >= 0 && gapMinutes <= maxGapMinutes;
 }
 
 /**
- * Auditoría de precio de booking
+ * Auditoria de precio de booking
  */
 export function _auditBookingPrice(basePrice, addons) {
   let total = basePrice;
@@ -1020,7 +1020,7 @@ export function _auditBookingPrice(basePrice, addons) {
   // Validar que el precio sea positivo
   if (total < 0) {
     console.error('[bookingCore] Precio auditado negativo:', total);
-    throw new Error('Precio auditado inválido');
+    throw new Error('Precio auditado invalido');
   }
   
   return Math.round(total * 100) / 100; // Redondear a 2 decimales

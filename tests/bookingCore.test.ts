@@ -370,7 +370,7 @@ describe('bookingCore.ts', () => {
     it('debe lanzar error si precio total es negativo', () => {
       const basePrice = -100;
       
-      expect(() => _auditBookingPrice(basePrice, [])).toThrow('Precio auditado inválido');
+      expect(() => _auditBookingPrice(basePrice, [])).toThrow('Precio auditado invalido');
     });
   });
 });
