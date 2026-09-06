@@ -256,7 +256,6 @@ async function _mapServiceToPresentation(service, traceId) {
     serviceId,
     slugUrl,
     linkedPhases: secondaryServiceGuid,
-    secondaryServiceGuid,
     allowCombine,
     phase1Duration,
     exposureDuration,
@@ -623,7 +622,8 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
   }
   const service = serviceRes.data;
   const addonContext = _resolveAddonContext(service, requestedAddonIds);
-  const secondaryServiceGuid = service.secondaryServiceGuid || null;
+  const linkedPhases = _safeTrim(service?.linkedPhases);
+  const secondaryServiceGuid = linkedPhases && _looksLikeGuid(linkedPhases) ? linkedPhases : (service.secondaryServiceGuid || null);
   const isDual = service.allowCombine && !!secondaryServiceGuid;
   const resourceIdsFilter = _normalizeResourceIds(resourceId, traceId);
   const fromLocalDate = `${dateYMD}T00:00:00`;
