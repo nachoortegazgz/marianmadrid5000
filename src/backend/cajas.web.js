@@ -808,6 +808,25 @@
        taxTypeBreakdown[rate].total = _roundMoney(taxTypeBreakdown[rate].total + Number(m.accountingAmount || 0));
        taxTypeBreakdown[rate].operations++;
      }
+     // Verify hash chain integrity before closing
+     let expectedPrev = GENESIS_HASH;
+     let integrityVerified = true;
+     for (const mov of allMovements) {
+       if (mov.previousRecordHash && mov.previousRecordHash !== expectedPrev) {
+         integrityVerified = false;
+         log.error("Hash chain integrity violation detected", {
+           traceId,
+           movementId: mov._id,
+           expected: expectedPrev,
+           actual: mov.previousRecordHash,
+         });
+         break;
+       }
+       expectedPrev = mov.currentRecordHash || expectedPrev;
+     }
+     if (!integrityVerified) {
+       return { status: "ERROR", data: null, error: { code: "INTEGRITY_VIOLATION", message: "Hash chain integrity violation detected. Cannot close." } };
+     }
      // Hash chain for closing
      const firstMov = allMovements[0];
      const lastMov = allMovements[allMovements.length - 1];

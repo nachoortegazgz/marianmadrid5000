@@ -13,8 +13,11 @@ import { makeTraceId, _safeTrim, _safeSlugOrId, _looksLikeGuid } from "public/mm
 import { hmacSha256Hex } from "backend/securityEngine";
 import { _getServiceBySlugOrIdInternal } from "backend/reservas.web";
 import { logger } from "backend/booking/bookingCore";
+import { rateLimiter } from "backend/security";
 const log = logger;
 const HMAC_MAX_CLOCK_SKEW_SECONDS = 60;
+const WEBHOOK_RATE_LIMIT_MAX_REQUESTS = 10;
+const WEBHOOK_RATE_LIMIT_WINDOW_MS = 60000;
 function _safeTraceId(prefix) {
 return makeTraceId(prefix || "http");
 }
@@ -88,19 +91,26 @@ return serverError({ body: { error: "INTERNAL_ERROR" } });
 export async function post_webhook_m365(request) {
 const traceId = _safeTraceId("http-m365");
 try {
-const bodyString = typeof request.body === "string" ? request.body : JSON.stringify(request.body || {});
-const isValid = await _validateHMACSignature(request, bodyString, traceId);
-if (!isValid) {
-log.warn("M365 webhook HMAC validation failed", { traceId });
-return unauthorized({ body: { error: "UNAUTHORIZED" } });
-}
-const payload = typeof request.body === "string" ? JSON.parse(request.body) : request.body;
-const eventType = _safeTrim(payload.eventType || payload.type || "");
-log.info("M365 webhook received", { traceId, eventType });
-return ok({ body: { received: true, eventType } });
+  // Rate limiting for webhook endpoint
+  const clientIp = request.headers["x-forwarded-for"] || request.headers["x-real-ip"] || "unknown";
+  const rl = rateLimiter({ surface: "m365_webhook", key: clientIp }, WEBHOOK_RATE_LIMIT_MAX_REQUESTS, WEBHOOK_RATE_LIMIT_WINDOW_MS);
+  if (!rl.allowed) {
+    log.warn("M365 webhook rate limited", { traceId, clientIp });
+    return { status: 429, body: { error: "RATE_LIMITED", retryAfter: rl.retryAfter } };
+  }
+  const bodyString = typeof request.body === "string" ? request.body : JSON.stringify(request.body || {});
+  const isValid = await _validateHMACSignature(request, bodyString, traceId);
+  if (!isValid) {
+    log.warn("M365 webhook HMAC validation failed", { traceId });
+    return unauthorized({ body: { error: "UNAUTHORIZED" } });
+  }
+  const payload = typeof request.body === "string" ? JSON.parse(request.body) : request.body;
+  const eventType = _safeTrim(payload.eventType || payload.type || "");
+  log.info("M365 webhook received", { traceId, eventType });
+  return ok({ body: { received: true, eventType } });
 } catch (error) {
-log.error("post_webhook_m365 failed", { traceId, error: error?.message });
-return serverError({ body: { error: "INTERNAL_ERROR" } });
+  log.error("post_webhook_m365 failed", { traceId, error: error?.message });
+  return serverError({ body: { error: "INTERNAL_ERROR" } });
 }
 }
 export async function get_health(request) {

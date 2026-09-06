@@ -72,10 +72,10 @@
    };
  }
  function _readFichajeTipo(f) {
-   return f.clockEventType || f.type || f.tipoFichaje || "";
+   return f.clockEventType || f.type || "";
  }
  function _readFichajeFecha(f) {
-   return new Date(f.recordedAt || f.fechaHora);
+   return new Date(f.recordedAt);
  }
  export const getMyStaffContext = webMethod(Permissions.SiteMember, async (options = {}) => {
    const traceId = options.traceId || makeTraceId("staff-ctx");

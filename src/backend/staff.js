@@ -24,18 +24,14 @@ async function _loadStaffCatalog() {
   try {
     const res = await wixData.query(MAPA_STAFF_COL).eq("active", true).limit(100).find({ suppressAuth: true });
     let items = res?.items || [];
-    if (!items.length) {
-      const fallbackRes = await wixData.query(MAPA_STAFF_COL).eq("activo", true).limit(100).find({ suppressAuth: true }).catch(() => null);
-      items = fallbackRes?.items || [];
-    }
     staffCache = items.map((s) => ({
       ...s,
       resourceId: _safeTrim(s.resourceId),
-      staffMemberId: _safeTrim(s.staffMemberId || s.idMiembroStaff),
+      staffMemberId: _safeTrim(s.staffMemberId),
       scheduleId: _safeTrim(s.scheduleId),
       email: _safeEmail(s.email),
-      displayName: _safeTrim(s.displayName || s.nombreVisible || s.name),
-      active: s.active !== false && s.activo !== false,
+      displayName: _safeTrim(s.displayName || s.name),
+      active: s.active !== false,
     }));
     staffCacheTime = now;
     return staffCache;
@@ -55,7 +51,7 @@ export async function findStaff(identifier) {
   if (cleanId.toLowerCase() === "any" || cleanId.toLowerCase() === "all") return null;
   const byResourceId = catalog.find((s) => s.resourceId === cleanId);
   if (byResourceId) return byResourceId;
-  const byMemberId = catalog.find((s) => s.staffMemberId === cleanId || s.idMiembroStaff === cleanId);
+  const byMemberId = catalog.find((s) => s.staffMemberId === cleanId);
   if (byMemberId) return byMemberId;
   const byScheduleId = catalog.find((s) => s.scheduleId === cleanId);
   if (byScheduleId) return byScheduleId;
@@ -64,7 +60,7 @@ export async function findStaff(identifier) {
     const byEmail = catalog.find((s) => _safeEmail(s.email) === cleanEmail);
     if (byEmail) return byEmail;
   }
-  const byName = catalog.find((s) => _safeTrim(s.displayName || s.nombreVisible || "").toLowerCase() === cleanId.toLowerCase());
+  const byName = catalog.find((s) => _safeTrim(s.displayName || "").toLowerCase() === cleanId.toLowerCase());
   if (byName) return byName;
   return null;
 }
@@ -78,7 +74,7 @@ export async function findStaffByResourceId(resourceId) {
 export async function getStaffDisplayName(resourceId) {
   const staff = await findStaff(resourceId);
   if (!staff) return "";
-  return _safeTrim(staff.displayName || staff.nombreVisible || staff.name || "");
+  return _safeTrim(staff.displayName || staff.name || "");
 }
 
 export async function getStaffScheduleId(resourceId) {

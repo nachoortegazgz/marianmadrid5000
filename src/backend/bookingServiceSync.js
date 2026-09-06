@@ -16,7 +16,7 @@ import { logger } from "backend/booking/bookingCore";
 import { COLLECTIONS, SDK_CONFIG, SERVICE_CATALOG } from "backend/internalConfig";
 
 const log = logger;
-const QUEUE_COL = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE || "BOOKING_TRANSACTIONS";
+const QUEUE_COL = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE;
 const MAX_ATTEMPTS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_MAX_ATTEMPTS || 5;
 const BATCH_SIZE = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BATCH_SIZE || 20;
 const BACKOFF_MS = SDK_CONFIG?.JOBS?.BOOKINGS_SERVICE_SYNC_BACKOFF_MS || 300000;
@@ -43,16 +43,16 @@ function _cleanGuidList(value) {
 }
 
 function _buildDesiredProjection(item) {
-    const title = _cleanText(item.title || item.title, 160);
-    const duration = Number(item.totalDuration || item.duration) || 0;
-    const price = Number(item.price ?? item.precio) || 0;
-    const currency = _safeTrim(item.currency || item.moneda) || SERVICE_CATALOG.CURRENCY;
+    const title = _cleanText(item.title, 160);
+    const duration = Number(item.totalDuration) || 0;
+    const price = Number(item.price) || 0;
+    const currency = _safeTrim(item.currency) || SERVICE_CATALOG.CURRENCY;
     const isHidden = item.hidden === true;
-    const isActive = item.active === true || _safeTrim(item.estado || item.status) === "ACTIVO";
+    const isActive = item.active === true || _safeTrim(item.status) === "ACTIVO";
 
     const staffIds = [];
     try {
-        const rawStaff = item.availableStaff || item.personalDisponible;
+        const rawStaff = item.availableStaff;
         const parsed = typeof rawStaff === "string" ? JSON.parse(rawStaff) : rawStaff;
         if (parsed && Array.isArray(parsed.staffIds)) {
             staffIds.push(...parsed.staffIds);
@@ -64,9 +64,9 @@ function _buildDesiredProjection(item) {
     return {
         service: {
             name: title,
-            description: _cleanText(item.description || item.description, 6000),
-            tagLine: _cleanText(item.tagLine || item.tagLine, 120),
-            categoryId: _cleanGuid(item.idCategoria || item.categoryId || "c97726db-84aa-4a08-b34e-7fda9e17702e", "SYNC_CATEGORY_INVALID"),
+            description: _cleanText(item.description, 6000),
+            tagLine: _cleanText(item.tagLine, 120),
+            categoryId: _cleanGuid(item.categoryId || "c97726db-84aa-4a08-b34e-7fda9e17702e", "SYNC_CATEGORY_INVALID"),
             status: isActive ? "CREATED" : "DRAFT",
             hidden: isHidden,
             paymentOptions: {
@@ -75,7 +75,7 @@ function _buildDesiredProjection(item) {
             },
             schedule: {
                 durationInMinutes: duration,
-                bufferTimeInMinutes: Number(item.margenTiempo || item.bufferTime) || 0,
+                bufferTimeInMinutes: Number(item.bufferTime) || 0,
             },
             rate: {
                 labeledPriceOptions: {
@@ -89,7 +89,7 @@ function _buildDesiredProjection(item) {
 
 export async function enqueueBookingsServiceSync(serviceItem) {
     if (!serviceItem || typeof serviceItem !== "object") return null;
-    const serviceId = _extractRelationalId(serviceItem.serviceId || serviceItem.serviceId);
+    const serviceId = _extractRelationalId(serviceItem.serviceId);
     if (!_looksLikeGuid(serviceId)) return null;
 
     const desired = _buildDesiredProjection(serviceItem);

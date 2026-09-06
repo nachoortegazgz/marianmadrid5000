@@ -55,22 +55,20 @@ function _readDuration(item, field) {
 function _validateServiceCatalog(item, context) {
   if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
   _normalizeBoundedText(item, "title", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
-  _normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
   _normalizeBoundedText(item, "tagLine", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
-  _normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
   _normalizeBoundedText(item, "description", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
-  const rawState = item.status || item.estado || (item.hidden ? "INACTIVO" : "ACTIVO");
+  const rawState = item.status || (item.hidden ? "INACTIVO" : "ACTIVO");
   const estado = _normalizeCatalogReference(rawState);
-  if (estado && SERVICE_STATES.has(estado)) { item.status = estado; item.estado = estado; }
-  const rawPrice = item.price ?? item.precio;
+  if (estado && SERVICE_STATES.has(estado)) { item.status = estado; }
+  const rawPrice = item.price;
   if (rawPrice !== undefined && rawPrice !== null && rawPrice !== "") {
     const precio = Number(rawPrice);
     if (!Number.isFinite(precio) || precio < 0) throw new Error("SERVICE_VALIDATION: price must be a non-negative number.");
     item.price = precio;
   }
-  const f1 = _readDuration(item, "phase1Duration") || _readDuration(item, "tiempoFase1") || _readDuration(item, "tiempoFaseUno");
-  const gap = _readDuration(item, "exposureDuration") || _readDuration(item, "tiempoExposicion");
-  const f2 = _readDuration(item, "phase2Duration") || _readDuration(item, "tiempoFase2") || _readDuration(item, "tiempoFaseDos");
+  const f1 = _readDuration(item, "phase1Duration");
+  const gap = _readDuration(item, "exposureDuration");
+  const f2 = _readDuration(item, "phase2Duration");
   item.phase1Duration = f1; item.exposureDuration = gap; item.phase2Duration = f2;
   const totalCalculado = f1 + gap + f2;
   if (totalCalculado > 0) item.totalDuration = Math.round(totalCalculado * 100) / 100;
@@ -90,12 +88,11 @@ function _validateMapaStaff(item, context) {
   if (!GUID_RE.test(resourceId)) throw new Error("STAFF_VALIDATION: resourceId must be a valid Bookings resource GUID.");
   item.resourceId = resourceId;
   _normalizeBoundedText(item, "displayName", 80);
-  _normalizeBoundedText(item, "nombreVisible", 80);
   _normalizeBoundedText(item, "staffMemberId", 120);
   _normalizeBoundedText(item, "email", 254);
   _normalizeBoundedText(item, "scheduleId", 120);
   if (item.email) item.email = String(item.email).trim().toLowerCase();
-  item.active = item.active !== false && item.activo !== false;
+  item.active = item.active !== false;
   item._updatedDate = new Date();
   return item;
 }
@@ -114,13 +111,10 @@ function _validateCitasF2(item, context) {
   const now = new Date();
   _normalizeDateField(item, "startDate", null);
   _normalizeDateField(item, "endDate", null);
-  _normalizeDateField(item, "fechaCreacion", now);
-  _normalizeDateField(item, "fechaActualizacion", now);
-  // FIX: Sincroniza dateYmd y fechaYmdMadrid (MATRIZ: fechaYmdMadrid -> dateYmd)
+  // FIX: dateYmd is canonical (fechaYmdMadrid removed)
   if (!item.dateYmd && item.startDate) item.dateYmd = getMadridLocalStringNoZ(item.startDate).slice(0, 10);
-  if (!item.fechaYmdMadrid && item.dateYmd) item.fechaYmdMadrid = item.dateYmd;
-  item.status = String(item.status || item[CITA_FIELDS.STATUS] || ESTADO_CITA.CONFIRMED).toUpperCase();
-  item.paymentStatus = String(item.paymentStatus || item[CITA_FIELDS.STATUS_PAGO] || "UNPAID").toUpperCase();
+  item.status = String(item.status || ESTADO_CITA.CONFIRMED).toUpperCase();
+  item.paymentStatus = String(item.paymentStatus || "UNPAID").toUpperCase();
   item.revision = Number(item.revision || 1);
   return item;
 }
@@ -172,15 +166,15 @@ export async function RegistrosHorariosStaff_beforeInsert(item) {
   if (!item || typeof item !== "object") return item;
   const staff = await findStaff(item.resourceId);
   if (!staff) throw new Error("INVALID_EMPLOYEE: Employee resourceId is not registered in MapaStaff.");
-  const tipo = String(item.clockEventType || item.tipoFichaje || "").toUpperCase();
+  const tipo = String(item.clockEventType || "").toUpperCase();
   if (!Object.values(TIPO_FICHAJE).includes(tipo)) throw new Error(`INVALID_CLOCK_TYPE: "${tipo}".`);
-  if (tipo === TIPO_FICHAJE.AJUSTE && !String(item.adjustmentReason || item.motivoAjuste || "").trim()) throw new Error("INVALID_CLOCK_ADJUSTMENT: adjustmentReason is required.");
+  if (tipo === TIPO_FICHAJE.AJUSTE && !String(item.adjustmentReason || "").trim()) throw new Error("INVALID_CLOCK_ADJUSTMENT: adjustmentReason is required.");
   const now = new Date();
-  const fechaHora = _toDate(item.recordedAt || item.fechaHora) || now;
+  const fechaHora = _toDate(item.recordedAt) || now;
   if (fechaHora.getTime() > now.getTime() + 60000) throw new Error("INVALID_TIMESTAMP: Future timestamps are forbidden.");
   const madrid = getMadridLocalStringNoZ(fechaHora);
   item.resourceId = staff.resourceId;
-  item.resourceName = staff.displayName || staff.nombreVisible;
+  item.resourceName = staff.displayName;
   item.clockEventType = tipo;
   item.recordedAt = fechaHora;
   item.recordedTime = madrid.slice(11, 19);

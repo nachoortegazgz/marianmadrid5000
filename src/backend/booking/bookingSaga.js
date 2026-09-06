@@ -86,7 +86,7 @@
    try {
      const parsed = JSON.parse(meta);
      return parsed && typeof parsed === 'object' ? parsed : {};
-   } catch () {
+   } catch (_) {
      return {};
    }
  }
