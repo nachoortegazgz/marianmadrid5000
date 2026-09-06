@@ -219,8 +219,8 @@ async function _mapServiceToPresentation(service, traceId) {
   }
   const isHidden = service?.hidden === true;
   const linkedPhases = _safeTrim(service?.linkedPhases);
-  const secondaryServiceGuid = linkedPhases && _looksLikeGuid(linkedPhases) ? linkedPhases : null;
-  const allowCombine = !isHidden && service?.allowCombine === true && Boolean(secondaryServiceGuid);
+  const secondaryServiceId = linkedPhases && _looksLikeGuid(linkedPhases) ? linkedPhases : null;
+  const allowCombine = !isHidden && service?.allowCombine === true && Boolean(secondaryServiceId);
   const phase1Duration = Number(service?.phase1Duration) || 0;
   const exposureDuration = Number(service?.exposureDuration) || 0;
   const phase2Duration = Number(service?.phase2Duration) || 0;
@@ -255,7 +255,7 @@ async function _mapServiceToPresentation(service, traceId) {
   return {
     serviceId,
     slugUrl,
-    linkedPhases: secondaryServiceGuid,
+    linkedPhases: secondaryServiceId,
     allowCombine,
     phase1Duration,
     exposureDuration,
@@ -623,8 +623,8 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
   const service = serviceRes.data;
   const addonContext = _resolveAddonContext(service, requestedAddonIds);
   const linkedPhases = _safeTrim(service?.linkedPhases);
-  const secondaryServiceGuid = linkedPhases && _looksLikeGuid(linkedPhases) ? linkedPhases : (service.secondaryServiceGuid || null);
-  const isDual = service.allowCombine && !!secondaryServiceGuid;
+  const secondaryServiceId = linkedPhases && _looksLikeGuid(linkedPhases) ? linkedPhases : null;
+  const isDual = service.allowCombine && !!secondaryServiceId;
   const resourceIdsFilter = _normalizeResourceIds(resourceId, traceId);
   const fromLocalDate = `${dateYMD}T00:00:00`;
   const toLocalDate = `${dateYMD}T23:59:59`;
@@ -648,7 +648,7 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
         pairToken,
         candidateResourceIds,
         serviceId: canonicalServiceId,
-        secondaryServiceGuid: null,
+        secondaryServiceId: null,
         dateYMD,
       });
     }
@@ -670,7 +670,7 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
     let s2 = null;
     for (const candidateResourceId of rankedCandidates) {
       const nextF2 = await _findNextSlotForServiceInternal(
-        secondaryServiceGuid,
+        secondaryServiceId,
         earliestF2Local,
         candidateResourceId,
         traceId
@@ -687,12 +687,12 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
     const pairToken = _generateUUID();
     pairs.push({
       fase1: { slotRef: { ...s1, serviceId: canonicalServiceId }, resourceId: chosenResourceId },
-      fase2: { slotRef: { ...s2, serviceId: secondaryServiceGuid }, resourceId: chosenResourceId },
+      fase2: { slotRef: { ...s2, serviceId: secondaryServiceId }, resourceId: chosenResourceId },
       uiPairToken: pairToken,
       pairToken,
       candidateResourceIds,
       serviceId: canonicalServiceId,
-      secondaryServiceGuid,
+      secondaryServiceId,
       dateYMD,
       earliestF2Local,
     });
@@ -709,7 +709,7 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
         resourceId: slotPair.fase1?.resourceId || null,
         candidateResourceIds: slotPair.candidateResourceIds || [],
         serviceId: String(slotPair.serviceId),
-        secondaryServiceGuid: String(slotPair.secondaryServiceGuid),
+        secondaryServiceId: String(slotPair.secondaryServiceId),
         dateYMD: String(dateYMD),
         expiresAt,
         _createdDate: new Date(),

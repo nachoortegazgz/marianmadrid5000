@@ -1,0 +1,41 @@
+{
+  "collections": {
+    "SERVICIOS_CATALOGO": "ServiciosCatalogo",
+    "MAPA_STAFF": "MapaStaff",
+    "CITAS_F2": "CitasF2",
+    "AVAILABILITY_DAYS_CACHE": "AvailabilityDaysCache",
+    "DUAL_SLOT_CACHE": "DualSlotCache",
+    "BOOKING_TRANSACTIONS": "BookingTransactions",
+    "BOOKINGS_SERVICE_SYNC_QUEUE": "BookingsServiceSyncQueue",
+    "COMPENSACIONES_PENDIENTES": "CompensacionesPendientes",
+    "M365_GRAPH_SYNC_QUEUE": "M365GraphSyncQueue",
+    "INVENTARIO_STOCK_VENTA": "InventarioStockVenta",
+    "INVENTARIO_STOCK_VENTA_CIERRE": "InventarioStockVentaCierre",
+    "MOVIMIENTOS_INVENTARIO": "MovimientosInventario",
+    "PROVEEDORES_LISTA": "ProveedoresLista",
+    "CAJA_ACTUAL": "CajaActual",
+    "MOVIMIENTOS_CAJA": "MovimientosCaja",
+    "CONTROL_PARCIAL_X": "ControlParcialX",
+    "CIERRES_Z": "HistoricoCierresZ",
+    "SECUENCIA_TICKETS": "SecuenciaTickets",
+    "CONFIGURACION_FISCAL": "ConfiguracionFiscal",
+    "LIBRO_IVA_FACTURAS_EXPEDIDAS": "LibroIvaFacturasExpedidas",
+    "LIBRO_IVA_FACTURAS_RECIBIDAS": "LibroIvaFacturasRecibidas",
+    "PLAN_CUENTAS_CONTABLES": "PlanCuentasContables",
+    "ASIENTOS_CONTABLES": "AsientosContables",
+    "LINEAS_ASIENTO_CONTABLE": "LineasAsientoContable",
+    "LIBRO_MAYOR_CONTABLE_SALDOS": "MayorContableSaldos",
+    "EVENTOS_SISTEMA_FACTURACION": "EventosSistemaFacturacion",
+    "MM_AUDIT_LOG": "MmAuditLog",
+    "REGISTROS_HORARIOS_STAFF": "RegistrosHorariosStaff",
+    "SLOT_LOCKS": "SlotLocks",
+    "RATE_LIMIT_BLOCKS": "RateLimitBlocks",
+    "ALERTAS_OPERATIVAS": "AlertasOperativas"
+  },
+  "schemaExempt": [
+    "BookingsServiceSyncQueue",
+    "SlotLocks",
+    "RateLimitBlocks",
+    "AlertasOperativas"
+  ]
+}

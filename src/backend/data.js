@@ -252,11 +252,11 @@ export function RegistrosHorariosStaff_beforeRemove(_itemId) {
 }
 
 export function HistoricoCierresZ_beforeUpdate(_item) {
-  throw new Error("FISCAL_VIOLATION: Direct updates to HISTORICOCIERRESZ are forbidden.");
+  throw new Error("FISCAL_VIOLATION: Direct updates to HistoricoCierresZ are forbidden.");
 }
 
 export function HistoricoCierresZ_beforeRemove(_itemId) {
-  throw new Error("FISCAL_VIOLATION: Direct removals from HISTORICOCIERRESZ are forbidden.");
+  throw new Error("FISCAL_VIOLATION: Direct removals from HistoricoCierresZ are forbidden.");
 }
 
 export function CajaActual_beforeInsert(item) {

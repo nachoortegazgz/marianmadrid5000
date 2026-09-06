@@ -86,7 +86,7 @@ describe('bookingCore.ts', () => {
   describe('_projectCertifiedSlot', () => {
     it('debe proyectar slot válido a formato certificado', () => {
       const slot = {
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: '22222222-2222-4222-8222-222222222222',
         localStartDate: '2026-09-02T10:00:00',
         localEndDate: '2026-09-02T10:30:00',
@@ -123,7 +123,7 @@ describe('bookingCore.ts', () => {
 
     it('debe retornar null si fechas son inválidas', () => {
       const slot = {
-        primaryServiceGuid: 'srv-1',
+        serviceId: 'srv-1',
         resourceId: '33333333-3333-4333-8333-333333333333',
         localStartDate: 'fecha-invalida',
         localEndDate: 'tambien-invalida'
@@ -133,7 +133,7 @@ describe('bookingCore.ts', () => {
   });
 
   describe('_forceStaffInPristineSlot', () => {
-    it('debe retornar null si falta primaryServiceGuid', async () => {
+    it('debe retornar null si falta serviceId', async () => {
       const slot = { resourceId: 'abc', scheduleId: 'def' };
       const result = await _forceStaffInPristineSlot(slot, 'res-1', null, 30);
       expect(result).toBeNull();
@@ -207,7 +207,7 @@ describe('bookingCore.ts', () => {
     it('debe lanzar error si serviceId no es GUID válido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        primaryServiceGuid: 'invalid-guid',
+        serviceId: 'invalid-guid',
         scheduleId: 'sch-1'
       };
       
@@ -218,7 +218,7 @@ describe('bookingCore.ts', () => {
     it('debe lanzar error si tipo de booking es inválido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: 'sch-1',
         startDate: new Date(),
         endDate: new Date(),
@@ -233,7 +233,7 @@ describe('bookingCore.ts', () => {
     it('debe lanzar error si estado de pago es inválido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: 'sch-1',
         startDate: new Date(),
         endDate: new Date(),
@@ -249,7 +249,7 @@ describe('bookingCore.ts', () => {
       const params = {
         bookingId: 'book-123',
         revision: 1,
-        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
+        serviceId: '11111111-1111-4111-8111-111111111111',
         scheduleId: '22222222-2222-4222-8222-222222222222',
         resourceId: '33333333-3333-4333-8333-333333333333',
         startDate: new Date('2026-09-02T10:00:00'),

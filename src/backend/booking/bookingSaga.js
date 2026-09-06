@@ -509,7 +509,6 @@ export async function executeBookingSaga(unsafePayload) {
       p.validatedSlot = {
         ...p.validatedSlot,
         serviceId: p.serviceId,
-        primaryServiceGuid: p.serviceId,
       };
       p.pristineSlot = await _forceStaffInPristineSlot(
         p.validatedSlot,
@@ -685,7 +684,7 @@ export async function executeBookingSaga(unsafePayload) {
       return _persistBooking({
         bookingId: b.bookingId,
         revision: b.revision,
-        primaryServiceGuid: persistedServiceId,
+        serviceId: persistedServiceId,
         scheduleId: phase.pristineSlot?.scheduleId || "",
         resourceId: finalResourceId,
         startDate: startUtc,

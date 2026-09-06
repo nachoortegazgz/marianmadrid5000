@@ -320,11 +320,11 @@ export async function _persistBooking(params, traceId = "no-trace") {
   if (!params || typeof params !== "object") {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking payload is required", { traceId });
   }
-  const serviceId = params.serviceId || params.primaryServiceGuid;
+  const serviceId = params.serviceId;
   if (!params.bookingId || !serviceId || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push("bookingId");
-    if (!serviceId) missingFields.push("primaryServiceGuid");
+    if (!serviceId) missingFields.push("serviceId");
     if (!params.scheduleId) missingFields.push("scheduleId");
     const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(", ")}`, { traceId, missingFields });
     log.error(`[bookingCore] ${error.message}`, { traceId });
@@ -361,7 +361,6 @@ export async function _persistBooking(params, traceId = "no-trace") {
     _id: params.bookingId,
     bookingId: params.bookingId,
     serviceId,
-    primaryServiceGuid: serviceId,
     scheduleId: params.scheduleId,
     resourceId: params.resourceId,
     pairToken,
@@ -551,7 +550,7 @@ export async function _forceStaffInPristineSlot(slot, resourceId, serviceId, dur
   );
   if (legacyDurationSignature) {
     durationMinutes = Number(serviceId);
-    serviceId = slot?.serviceId || slot?.primaryServiceGuid || null;
+    serviceId = slot?.serviceId || null;
   }
   if (!serviceId) {
     logger.warn("[bookingCore] _forceStaffInPristineSlot: serviceId missing", { slot });
@@ -733,7 +732,7 @@ async function _mockFetchPrimarySlots(serviceId, resourceId, dateYMD) {
     const end = new Date(start.getTime() + 30 * 60000);
     slots.push({
       id: `slot-${i}-${resourceId.slice(0, 8)}`,
-      primaryServiceGuid: serviceId,
+      serviceId,
       resource: { id: resourceId },
       localStartDate: start.toISOString(),
       localEndDate: end.toISOString(),
@@ -748,7 +747,7 @@ export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate
   if (slotOrServiceId && typeof slotOrServiceId === "object") {
     const slot = slotOrServiceId;
     const parts = [
-      slot.serviceId || slot.primaryServiceGuid || "",
+      slot.serviceId || "",
       slot.scheduleId || "",
       slot.localStartDate || slot.startDate || "",
       slot.resourceId || (slot.resource?.id) || "",
@@ -768,9 +767,9 @@ export function isValidGuid(id) {
 }
 
 export function _projectCertifiedSlot(slot, resourceId) {
-  const serviceId = slot?.serviceId || slot?.primaryServiceGuid;
+  const serviceId = slot?.serviceId;
   if (!slot || !serviceId) {
-    console.warn("[bookingCore] Slot invalido: falta primaryServiceGuid");
+    console.warn("[bookingCore] Slot invalido: falta serviceId");
     return null;
   }
   const targetResourceId = resourceId || slot.resourceId || (slot.resource?.id);
@@ -805,7 +804,7 @@ export function _projectCertifiedSlot(slot, resourceId) {
 
 // [C-04] Usa _safeTrim correctamente
 export async function _projectWriterSlotFromAvailability(slot, resourceId, serviceId) {
-  const cleanServiceId = _safeTrim(serviceId || slot?.serviceId || slot?.primaryServiceGuid || "");
+  const cleanServiceId = _safeTrim(serviceId || slot?.serviceId || "");
   const cleanResourceId = _safeTrim(
     resourceId || slot?.resourceId || slot?.resource?._id || slot?.resource?.id || ""
   );
