@@ -189,7 +189,7 @@ const OBJECT_PROPERTIES_MATRIX = [
   // Citas
   { from: /(\b[\w$]+)\.statusPago\b/g, to: "$1.paymentStatus" },
   { from: /(\b[\w$]+)\.fechaYmdMadrid\b/g, to: "$1.dateYmd" },
-  { from: /(\b[\w$]+)\.primaryServiceGuid\b/g, to: "$1.serviceId" },
+  { from: /(?<!\|\|\s)(?<!\&\&\s)(?<!\?\?\s)(\b[\w$]+)\.primaryServiceGuid\b/g, to: "$1.serviceId", description: "Renombra .primaryServiceGuid excluyendo fallback: x || y.primaryServiceGuid" },
   { from: /(\b[\w$]+)\.idServicio\b/g, to: "$1.serviceId" },
   { from: /(\b[\w$]+)\.tituloServicio\b/g, to: "$1.title" },
   { from: /(\b[\w$]+)\.duracionTotal\b/g, to: "$1.totalDuration" },

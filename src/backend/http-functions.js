@@ -9,7 +9,7 @@ import { ok, badRequest, unauthorized, serverError } from "wix-http-functions";
 import { getSecret } from "wix-secrets-backend";
 import { SECRETS } from "backend/mmSecrets";
 import { makeTraceId, _safeTrim, _safeSlugOrId, _looksLikeGuid } from "public/mmUtils";
-import { hmacSha256Hex } from "backend/securityEngine";
+import { hmacSha256Hex, timingSafeEqual } from "backend/securityEngine";
 import { _getServiceBySlugOrIdInternal } from "backend/reservas.web";
 import { logger } from "backend/booking/bookingCore";
 import { cancelBookingElevated } from "backend/booking/bookingCore";
@@ -46,7 +46,7 @@ async function _validateHMACSignature(request, bodyString, traceId) {
   if (!secret) return false;
   const payload = `${timestamp}.${bodyString}`;
   const expectedSignature = hmacSha256Hex(secret, payload);
-  return signature === expectedSignature;
+  return timingSafeEqual(signature, expectedSignature);
 }
 
 export async function get_service(request) {
