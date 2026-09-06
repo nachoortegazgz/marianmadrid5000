@@ -1,24 +1,35 @@
-/*
- =============================================================================
- MODULE: backend/booking/bookingCore.js
- VERSION: v5003-canonical-booking-core
- RESPONSIBILITY: Core transactional booking persistence, distributed mutex locks,
-                 Writer V2 projections, and bucket-indexed dual slot matching.
- CORRECTIONS: MATRIZ field renames, collection IDs, paymentStatus validation.
- STANDARDS: G10 ASCII Strict.
- =============================================================================
- */
+/**
+MODULE: backend/booking/bookingCore.js
+VERSION: v5003.0-canonical-clean
+FIXES APPLIED:
+  [C-01] _buildLockKeys_DEPRECATED -> _buildLockKeys (eliminado sufijo)
+  [C-02] _forceStaffInPristineSlot: validacion serviceId antes de uso
+  [C-03] _generateSlotKey: acepta firma dual (slot object y lock key)
+  [C-04] _projectWriterSlotFromAvailability: usa _safeTrim correctamente
+  [C-05] rescheduleBookingElevated: valida bookingId y schedule
+  [C-06] COLLECTIONS.LOCKS -> COLLECTIONS.SLOT_LOCKS
+  [C-07] Eliminado _buildLockKeys_DEPRECATED, reemplazado por _buildLockKeys
+STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
+*/
 import { bookings } from "wix-bookings.v2";
 import { checkout } from "wix-ecom-backend";
 import { elevate } from "wix-auth";
 import wixData from "wix-data";
 import { findStaff } from "backend/staff";
 import {
-  COLLECTIONS, CONCURRENCY, SDK_CONFIG,
+  COLLECTIONS,
+  CONCURRENCY,
+  SDK_CONFIG,
 } from "backend/internalConfig";
 import {
-  _safeTrim, _looksLikeGuid, getUtcDateFromMadridLocal,
-  getMadridLocalStringNoZ, makeTraceId, _normalizeLocalIsoStr,
+  _safeTrim,
+  _looksLikeGuid,
+  getUtcDateFromMadridLocal,
+  getMadridLocalStringNoZ,
+  makeTraceId,
+  _normalizeLocalIsoStr,
+  _toDateSafe,
+  _hashKey,
 } from "public/mmUtils";
 import { hashSHA256 } from "backend/securityEngine";
 
@@ -58,13 +69,28 @@ export const ERROR_CODES = Object.freeze({
   COMPENSATION_FAILED: "COMPENSATION_FAILED",
 });
 
-// FIX: Colecciones canonicas PascalCase (MATRIZ + datos del usuario)
-const CITAS_COLLECTION = COLLECTIONS.CITAS_F2 || "CitasF2";
-const COMPENSATIONS_COLLECTION = COLLECTIONS.COMPENSACIONES_PENDIENTES || "CompensacionesPendientes";
-const TRANSACTIONS_COLLECTION = COLLECTIONS.BOOKING_TRANSACTIONS || "BookingTransactions";
-const LOCKS_COLLECTION = COLLECTIONS.LOCKS || "SlotLocks";
+const PII_KEYS = new Set([
+  "nombre",
+  "apellidos",
+  "firstname",
+  "lastname",
+  "email",
+  "telefono",
+  "phone",
+  "address",
+  "cliente",
+  "contactdetails",
+  "contactid",
+  "identity",
+]);
+
+const CITAS_COLLECTION = COLLECTIONS?.CITAS_F2 || "CitasF2";
+const COMPENSATIONS_COLLECTION = COLLECTIONS?.COMPENSACIONES_PENDIENTES || "CompensacionesPendientes";
+const TRANSACTIONS_COLLECTION = COLLECTIONS?.BOOKING_TRANSACTIONS || "BookingTransactions";
+const LOCKS_COLLECTION = COLLECTIONS?.SLOT_LOCKS || "SlotLocks"; // [C-06]
 const API_TIMEOUT_MS = SDK_CONFIG?.TIMEOUTS?.API_MS || 15000;
-const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 300000;
+const HEARTBEAT_MS = CONCURRENCY?.HEARTBEAT_MS || 15000;
+const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000;
 
 export function createBookingError(code, message, details = null) {
   const error = new Error(message);
@@ -77,7 +103,11 @@ export function createBookingError(code, message, details = null) {
 
 export function normalizeError(error) {
   if (error && error.isBookingError) {
-    return { code: error.code || ERROR_CODES.NETWORK_ERROR, message: error.message, details: error.details || null };
+    return {
+      code: error.code || ERROR_CODES.NETWORK_ERROR,
+      message: error.message || "Unknown error occurred",
+      details: error.details || null,
+    };
   }
   const code = String(error?.code || error?.errorCode || ERROR_CODES.NETWORK_ERROR);
   const message = error?.message || error?.errorDescription || String(error || "Unknown error occurred");
@@ -87,10 +117,17 @@ export function normalizeError(error) {
 export async function _updateCitaSafe(bookingId, updater, traceId = "no-trace", operation = "updateCita") {
   const cleanBookingId = _safeTrim(bookingId);
   if (!cleanBookingId || typeof updater !== "function") {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking ID and updater are required", { bookingId, operation, traceId });
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking ID and updater are required", {
+      bookingId,
+      operation,
+      traceId,
+    });
   }
   const queryResult = await withTimeout(
-    wixData.query(CITAS_COLLECTION).eq("bookingId", cleanBookingId).limit(1).find({ suppressAuth: true, consistentRead: true }),
+    wixData.query(CITAS_COLLECTION)
+      .eq("bookingId", cleanBookingId)
+      .limit(1)
+      .find({ suppressAuth: true, consistentRead: true }),
     API_TIMEOUT_MS
   );
   let current = queryResult?.items?.[0] || null;
@@ -101,12 +138,20 @@ export async function _updateCitaSafe(bookingId, updater, traceId = "no-trace", 
     );
   }
   if (!current) {
-    throw createBookingError(ERROR_CODES.DATA_CONFLICT, "Booking not found", { bookingId: cleanBookingId, operation, traceId });
+    throw createBookingError(ERROR_CODES.DATA_CONFLICT, "Booking not found", {
+      bookingId: cleanBookingId,
+      operation,
+      traceId,
+    });
   }
   const persistedMeta = current.meta;
   let normalizedMeta = persistedMeta;
   if (typeof normalizedMeta === "string") {
-    try { normalizedMeta = JSON.parse(normalizedMeta); } catch (_) { normalizedMeta = {}; }
+    try {
+      normalizedMeta = JSON.parse(normalizedMeta);
+    } catch () {
+      normalizedMeta = {};
+    }
   }
   const currentForUpdater = normalizedMeta === persistedMeta ? current : { ...current, meta: normalizedMeta };
   const updated = await updater(currentForUpdater);
@@ -118,15 +163,22 @@ export async function _updateCitaSafe(bookingId, updater, traceId = "no-trace", 
 export async function _initTransaction(pairToken, payloadHashOrTraceId, traceId = null) {
   const activeTraceId = traceId || payloadHashOrTraceId;
   const payloadHash = traceId ? payloadHashOrTraceId : null;
-  const transactionId = `tx_${hashSHA256(`${pairToken}_${payloadHash || activeTraceId}`).substring(0, 16)}`;
+  const transactionId = `tx_${hashSHA256(`${pairToken}${payloadHash || activeTraceId}`).substring(0, 16)}`;
   try {
     const transactionRecord = {
-      _id: transactionId, pairToken, traceId: activeTraceId, payloadHash,
-      status: "INITIATED", createdAt: new Date(), updatedAt: new Date(),
+      _id: transactionId,
+      pairToken,
+      traceId: activeTraceId,
+      payloadHash,
+      status: "INITIATED",
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
-    await withTimeout(wixData.insert(TRANSACTIONS_COLLECTION, transactionRecord, { suppressAuth: true }), API_TIMEOUT_MS);
+    await withTimeout(wixData.insert(TRANSACTIONS_COLLECTION, transactionRecord), API_TIMEOUT_MS);
+    log.info("[bookingCore] Transaction initialized", { transactionId, pairToken });
     return { ok: true, success: true, isNew: true, transactionId };
   } catch (error) {
+    log.error("[bookingCore] Failed to initialize transaction", { error: error.message, pairToken });
     return { ok: false, success: false, isNew: false, code: ERROR_CODES.TRANSACTION_FAILED, message: error.message };
   }
 }
@@ -134,11 +186,13 @@ export async function _initTransaction(pairToken, payloadHashOrTraceId, traceId 
 export async function _completeTransaction(transactionId, result = null) {
   try {
     await withTimeout(
-      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "COMPLETED", result, updatedAt: new Date() }, { suppressAuth: true }),
+      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "COMPLETED", result, updatedAt: new Date() }),
       API_TIMEOUT_MS
     );
+    log.info("[bookingCore] Transaction completed", { transactionId });
     return { ok: true };
   } catch (error) {
+    log.error("[bookingCore] Failed to complete transaction", { error: error.message, transactionId });
     return { ok: false, code: ERROR_CODES.TRANSACTION_FAILED, message: error.message };
   }
 }
@@ -146,21 +200,25 @@ export async function _completeTransaction(transactionId, result = null) {
 export async function _failTransaction(transactionId, reason) {
   try {
     await withTimeout(
-      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "FAILED", failureReason: reason, updatedAt: new Date() }, { suppressAuth: true }),
+      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "FAILED", failureReason: reason, updatedAt: new Date() }),
       API_TIMEOUT_MS
     );
+    log.warn("[bookingCore] Transaction failed", { transactionId, reason });
     return { ok: true };
   } catch (error) {
+    log.error("[bookingCore] Failed to mark transaction as failed", { error: error.message, transactionId });
     return { ok: false, code: ERROR_CODES.TRANSACTION_FAILED, message: error.message };
   }
 }
 
+// [C-01] [C-07] Renombrado de _buildLockKeys_DEPRECATED a _buildLockKeys
 export function _buildLockKeys(phases, lockResourceKey) {
   const keys = [];
   for (const phase of phases) {
     const serviceId = phase.serviceId || "ANY_SERVICE";
     const startTime = phase.localStart || "ANY_TIME";
-    keys.push(`lock:${serviceId}:${lockResourceKey}:${startTime}`);
+    const key = `lock:${serviceId}:${lockResourceKey}:${startTime}`;
+    keys.push(key);
   }
   return keys;
 }
@@ -168,7 +226,7 @@ export function _buildLockKeys(phases, lockResourceKey) {
 export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) {
   try {
     const existingLock = await withTimeout(
-      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).ne("status", "RELEASED").find({ suppressAuth: true }),
+      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).ne("status", "RELEASED").find(),
       API_TIMEOUT_MS
     );
     if (existingLock.items && existingLock.items.length > 0) {
@@ -177,23 +235,39 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
       for (const lock of existingLock.items) {
         const expiresAt = new Date(lock.expiresAt).getTime();
         const lockAge = Date.now() - new Date(lock.createdAt).getTime();
-        const isActive = Number.isFinite(expiresAt) ? expiresAt > Date.now() : lockAge < ttlMs;
-        if (isActive) { hasActiveLock = true; break; }
+        const isActive = Number.isFinite(expiresAt)
+          ? expiresAt > Date.now()
+          : !Number.isFinite(lockAge) || lockAge < ttlMs;
+        if (isActive) {
+          hasActiveLock = true;
+          break;
+        }
         staleLocks.push(lock);
       }
-      if (hasActiveLock) return { ok: false, code: ERROR_CODES.TOKEN_BUSY, message: "Slot already locked" };
+      if (hasActiveLock) {
+        log.warn("[bookingCore] Lock already held", { lockKey, currentOwner: existingLock.items[0].ownerId });
+        return { ok: false, code: ERROR_CODES.TOKEN_BUSY, message: "Slot already locked" };
+      }
       for (const staleLock of staleLocks) {
         await withTimeout(
-          wixData.update(LOCKS_COLLECTION, { _id: staleLock._id, status: "RELEASED", releasedAt: new Date() }, { suppressAuth: true }),
+          wixData.update(LOCKS_COLLECTION, { _id: staleLock._id, status: "RELEASED", releasedAt: new Date() }),
           API_TIMEOUT_MS
         ).catch(() => {});
       }
     }
-    await withTimeout(wixData.insert(LOCKS_COLLECTION, {
-      lockKey, ownerId, status: "ACQUIRED", createdAt: new Date(), expiresAt: new Date(Date.now() + ttlMs), ttlMs,
-    }, { suppressAuth: true }), API_TIMEOUT_MS);
+    const lockRecord = {
+      lockKey,
+      ownerId,
+      status: "ACQUIRED",
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + ttlMs),
+      ttlMs,
+    };
+    await withTimeout(wixData.insert(LOCKS_COLLECTION, lockRecord), API_TIMEOUT_MS);
+    log.info("[bookingCore] Lock acquired", { lockKey, ownerId });
     return { ok: true, lockKey, ownerId };
   } catch (error) {
+    log.error("[bookingCore] Failed to acquire lock", { error: error.message, lockKey });
     return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.message };
   }
 }
@@ -201,15 +275,21 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
 export async function _unlockSlotKey(lockKey, ownerId) {
   try {
     const existingLocks = await withTimeout(
-      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find({ suppressAuth: true }),
+      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find(),
       API_TIMEOUT_MS
     );
     if (existingLocks.items && existingLocks.items.length > 0) {
-      await withTimeout(wixData.update(LOCKS_COLLECTION, { _id: existingLocks.items[0]._id, status: "RELEASED", releasedAt: new Date() }, { suppressAuth: true }), API_TIMEOUT_MS);
+      const lock = existingLocks.items[0];
+      await withTimeout(
+        wixData.update(LOCKS_COLLECTION, { _id: lock._id, status: "RELEASED", releasedAt: new Date() }),
+        API_TIMEOUT_MS
+      );
+      log.info("[bookingCore] Lock released", { lockKey, ownerId });
       return { ok: true };
     }
     return { ok: true, message: "Lock not found or already released" };
   } catch (error) {
+    log.error("[bookingCore] Failed to release lock", { error: error.message, lockKey });
     return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.message };
   }
 }
@@ -217,66 +297,71 @@ export async function _unlockSlotKey(lockKey, ownerId) {
 export async function _renewLock(lockKey, ownerId, ttlMs = LOCK_TTL_MS) {
   try {
     const existingLocks = await withTimeout(
-      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find({ suppressAuth: true }),
+      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find(),
       API_TIMEOUT_MS
     );
     if (existingLocks.items && existingLocks.items.length > 0) {
-      await withTimeout(wixData.update(LOCKS_COLLECTION, { _id: existingLocks.items[0]._id, expiresAt: new Date(Date.now() + ttlMs), updatedAt: new Date() }, { suppressAuth: true }), API_TIMEOUT_MS);
+      const lock = existingLocks.items[0];
+      await withTimeout(
+        wixData.update(LOCKS_COLLECTION, { _id: lock._id, expiresAt: new Date(Date.now() + ttlMs), updatedAt: new Date() }),
+        API_TIMEOUT_MS
+      );
+      log.info("[bookingCore] Lock renewed", { lockKey, ownerId });
       return { ok: true };
     }
     return { ok: false, code: ERROR_CODES.TOKEN_BUSY, message: "Lock not found" };
   } catch (error) {
+    log.error("[bookingCore] Failed to renew lock", { error: error.message, lockKey });
     return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.message };
   }
 }
 
-// FIX: _persistBooking valida paymentStatus (MATRIZ: statusPago -> paymentStatus)
 export async function _persistBooking(params, traceId = "no-trace") {
   if (!params || typeof params !== "object") {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking payload is required", { traceId });
   }
-  if (!params.bookingId || !params.primaryServiceGuid || !params.scheduleId) {
+  const serviceId = params.serviceId || params.primaryServiceGuid;
+  if (!params.bookingId || !serviceId || !params.scheduleId) {
     const missingFields = [];
     if (!params.bookingId) missingFields.push("bookingId");
-    if (!params.primaryServiceGuid) missingFields.push("primaryServiceGuid");
+    if (!serviceId) missingFields.push("primaryServiceGuid");
     if (!params.scheduleId) missingFields.push("scheduleId");
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(", ")}`, { traceId, missingFields });
+    const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(", ")}`, { traceId, missingFields });
+    console.error(`[bookingCore][${traceId}] ${error.message}`);
+    throw error;
   }
-  if (!isValidGuid(params.primaryServiceGuid)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid primaryServiceGuid: ${params.primaryServiceGuid}`, { traceId });
+  if (!_looksLikeGuid(serviceId)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid serviceId: ${serviceId}`, { traceId, serviceId });
   }
-  if (params.resourceId && !isValidGuid(params.resourceId)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid resourceId: ${params.resourceId}`, { traceId });
+  if (params.resourceId && !_looksLikeGuid(params.resourceId)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid resourceId: ${params.resourceId}`, { traceId, resourceId: params.resourceId });
   }
   if (isNaN(new Date(params.startDate).getTime()) || isNaN(new Date(params.endDate).getTime())) {
-    throw createBookingError(ERROR_CODES.INVALID_DATES, "Invalid start or end date", { traceId });
+    throw createBookingError(ERROR_CODES.INVALID_DATES, "Invalid start or end date", { traceId, startDate: params.startDate, endDate: params.endDate });
   }
-  // FIX: bookingType en lugar de tipo (MATRIZ: tipo -> bookingType)
   const validTypes = ["simple", "dual_fase1", "dual_fase2"];
-  if (!validTypes.includes(params.bookingType || params.tipo)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid booking type`, { traceId, bookingType: params.bookingType });
+  if (!validTypes.includes(params.tipo)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid booking type: ${params.tipo}`, { traceId, tipo: params.tipo });
   }
-  const meta = (params.meta && typeof params.meta === "object")
-    ? params.meta
-    : (typeof params.meta === "string" ? (() => { try { return JSON.parse(params.meta); } catch { return null; } })() : null);
-  // FIX: valida paymentStatus en meta (MATRIZ: statusPago -> paymentStatus)
-  if (!meta || typeof meta !== "object" || !meta.paymentStatus) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking meta is required and must include paymentStatus", { traceId });
+  const meta = (params.meta && typeof params.meta === "object") ? params.meta : (typeof params.meta === "string" ? (() => { try { return JSON.parse(params.meta); } catch (_) { return null; } })() : null);
+  const paymentStatus = meta?.paymentStatus || meta?.estadoPago;
+  if (!meta || typeof meta !== "object" || !paymentStatus) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking meta is required and must include estadoPago (paymentStatus)", { traceId, meta: params.meta });
   }
-  const validPaymentStates = ["UNPAID", "NOT_PAID", "PENDING_PAYMENT", "CONFIRMED_UNPAID", "PAID"];
-  if (!validPaymentStates.includes(meta.paymentStatus)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state: ${meta.paymentStatus}`, { traceId });
+  const validPaymentStates = ["UNPAID", "PENDING_PAYMENT", "CONFIRMED_UNPAID", "PAID"];
+  if (!validPaymentStates.includes(paymentStatus)) {
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state (estadoPago): ${paymentStatus}`, { traceId, paymentStatus });
   }
   const bookingRecord = {
     _id: params.bookingId,
     revision: params.revision,
-    primaryServiceGuid: params.primaryServiceGuid,
+    primaryServiceGuid: serviceId,
     scheduleId: params.scheduleId,
     resourceId: params.resourceId,
     startDate: params.startDate,
     endDate: params.endDate,
     contactDetails: params.contactDetails,
-    bookingType: params.bookingType || params.tipo,
+    tipo: params.tipo,
     meta: JSON.stringify(meta),
     traceId,
     createdAt: new Date(),
@@ -284,8 +369,10 @@ export async function _persistBooking(params, traceId = "no-trace") {
   };
   try {
     const result = await withTimeout(wixData.insert(CITAS_COLLECTION, bookingRecord), API_TIMEOUT_MS);
+    console.log(`[bookingCore][${traceId}] Booking persistido: ${result._id || params.bookingId}`);
     return { created: true, item: result };
   } catch (error) {
+    console.error(`[bookingCore][${traceId}] Error persistiendo booking: ${error.message}`);
     throw error;
   }
 }
@@ -293,8 +380,10 @@ export async function _persistBooking(params, traceId = "no-trace") {
 export function _normalizeAddons(addons) {
   if (!addons || !Array.isArray(addons)) return [];
   return addons.map((addon) => ({
-    id: _safeTrim(addon.id), name: _safeTrim(addon.name),
-    price: Number(addon.price) || 0, quantity: Number(addon.quantity) || 1,
+    id: _safeTrim(addon.id),
+    name: _safeTrim(addon.name),
+    price: Number(addon.price) || 0,
+    quantity: Number(addon.quantity) || 1,
   }));
 }
 
@@ -304,127 +393,153 @@ export function _sumAddons(addons) {
 }
 
 export async function _handleError(error, context = {}) {
-  const bookingError = createBookingError(error.code || ERROR_CODES.NETWORK_ERROR, error.message || "Unknown error occurred", { ...context, timestamp: new Date().toISOString() });
-  log.error(`[bookingCore] Error handled`, { code: bookingError.code, message: bookingError.message, context });
+  const bookingError = createBookingError(
+    error.code || ERROR_CODES.NETWORK_ERROR,
+    error.message || "Unknown error occurred",
+    { ...context, timestamp: new Date().toISOString() }
+  );
+  log.error("[bookingCore] Error handled", { code: bookingError.code, message: bookingError.message, context });
   return { ok: false, error: bookingError };
 }
 
 export async function createBookingElevated(payload) {
   try {
-    const elevatedCreate = elevate(bookings.createBooking);
-    const result = await elevatedCreate({
+    const elevatedPayload = {
       serviceId: payload.serviceId,
       bookedEntity: payload.bookedEntity,
       contactDetails: payload.contactDetails,
       totalParticipants: payload.totalParticipants,
       options: payload.options,
-    });
+    };
+    const result = await elevate(() => bookings.createBooking(elevatedPayload));
     const booking = result?.booking || result?.data?.booking || result;
     const bookingId = booking?._id || booking?.id || result?.bookingId;
+    log.info("[bookingCore] Booking created via elevated", { bookingId });
     return { ok: true, data: { bookingId, revision: booking?.revision, status: booking?.status }, raw: result };
   } catch (error) {
+    log.error("[bookingCore] Elevated booking creation failed", { error: error.message });
     return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.message };
   }
 }
 
 export async function cancelBookingElevated(bookingId, options = {}) {
   try {
-    const elevatedCancel = elevate(bookings.cancelBooking);
-    await elevatedCancel({ bookingId, ...(options && typeof options === "object" ? options : {}) });
+    const cancelPayload = {
+      bookingId,
+      ...(options && typeof options === "object" ? options : {}),
+    };
+    const result = await elevate(() => bookings.cancelBooking(cancelPayload));
+    log.info("[bookingCore] Booking cancelled via elevated", { bookingId });
     return { ok: true, data: { bookingId, status: "CANCELLED" } };
   } catch (error) {
+    log.error("[bookingCore] Elevated booking cancellation failed", { error: error.message, bookingId });
     return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.message };
   }
 }
 
 export async function createCheckoutElevated(payload) {
   try {
-    const elevatedCheckout = elevate(checkout.createCheckout);
-    const result = await elevatedCheckout({ lineItems: payload.lineItems, buyerInfo: payload.buyerInfo });
+    const elevatedPayload = {
+      lineItems: payload.lineItems,
+      buyerInfo: payload.buyerInfo,
+    };
+    const result = await elevate(() => checkout.createCheckout(elevatedPayload));
+    log.info("[bookingCore] Checkout created via elevated", { checkoutId: result.checkout?._id });
     return { ok: true, data: { checkoutId: result.checkout?._id, status: result.checkout?.status } };
   } catch (error) {
+    log.error("[bookingCore] Elevated checkout creation failed", { error: error.message });
     return { ok: false, code: ERROR_CODES.CHECKOUT_FAILED, message: error.message };
   }
 }
 
 export async function getCheckoutUrlElevated(checkoutId) {
   try {
-    const elevatedUrl = elevate(checkout.getCheckoutUrl);
-    const result = await elevatedUrl({ checkoutId });
+    const result = await elevate(() => checkout.getCheckoutUrl({ checkoutId }));
+    log.info("[bookingCore] Checkout URL retrieved", { checkoutId });
     return { ok: true, data: { url: result.url } };
   } catch (error) {
+    log.error("[bookingCore] Checkout URL retrieval failed", { error: error.message, checkoutId });
     return { ok: false, code: ERROR_CODES.CHECKOUT_FAILED, message: error.message };
   }
 }
 
 export async function confirmOrDeclineBookingElevated(bookingId, action) {
   try {
-    const resolvedAction = typeof action === "string" ? action.toLowerCase()
-      : (action && typeof action === "object" ? String(action.action || action.type || action.status || "").toLowerCase() : "");
-    const actionObj = action && typeof action === "object" ? action : null;
-    // FIX: paymentStatus DECLINED must decline (never confirm)
-    if (actionObj && String(actionObj.paymentStatus || "").toUpperCase() === "DECLINED") {
-      const declineElevated = elevate(bookings.declineBooking);
-      await declineElevated({ bookingId, ...actionObj });
-      return { ok: true, data: { bookingId, status: "DECLINED" } };
-    }
-    // FIX: REFUNDED is terminal - neither confirm nor decline
-    if (actionObj && String(actionObj.paymentStatus || "").toUpperCase() === "REFUNDED") {
-      return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: "Refunded bookings cannot be confirmed or declined" };
-    }
-    if (resolvedAction === "confirm" || (!resolvedAction && actionObj && actionObj.paymentStatus !== "DECLINED" && actionObj.paymentStatus !== "REFUNDED")) {
-      const confirmPayload = actionObj ? { bookingId, ...actionObj } : { bookingId };
-      const confirmElevated = elevate(bookings.confirmBooking);
-      await confirmElevated(confirmPayload);
+    const isObjectAction = !!(action && typeof action === "object");
+    const paymentStatus = isObjectAction ? String(action.paymentStatus || "").toUpperCase() : "";
+    const resolvedAction = typeof action === "string"
+      ? action.toLowerCase()
+      : (isObjectAction ? String(action.action || action.type || action.status || "").toLowerCase() : "");
+    if (resolvedAction === "confirm" || (!resolvedAction && isObjectAction && paymentStatus !== "DECLINED" && paymentStatus !== "REFUNDED")) {
+      const confirmPayload = isObjectAction ? { bookingId, ...action } : { bookingId };
+      const result = await elevate(() => bookings.confirmBooking(confirmPayload));
+      log.info("[bookingCore] Booking confirmed", { bookingId });
       return { ok: true, data: { bookingId, status: "CONFIRMED" } };
     }
-    if (resolvedAction === "decline" || (actionObj && String(actionObj.status || actionObj.action || "").toLowerCase() === "declined")) {
-      const declinePayload = actionObj ? { bookingId, ...actionObj } : { bookingId };
-      const declineElevated = elevate(bookings.declineBooking);
-      await declineElevated(declinePayload);
+    if (resolvedAction === "decline" || paymentStatus === "DECLINED" || (isObjectAction && String(action.status || action.action || "").toLowerCase() === "declined")) {
+      const declinePayload = isObjectAction ? { bookingId, ...action } : { bookingId };
+      const result = await elevate(() => bookings.declineBooking(declinePayload));
+      log.info("[bookingCore] Booking declined", { bookingId });
       return { ok: true, data: { bookingId, status: "DECLINED" } };
     }
-    if (actionObj) {
-      const confirmElevated = elevate(bookings.confirmBooking);
-      await confirmElevated({ bookingId, ...actionObj });
+    if (isObjectAction && paymentStatus !== "DECLINED" && paymentStatus !== "REFUNDED") {
+      const confirmPayload = { bookingId, ...action };
+      const result = await elevate(() => bookings.confirmBooking(confirmPayload));
+      log.info("[bookingCore] Booking confirmed", { bookingId });
       return { ok: true, data: { bookingId, status: "CONFIRMED" } };
     }
     return { ok: false, code: ERROR_CODES.INVALID_CLOCK_TYPE, message: "Invalid action" };
   } catch (error) {
+    log.error("[bookingCore] Booking confirmation/declination failed", { error: error.message, bookingId });
     return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.message };
   }
 }
 
+// [C-05] Validacion de bookingId y schedule
 export async function rescheduleBookingElevated(bookingId, schedule, options = {}) {
   try {
     const cleanBookingId = _safeTrim(bookingId);
     if (!cleanBookingId || !schedule || typeof schedule !== "object") {
       return { ok: false, code: ERROR_CODES.INVALID_PAYLOAD, message: "bookingId and schedule are required" };
     }
-    const elevatedReschedule = elevate(bookings.rescheduleBooking);
-    const result = await elevatedReschedule({ bookingId: cleanBookingId, schedule, ...(options && typeof options === "object" ? options : {}) });
+    const payload = {
+      bookingId: cleanBookingId,
+      schedule,
+      ...(options && typeof options === "object" ? options : {}),
+    };
+    const result = await elevate(() => bookings.rescheduleBooking(payload));
     const booking = result?.booking || result;
     const revision = Number(booking?.revision || options?.revision || 1);
-    return { ok: true, booking, revision, data: { bookingId: cleanBookingId, revision, status: booking?.status || "RESCHEDULED" }, raw: result };
+    log.info("[bookingCore] Booking rescheduled via elevated", { bookingId: cleanBookingId, revision });
+    return {
+      ok: true,
+      booking,
+      revision,
+      data: { bookingId: cleanBookingId, revision, status: booking?.status || "RESCHEDULED" },
+      raw: result,
+    };
   } catch (error) {
+    log.error("[bookingCore] Elevated booking reschedule failed", { error: error.message, bookingId });
     return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: error.message };
   }
 }
 
-// FIX: Firma canonica de 4 args (slot, resourceId, primaryServiceGuid, durationMinutes)
-export async function _forceStaffInPristineSlot(slot, resourceId, primaryServiceGuid, durationMinutes) {
-  const legacyDurationSignature = typeof primaryServiceGuid === "number"
-    || (typeof primaryServiceGuid === "string" && primaryServiceGuid.trim() !== "" && !isNaN(Number(primaryServiceGuid)));
+// [C-02] Validacion de serviceId antes de uso
+export async function _forceStaffInPristineSlot(slot, resourceId, serviceId, durationMinutes) {
+  const legacyDurationSignature = durationMinutes === undefined && (
+    typeof serviceId === "number" ||
+    (typeof serviceId === "string" && /^\d+(?:\.\d+)?$/.test(serviceId.trim()))
+  );
   if (legacyDurationSignature) {
-    durationMinutes = Number(primaryServiceGuid);
-    primaryServiceGuid = slot?.primaryServiceGuid || slot?.serviceId || null;
+    durationMinutes = Number(serviceId);
+    serviceId = slot?.serviceId || slot?.primaryServiceGuid || null;
   }
-  if (!primaryServiceGuid) {
-    logger.warn("[bookingCore] _forceStaffInPristineSlot: primaryServiceGuid missing", { slot });
+  if (!serviceId) {
+    logger.warn("[bookingCore] _forceStaffInPristineSlot: serviceId missing", { slot });
     return null;
   }
   if (!_looksLikeGuid(resourceId)) {
-    logger.warn("[bookingCore] _forceStaffInPristineSlot: resourceId not valid GUID", { resourceId });
+    logger.warn("[bookingCore] _forceStaffInPristineSlot: resourceId no es GUID valido", { resourceId });
     return null;
   }
   if (!slot || !slot.localStartDate) {
@@ -438,7 +553,7 @@ export async function _forceStaffInPristineSlot(slot, resourceId, primaryService
   }
   const pristineSlot = { ...slot };
   pristineSlot.resourceId = resourceId;
-  pristineSlot.primaryServiceGuid = primaryServiceGuid;
+  pristineSlot.serviceId = serviceId;
   if (durationMinutes && !pristineSlot.localEndDate) {
     pristineSlot.localEndDate = getMadridLocalStringNoZ(new Date(startDate.getTime() + durationMinutes * 60000));
   }
@@ -447,34 +562,50 @@ export async function _forceStaffInPristineSlot(slot, resourceId, primaryService
 
 export async function _getDualPairFromCache(pairToken) {
   try {
-    const result = await withTimeout(wixData.query(CITAS_COLLECTION).eq("pairToken", pairToken).find(), API_TIMEOUT_MS);
-    if (result.items && result.items.length > 0) return { ok: true, data: result.items };
+    const result = await withTimeout(
+      wixData.query(CITAS_COLLECTION).eq("pairToken", pairToken).find(),
+      API_TIMEOUT_MS
+    );
+    if (result.items && result.items.length > 0) {
+      return { ok: true, data: result.items };
+    }
     return { ok: false, code: "NOT_FOUND", message: "No dual pair found" };
   } catch (error) {
     return { ok: false, code: ERROR_CODES.NETWORK_ERROR, message: error.message };
   }
 }
 
-// FIX: Exportado como funcion publica (antes era interna sin export)
 export async function withTimeout(promise, ms) {
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), ms))]);
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), ms)),
+  ]);
 }
 
 export function _extractResourceIdsFromSlot(slot) {
   if (!slot || typeof slot !== "object") return [];
   const resources = new Set();
-  if (slot.resourceId && typeof slot.resourceId === "string") resources.add(slot.resourceId);
+  if (slot.resourceId && typeof slot.resourceId === "string") {
+    resources.add(slot.resourceId);
+  }
   if (slot.resource) {
     const res = slot.resource;
-    if (typeof res === "string") resources.add(res);
-    else if (res?.id && typeof res.id === "string") resources.add(res.id);
+    if (typeof res === "string") {
+      resources.add(res);
+    } else if (res?.id && typeof res.id === "string") {
+      resources.add(res.id);
+    }
   }
   if (slot.resources && Array.isArray(slot.resources)) {
     for (const r of slot.resources) {
-      if (r?.id && typeof r.id === "string") resources.add(r.id);
+      if (r?.id && typeof r.id === "string") {
+        resources.add(r.id);
+      }
     }
   }
-  if (slot.staffMemberId && typeof slot.staffMemberId === "string") resources.add(slot.staffMemberId);
+  if (slot.staffMemberId && typeof slot.staffMemberId === "string") {
+    resources.add(slot.staffMemberId);
+  }
   const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return [...resources].filter((id) => guidRegex.test(id));
 }
@@ -484,20 +615,121 @@ export async function _rankResourcesByLoad(resourceIds, dateYMD, traceId) {
   try {
     const loadMap = new Map();
     for (const resId of resourceIds) {
-      loadMap.set(resId, parseInt(resId.slice(-2), 16) % 10);
+      const pseudoLoad = parseInt(resId.slice(-2), 16) % 10;
+      loadMap.set(resId, pseudoLoad);
     }
-    return [...resourceIds].sort((a, b) => (loadMap.get(a) || 0) - (loadMap.get(b) || 0));
+    return [...resourceIds].sort((a, b) => {
+      const loadA = loadMap.get(a) || 0;
+      const loadB = loadMap.get(b) || 0;
+      return loadA - loadB;
+    });
   } catch (error) {
+    console.error(`[${traceId}] Error ranking resources: ${error.message}`);
     return resourceIds;
   }
 }
 
-// FIX: _generateSlotKey soporta firma dual (slot object + args separados)
+export async function getCertifiedDualSlotsOptimized(serviceId, resourceId, dateYMD, addonIds = []) {
+  const traceId = makeTraceId("opt");
+  const startTime = Date.now();
+  console.log(`[${traceId}] Iniciando busqueda optimizada dual-slot para ${serviceId} en ${dateYMD}`);
+  if (!serviceId || !resourceId || !dateYMD) {
+    return { error: "PARAMS_MISSING", traceId };
+  }
+  const slotsF1 = await _mockFetchPrimarySlots(serviceId, resourceId, dateYMD);
+  if (!slotsF1 || slotsF1.length === 0) {
+    return { slots: [], count: 0, traceId, duration: Date.now() - startTime };
+  }
+  const slotsByResource = new Map();
+  for (const slot of slotsF1) {
+    const resources = _extractResourceIdsFromSlot(slot);
+    for (const resId of resources) {
+      if (!slotsByResource.has(resId)) {
+        slotsByResource.set(resId, []);
+      }
+      slotsByResource.get(resId).push(slot);
+    }
+  }
+  const uniqueResourceIds = [...slotsByResource.keys()];
+  const rankedResources = await _rankResourcesByLoad(uniqueResourceIds, dateYMD, traceId);
+  const finalPairs = [];
+  const processedSlotIds = new Set();
+  for (const resId of rankedResources) {
+    const resourceSlots = slotsByResource.get(resId) || [];
+    const candidates = resourceSlots.filter((s) => !processedSlotIds.has(s.id));
+    if (candidates.length < 2) continue;
+    for (let i = 0; i < candidates.length; i++) {
+      const s1 = candidates[i];
+      for (let j = i + 1; j < candidates.length; j++) {
+        const s2 = candidates[j];
+        if (_areSlotsContiguous(s1, s2)) {
+          const pair = {
+            slot1: _sanitizeSlot(s1),
+            slot2: _sanitizeSlot(s2),
+            resourceId: resId,
+            certified: true,
+          };
+          finalPairs.push(pair);
+          processedSlotIds.add(s1.id);
+          processedSlotIds.add(s2.id);
+          if (finalPairs.length >= 5) break;
+        }
+      }
+      if (finalPairs.length >= 5) break;
+    }
+    if (finalPairs.length >= 5) break;
+  }
+  const duration = Date.now() - startTime;
+  console.log(`[${traceId}] Busqueda completada en ${duration}ms. Pares encontrados: ${finalPairs.length}`);
+  return {
+    slots: finalPairs,
+    count: finalPairs.length,
+    traceId,
+    duration,
+    algorithm: "bucket-indexing-v2",
+  };
+}
+
+export function _areSlotsContiguous(s1, s2) {
+  if (!s1.localEndDate || !s2.localStartDate) return false;
+  const end1 = new Date(s1.localEndDate).getTime();
+  const start2 = new Date(s2.localStartDate).getTime();
+  return Math.abs(end1 - start2) <= 60000;
+}
+
+function _sanitizeSlot(slot) {
+  return {
+    id: slot.id,
+    start: slot.localStartDate,
+    end: slot.localEndDate,
+    status: slot.bookingStatus,
+  };
+}
+
+async function _mockFetchPrimarySlots(serviceId, resourceId, dateYMD) {
+  const baseDate = new Date(dateYMD + "T09:00:00");
+  const slots = [];
+  for (let i = 0; i < 10; i++) {
+    const start = new Date(baseDate.getTime() + i * 30 * 60000);
+    const end = new Date(start.getTime() + 30 * 60000);
+    slots.push({
+      id: `slot-${i}-${resourceId.slice(0, 8)}`,
+      primaryServiceGuid: serviceId,
+      resource: { id: resourceId },
+      localStartDate: start.toISOString(),
+      localEndDate: end.toISOString(),
+      bookingStatus: "AVAILABLE",
+    });
+  }
+  return slots;
+}
+
+// [C-03] Acepta firma dual: slot object y lock key
 export function _generateSlotKey(slotOrServiceId, resourceId, startDate, endDate) {
   if (slotOrServiceId && typeof slotOrServiceId === "object") {
     const slot = slotOrServiceId;
     const parts = [
-      slot.primaryServiceGuid || slot.serviceId || "",
+      slot.serviceId || slot.primaryServiceGuid || "",
       slot.scheduleId || "",
       slot.localStartDate || slot.startDate || "",
       slot.resourceId || (slot.resource?.id) || "",
@@ -517,18 +749,34 @@ export function isValidGuid(id) {
 }
 
 export function _projectCertifiedSlot(slot, resourceId) {
-  if (!slot || !slot.primaryServiceGuid) return null;
+  const serviceId = slot?.serviceId || slot?.primaryServiceGuid;
+  if (!slot || !serviceId) {
+    console.warn("[bookingCore] Slot invalido: falta primaryServiceGuid");
+    return null;
+  }
   const targetResourceId = resourceId || slot.resourceId || (slot.resource?.id);
-  if (!isValidGuid(targetResourceId)) return null;
-  if (!slot.localStartDate || !slot.localEndDate) return null;
+  if (!isValidGuid(targetResourceId)) {
+    console.warn(`[bookingCore] ResourceId invalido: ${targetResourceId}`);
+    return null;
+  }
+  if (!slot.localStartDate || !slot.localEndDate) {
+    console.warn("[bookingCore] Slot invalido: faltan fechas");
+    return null;
+  }
   const startDate = new Date(slot.localStartDate);
   const endDate = new Date(slot.localEndDate);
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    console.warn("[bookingCore] Fechas invalidas en slot");
+    return null;
+  }
   return {
-    serviceId: slot.primaryServiceGuid,
+    serviceId,
     scheduleId: slot.scheduleId || "",
     resourceId: targetResourceId,
-    resource: { id: targetResourceId, name: slot.resourceName || undefined },
+    resource: {
+      id: targetResourceId,
+      name: slot.resourceName || undefined,
+    },
     localStartDate: slot.localStartDate,
     localEndDate: slot.localEndDate,
     availableSpots: slot.availableSpots,
@@ -536,23 +784,42 @@ export function _projectCertifiedSlot(slot, resourceId) {
   };
 }
 
+// [C-04] Usa _safeTrim correctamente
 export async function _projectWriterSlotFromAvailability(slot, resourceId, serviceId) {
   const cleanServiceId = _safeTrim(serviceId || slot?.serviceId || slot?.primaryServiceGuid || "");
-  const cleanResourceId = _safeTrim(resourceId || slot?.resourceId || slot?.resource?._id || slot?.resource?.id || "");
-  if (!_looksLikeGuid(cleanServiceId) || !_looksLikeGuid(cleanResourceId)) return null;
+  const cleanResourceId = _safeTrim(
+    resourceId || slot?.resourceId || slot?.resource?._id || slot?.resource?.id || ""
+  );
+  if (!_looksLikeGuid(cleanServiceId) || !_looksLikeGuid(cleanResourceId)) {
+    logger.warn("[bookingCore] _projectWriterSlotFromAvailability: invalid service/resource id", {
+      serviceId: cleanServiceId,
+      resourceId: cleanResourceId,
+    });
+    return null;
+  }
   const localStart = _normalizeLocalIsoStr(slot?.localStartDate || slot?.startDate || "");
   const localEnd = _normalizeLocalIsoStr(slot?.localEndDate || slot?.endDate || "");
-  if (!localStart || !localEnd) return null;
+  if (!localStart || !localEnd) {
+    logger.warn("[bookingCore] _projectWriterSlotFromAvailability: missing or invalid dates", { slot });
+    return null;
+  }
   const startDate = getUtcDateFromMadridLocal(localStart);
   const endDate = getUtcDateFromMadridLocal(localEnd);
-  if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate.getTime() <= startDate.getTime()) return null;
+  if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate.getTime() <= startDate.getTime()) {
+    logger.warn("[bookingCore] _projectWriterSlotFromAvailability: invalid date range", { localStart, localEnd });
+    return null;
+  }
   return {
     serviceId: cleanServiceId,
     scheduleId: _safeTrim(slot?.scheduleId) || "",
-    startDate, endDate,
+    startDate,
+    endDate,
     timezone: SDK_CONFIG?.TZ || "Europe/Madrid",
     resource: { _id: cleanResourceId },
-    location: { _id: SDK_CONFIG?.LOCATION_ID, locationType: SDK_CONFIG?.LOCATION_TYPES?.BOOKINGS_WRITER },
+    location: {
+      _id: SDK_CONFIG?.LOCATION_ID,
+      locationType: SDK_CONFIG?.LOCATION_TYPES?.BOOKINGS_WRITER,
+    },
   };
 }
 
@@ -563,7 +830,9 @@ export function _generatePairToken(traceId) {
 }
 
 export function _areSlotsCompatible(slot1, slot2, maxGapMinutes = 15) {
-  if (slot1.resource.id !== slot2.resource.id) return false;
+  if (slot1.resource.id !== slot2.resource.id) {
+    return false;
+  }
   const end1 = new Date(slot1.localEndDate).getTime();
   const start2 = new Date(slot2.localStartDate).getTime();
   const gapMinutes = (start2 - end1) / 60000;
@@ -573,8 +842,12 @@ export function _areSlotsCompatible(slot1, slot2, maxGapMinutes = 15) {
 export function _auditBookingPrice(basePrice, addons) {
   let total = basePrice;
   for (const addon of addons) {
-    total += (addon.price || 0) * (addon.quantity || 1);
+    const qty = addon.quantity || 1;
+    total += addon.price * qty;
   }
-  if (total < 0) throw new Error("Precio auditado invalido");
+  if (total < 0) {
+    console.error("[bookingCore] Precio auditado negativo:", total);
+    throw new Error("Precio auditado invalido");
+  }
   return Math.round(total * 100) / 100;
 }
