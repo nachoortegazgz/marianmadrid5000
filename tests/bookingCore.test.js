@@ -19,7 +19,7 @@ vi.mock('wix-ecom-backend', () => ({
 }));
 
 vi.mock('wix-auth', () => ({
-  elevate: vi.fn((fn) => async (...args) => fn(...args))
+  elevate: vi.fn((fn) => fn())
 }));
 
 vi.mock('wix-data', () => ({

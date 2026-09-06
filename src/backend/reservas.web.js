@@ -1,6 +1,6 @@
 /**
 MODULE: backend/reservas.web.js
-VERSION: v5003.0-canonical-clean
+VERSION: v5005-2
 FIXES APPLIED:
   [R-01] service?.slug -> service?.slugUrl
   [R-02] _resolvePrimaryServiceIdInternal -> _resolveServiceIdInternal
@@ -169,8 +169,9 @@ function _parseServiceAddons(rawAddons) {
 function _normalizeServiceAddon(addon, fallbackId) {
   const id = _safeTrim(addon?.id || addon?._id || addon?.addOnId || fallbackId);
   if (!id) return null;
-  const bookingsAddonId = _safeTrim(addon?.bookingsAddonId || addon?.nativeAddonId || "");
-  const bookingsAddonGroupId = _safeTrim(addon?.bookingsAddonGroupId || addon?.nativeAddonGroupId || "");
+  // [C.1] Solo bookingsAddonId / bookingsAddonGroupId (cero legacy)
+  const bookingsAddonId = _safeTrim(addon?.bookingsAddonId || "");
+  const bookingsAddonGroupId = _safeTrim(addon?.bookingsAddonGroupId || "");
   const rawQuantity = addon?.bookingsAddonQuantity ?? addon?.cantidadMaximaAddon;
   const bookingsAddonQuantity = Number.isFinite(Number(rawQuantity)) && Number(rawQuantity) > 0 ? Number(rawQuantity) : 1;
   return {

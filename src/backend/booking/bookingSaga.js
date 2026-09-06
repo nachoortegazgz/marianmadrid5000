@@ -69,7 +69,7 @@ const CITAS_COLLECTION = COLLECTIONS?.CITAS_F2 || "CitasF2";
 const COMPENSATIONS_COLLECTION = COLLECTIONS?.COMPENSACIONES_PENDIENTES || "CompensacionesPendientes";
 const API_TIMEOUT_MS = SDK_CONFIG?.TIMEOUTS?.API_MS || 15000;
 const HEARTBEAT_MS = CONCURRENCY?.HEARTBEAT_MS || 15000;
-const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000;
+const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 300000;
 
 export function normalizePersistedMeta(meta) {
   if (!meta) return {};
@@ -670,7 +670,7 @@ export async function executeBookingSaga(unsafePayload) {
       secondaryServiceId: phaseTwoServiceId || null,
       traceId,
       esCombinado: isDual,
-      fechaYmdMadrid: madridDateYMD,
+      dateYmd: madridDateYMD,
       servicioNombre: serviceName,
       uiPairToken: stableToken,
       bookingIdF2: isDual ? f2Booking?.bookingId || null : null,

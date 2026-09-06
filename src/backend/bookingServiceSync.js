@@ -1,6 +1,10 @@
 /*
 =============================================================================
-MODULE: backend/bookingsServiceSync.js
+MODULE: backend/bookingServiceSync.js
+VERSION: v5005-2
+FIXES APPLIED:
+  [BS-01] item.bufferTime -> item.buffer (campo canonico)
+  [BS-02] QUEUE_COL canonico; eliminado fallback UPPER/WDE0025 (cero legacy)
 RESPONSIBILITY: Queue-driven one-way projection from SERVICIOS_RESERVA to Wix
                 Bookings Services V2.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
@@ -75,7 +79,7 @@ function _buildDesiredProjection(item) {
             },
             schedule: {
                 durationInMinutes: duration,
-                bufferTimeInMinutes: Number(item.bufferTime) || 0,
+                bufferTimeInMinutes: Number(item.buffer) || 0,
             },
             rate: {
                 labeledPriceOptions: {
@@ -106,41 +110,19 @@ export async function enqueueBookingsServiceSync(serviceItem) {
         updatedAt: new Date(),
     };
 
-    try {
-        return await wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true });
-    } catch (err) {
-        // Fallback por si la coleccion fue creada con ID en mayusculas
-        if (String(err?.message || "").includes("WDE0025")) {
-            return await wixData.save(COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE", queueRecord, { suppressAuth: true });
-        }
-        throw err;
-    }
+    return await wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true });
 }
 
 export async function processBookingsServiceSyncQueue(options = {}) {
     const traceId = options.traceId || makeTraceId("cron-bookings-sync");
     const now = new Date();
 
-    let pending;
-    let queueCollection = QUEUE_COL;
-    try {
-        pending = await wixData.query(QUEUE_COL)
-            .hasSome("status", VALID_STATUS)
-            .le("nextAttemptAt", now)
-            .limit(BATCH_SIZE)
-            .find({ suppressAuth: true, consistentRead: true });
-    } catch (err) {
-        if (String(err?.message || "").includes("WDE0025")) {
-            queueCollection = COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE";
-            pending = await wixData.query(queueCollection)
-                .hasSome("status", VALID_STATUS)
-                .le("nextAttemptAt", now)
-                .limit(BATCH_SIZE)
-                .find({ suppressAuth: true, consistentRead: true });
-        } else {
-            throw err;
-        }
-    }
+    const queueCollection = QUEUE_COL;
+    const pending = await wixData.query(QUEUE_COL)
+        .hasSome("status", VALID_STATUS)
+        .le("nextAttemptAt", now)
+        .limit(BATCH_SIZE)
+        .find({ suppressAuth: true, consistentRead: true });
 
     let completed = 0;
     let failed = 0;
@@ -166,14 +148,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
                 status: "COMPLETED",
                 completedAt: new Date(),
                 updatedAt: new Date(),
-            }, { suppressAuth: true }).catch(() => {
-                return wixData.update(COLLECTIONS.BOOKINGS_SERVICE_SYNC_QUEUE_UPPER || "BOOKINGS_SERVICE_SYNC_QUEUE", {
-                    ...safeItem,
-                    status: "COMPLETED",
-                    completedAt: new Date(),
-                    updatedAt: new Date(),
-                }, { suppressAuth: true });
-            });
+            }, { suppressAuth: true }).catch(() => null);
             completed++;
         } catch (err) {
             const attempts = Number(item.attempts || 0) + 1;

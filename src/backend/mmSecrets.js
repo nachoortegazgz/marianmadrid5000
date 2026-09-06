@@ -1,6 +1,6 @@
 /*
 MODULE: backend/mmSecrets.js
-VERSION: v5001-fixed-secrets
+VERSION: v5005-2
 RESPONSIBILITY: Catalog of Wix Secrets Manager key names.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 FIX: Removed trailing spaces from all 19 secret values.
@@ -26,4 +26,5 @@ M365_GRAPH_CLIENT_SECRET: "M365_CLIENT_SECRET",
 M365_GRAPH_TENANT_ID: "M365_TENANT_ID",
 M365_GRAPH_SITE_ID: "M365_SITE_ID",
 M365_GRAPH_LIST_ID: "M365_LIST_ID",
+M365_WEBHOOK_HMAC_KEY: "SECRET_M365_WEBHOOK_HMAC_KEY",
 });

@@ -1,5 +1,6 @@
 /**
 MODULE: public/mmUtils.js
+VERSION: v5005-2
 VERSION: v5002.4-corrections-applied
 RESPONSIBILITY: SSOT constants, timezones, validators, PII masking,
 and retry logic (PUBLIC SAFE).
@@ -23,7 +24,7 @@ CORRECTIONS APPLIED:
 [FIX-16] withTimeout: added optional chaining SDK_CONFIG?.TIMEOUTS?.API_MS
 =============================================================================*/
 export const VERSION = Object.freeze({
-CORE: "v5002.4-corrections-applied",
+CORE: "v5005-2",
 API_V2: true,
 COMPLIANCE_ES: "2026",
 });
@@ -316,9 +317,70 @@ const clean = _safePhone(raw);
 if (clean.length <= 4) return "***";
 return clean.slice(0, 3) + "**" + clean.slice(-2);
 }
+export function _cleanText(value, maxLength) {
+  const text = String(value ?? "").trim();
+  if (Number.isFinite(maxLength) && text.length > maxLength) {
+    throw new Error("TEXT_TOO_LONG");
+  }
+  return text;
+}
+
+export function _readPositiveAmount(str) {
+  if (str === null || str === undefined || str === "") return null;
+  const n = Number(str);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+export function _readNonNegativeAmount(str) {
+  if (str === null || str === undefined || str === "") return null;
+  const n = Number(str);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n);
+}
+
+export function _readDate(str) {
+  if (!str || typeof str !== "string") return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+  const d = new Date(str + "T00:00:00Z");
+  if (isNaN(d.getTime())) return null;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  if (`${y}-${m}-${day}` !== str) return null;
+  return str;
+}
+
+export function _stableSerialize(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return "[" + value.map(_stableSerialize).join(",") + "]";
+  const keys = Object.keys(value).sort();
+  return "{" + keys.map((k) => JSON.stringify(k) + ":" + _stableSerialize(value[k])).join(",") + "}";
+}
 export function _maskName(name) {
-const raw = String(name || "").trim();
-if (!raw) return "";
-if (raw.length <= 2) return raw[0] + "";
-return raw[0] + "" + raw.slice(-1);
+  const raw = String(name || "").trim();
+  if (!raw) return "";
+  if (raw.length <= 2) return raw[0] + "";
+  return raw[0] + "*" + raw.slice(-1);
+}
+export function _roundMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+export function _extractRelationalId(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.serviceId || "").trim();
+  }
+  return String(value).trim();
+}
+export function _normalizeIdPart(value, maxLen) {
+  let str = String(value == null ? "" : value).trim();
+  str = str.replace(/[\s/]/g, "");
+  if (Number.isFinite(maxLen) && str.length > maxLen) {
+    return str.slice(0, maxLen);
+  }
+  return str;
 }

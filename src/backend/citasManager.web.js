@@ -66,7 +66,7 @@ function _getCitaMeta(cita) {
 }
 
 function _getNativeAddonIdsForRevalidation(cita) {
-  if (String(cita?.tipo || "") === "dual_fase2") return [];
+  if (String(cita?.bookingType || "") === "dual_fase2") return [];
   const bookedAddOns = Array.isArray(_getCitaMeta(cita).nativeBookedAddOns) ? _getCitaMeta(cita).nativeBookedAddOns : [];
   return Array.from(new Set(
     bookedAddOns
@@ -208,7 +208,7 @@ async function _getValidatedPaidOrder(orderId, bookingIds, requestedTotalAmount)
 
 function _validatePaymentCitaSet(citas, orderId) {
   const items = Array.isArray(citas) ? citas : [];
-  const isDual = items.some((cita) => Boolean(_getCitaMeta(cita).esCombinado) || String(cita?.tipo || "").startsWith("dual"));
+  const isDual = items.some((cita) => Boolean(_getCitaMeta(cita).esCombinado) || String(cita?.bookingType || "").startsWith("dual"));
   const pairTokens = Array.from(new Set(items.map((cita) => _safeTrim(cita?.pairToken || _getCitaMeta(cita).pairToken)).filter(Boolean)));
   if (isDual && (items.length !== 2 || pairTokens.length !== 1)) throw new Error("DUAL_PAYMENT_PAIR_INVALID");
   if (!isDual && items.length !== 1) throw new Error("PAYMENT_BOOKING_SET_INVALID");
@@ -327,7 +327,7 @@ export const rescheduleExistingBooking = webMethod(Permissions.SiteMember, async
     if (!citaExistente) {
       return { status: "ERROR", data: null, error: { code: "BOOKING_NOT_FOUND", message: "Booking not found" } };
     }
-    if (Boolean(citaExistente.meta?.esCombinado) || String(citaExistente.tipo || "").startsWith("dual")) {
+    if (Boolean(citaExistente.meta?.esCombinado) || String(citaExistente.bookingType || "").startsWith("dual")) {
       return {
         status: "ERROR",
         data: null,
@@ -358,7 +358,7 @@ export const rescheduleExistingBooking = webMethod(Permissions.SiteMember, async
     let rev = Number(revision) || 0;
     if (!rev) rev = Number(citaExistente?.revision || 1) || 1;
     const slotObj = newSlot?.slot || newSlot;
-    const serviceId = _extractRelationalId(citaExistente.serviceId || citaExistente.serviceId);
+    const serviceId = _extractRelationalId(citaExistente.serviceId);
     const requestedServiceId = _extractRelationalId(slotObj.serviceId || slotObj?.slot?.serviceId || "");
     const resourceIdForReschedule = _safeTrim(slotObj.resourceId || slotObj.resource?.id || slotObj.resource?._id || "");
     if (!_looksLikeGuid(serviceId)) {
@@ -412,7 +412,7 @@ export const rescheduleExistingBooking = webMethod(Permissions.SiteMember, async
       endDate: endUtc,
       startDateLocal,
       endDateLocal,
-      fechaYmdMadrid: startDateLocal.slice(0, 10),
+      dateYmd: startDateLocal.slice(0, 10),
       resourceId: resourceIdForReschedule,
       revision: newRevision,
     }), traceId, "rescheduleExistingBooking");
@@ -530,8 +530,8 @@ export const rescheduleDualBookings = webMethod(Permissions.SiteMember, async (p
     if (pairItems.length !== 2) {
       return { status: "ERROR", data: null, error: { code: "DUAL_PAIR_NOT_FOUND", message: "Expected exactly two linked bookings." } };
     }
-    const citaF1 = pairItems.find((item) => String(item.tipo || "") !== "dual_fase2") || pairItems[0];
-    const citaF2 = pairItems.find((item) => String(item.tipo || "") === "dual_fase2");
+    const citaF1 = pairItems.find((item) => String(item.bookingType || "") !== "dual_fase2") || pairItems[0];
+    const citaF2 = pairItems.find((item) => String(item.bookingType || "") === "dual_fase2");
     if (!citaF1 || !citaF2 || !_matchesCitaPairIdentifier(citaF1, pairToken) || !_matchesCitaPairIdentifier(citaF2, pairToken)) {
       return { status: "ERROR", data: null, error: { code: "DUAL_PAIR_INTEGRITY_INVALID", message: "Linked phase records are inconsistent." } };
     }
@@ -594,11 +594,11 @@ export const rescheduleDualBookings = webMethod(Permissions.SiteMember, async (p
     );
     const uniqueKeys = Array.from(new Set(lockKeys)).sort();
     for (const key of uniqueKeys) {
-      const lock = await _lockSlotKeyOrFail(key, lockOwnerId, Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000);
+      const lock = await _lockSlotKeyOrFail(key, lockOwnerId, Number(CONCURRENCY?.MUTEX_TTL_MS) || 300000);
       if (!lock?.ok) throw new Error(lock?.message || "DUAL_RESCHEDULE_LOCK_BUSY");
     }
     heartbeatInterval = setInterval(() => {
-      Promise.all(uniqueKeys.map((key) => _renewLock(key, lockOwnerId, Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000)))
+      Promise.all(uniqueKeys.map((key) => _renewLock(key, lockOwnerId, Number(CONCURRENCY?.MUTEX_TTL_MS) || 300000)))
         .then((results) => {
           if (results.some((result) => !result?.ok)) lockLeaseLost = true;
         })
@@ -664,7 +664,7 @@ export const rescheduleDualBookings = webMethod(Permissions.SiteMember, async (p
         endDate: endUtc,
         startDateLocal: getMadridLocalStringNoZ(startUtc),
         endDateLocal: getMadridLocalStringNoZ(endUtc),
-        fechaYmdMadrid: getMadridLocalStringNoZ(startUtc).slice(0, 10),
+        dateYmd: getMadridLocalStringNoZ(startUtc).slice(0, 10),
         resourceId: targetResourceId,
         scheduleId: pristine.scheduleId || null,
         revision,

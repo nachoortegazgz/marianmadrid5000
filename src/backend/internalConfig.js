@@ -1,6 +1,6 @@
 /*
 MODULE: backend/internalConfig.js
-VERSION: v5002.4-canonical-clean
+VERSION: v5005-2
 RESPONSIBILITY: Single Source of Truth for all backend configuration,
 canonical PascalCase CMS collection IDs, SDK V2 settings,
 and execution constraints.

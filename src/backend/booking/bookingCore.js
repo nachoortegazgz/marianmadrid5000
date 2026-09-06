@@ -1,6 +1,6 @@
 /**
 MODULE: backend/booking/bookingCore.js
-VERSION: v5003.0-canonical-clean
+VERSION: v5005-2
 FIXES APPLIED:
   [C-01] _buildLockKeys_DEPRECATED -> _buildLockKeys (eliminado sufijo)
   [C-02] _forceStaffInPristineSlot: validacion serviceId antes de uso
@@ -90,7 +90,7 @@ const TRANSACTIONS_COLLECTION = COLLECTIONS?.BOOKING_TRANSACTIONS || "BookingTra
 const LOCKS_COLLECTION = COLLECTIONS?.SLOT_LOCKS || "SlotLocks"; // [C-06]
 const API_TIMEOUT_MS = SDK_CONFIG?.TIMEOUTS?.API_MS || 15000;
 const HEARTBEAT_MS = CONCURRENCY?.HEARTBEAT_MS || 15000;
-const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 120000;
+const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 300000;
 
 export function createBookingError(code, message, details = null) {
   const error = new Error(message);
@@ -149,7 +149,7 @@ export async function _updateCitaSafe(bookingId, updater, traceId = "no-trace", 
   if (typeof normalizedMeta === "string") {
     try {
       normalizedMeta = JSON.parse(normalizedMeta);
-    } catch () {
+    } catch (_) {
       normalizedMeta = {};
     }
   }
@@ -250,7 +250,7 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
       }
       for (const staleLock of staleLocks) {
         await withTimeout(
-          wixData.update(LOCKS_COLLECTION, { _id: staleLock._id, status: "RELEASED", releasedAt: new Date() }),
+          wixData.update(LOCKS_COLLECTION, { _id: staleLock._id, status: "RELEASED", releasedAt: new Date() }, { suppressAuth: true }),
           API_TIMEOUT_MS
         ).catch(() => {});
       }
@@ -263,7 +263,7 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
       expiresAt: new Date(Date.now() + ttlMs),
       ttlMs,
     };
-    await withTimeout(wixData.insert(LOCKS_COLLECTION, lockRecord), API_TIMEOUT_MS);
+    await withTimeout(wixData.insert(LOCKS_COLLECTION, lockRecord, { suppressAuth: true }), API_TIMEOUT_MS);
     log.info("[bookingCore] Lock acquired", { lockKey, ownerId });
     return { ok: true, lockKey, ownerId };
   } catch (error) {
@@ -281,7 +281,7 @@ export async function _unlockSlotKey(lockKey, ownerId) {
     if (existingLocks.items && existingLocks.items.length > 0) {
       const lock = existingLocks.items[0];
       await withTimeout(
-        wixData.update(LOCKS_COLLECTION, { _id: lock._id, status: "RELEASED", releasedAt: new Date() }),
+        wixData.update(LOCKS_COLLECTION, { _id: lock._id, status: "RELEASED", releasedAt: new Date() }, { suppressAuth: true }),
         API_TIMEOUT_MS
       );
       log.info("[bookingCore] Lock released", { lockKey, ownerId });
@@ -303,7 +303,7 @@ export async function _renewLock(lockKey, ownerId, ttlMs = LOCK_TTL_MS) {
     if (existingLocks.items && existingLocks.items.length > 0) {
       const lock = existingLocks.items[0];
       await withTimeout(
-        wixData.update(LOCKS_COLLECTION, { _id: lock._id, expiresAt: new Date(Date.now() + ttlMs), updatedAt: new Date() }),
+        wixData.update(LOCKS_COLLECTION, { _id: lock._id, expiresAt: new Date(Date.now() + ttlMs), updatedAt: new Date() }, { suppressAuth: true }),
         API_TIMEOUT_MS
       );
       log.info("[bookingCore] Lock renewed", { lockKey, ownerId });
@@ -361,7 +361,7 @@ export async function _persistBooking(params, traceId = "no-trace") {
     startDate: params.startDate,
     endDate: params.endDate,
     contactDetails: params.contactDetails,
-    tipo: params.tipo,
+    bookingType: params.tipo,
     meta: JSON.stringify(meta),
     traceId,
     createdAt: new Date(),

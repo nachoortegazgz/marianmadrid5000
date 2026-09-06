@@ -1,7 +1,7 @@
 /*
 =============================================================================
 MODULE: backend/events.js
-VERSION: v5001-final-corrections
+VERSION: v5005-2
 BASE: marianmadrid4003 (v21.1.2-LTS-remediated-phase3-exact-queries)
 RESPONSIBILITY: Server-to-server native webhooks for Wix Bookings V2 and
             Wix eCommerce V2 with exact-indexed queries and bounded execution.
@@ -51,7 +51,7 @@ const safeTrace = _normalizeIdPart(traceId, 40);
 const logId = `AUDIT_${_normalizeIdPart(tipoEvento, 30)}_${safeEntity}_${safeTrace}`;
 await withTimeout(
 wixData.insert(
-COLLECTIONS.AUDIT_LOG, {
+COLLECTIONS.MM_AUDIT_LOG, {
 _id: logId,
 tipoEvento,
 level,
