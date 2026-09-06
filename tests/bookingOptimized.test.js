@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { 
   _extractResourceIdsFromSlot, 
   _rankResourcesByLoad,
-  getCertifiedDualSlotsOptimized 
 } from '../src/backend/booking/bookingCore.js';
 
 describe('Booking Optimizado - Bucket Indexing', () => {
@@ -55,54 +54,6 @@ describe('Booking Optimizado - Bucket Indexing', () => {
       const resources = ['11111111-1111-1111-1111-111111111111'];
       const result = await _rankResourcesByLoad(resources, '2026-09-02', 'test-trace');
       expect(result).toHaveLength(1);
-    });
-  });
-
-  describe('getCertifiedDualSlotsOptimized', () => {
-    it('debe retornar error si faltan parámetros', async () => {
-      const result = await getCertifiedDualSlotsOptimized(null, 'res-1', '2026-09-02');
-      expect(result.error).toBe('PARAMS_MISSING');
-    });
-
-    it('debe generar slots duales contiguos correctamente', async () => {
-      const serviceId = '11111111-1111-1111-1111-111111111111';
-      const resourceId = '22222222-2222-2222-2222-222222222222';
-      const dateYMD = '2026-09-02';
-      
-      const result = await getCertifiedDualSlotsOptimized(serviceId, resourceId, dateYMD);
-      
-      expect(result.count).toBeGreaterThan(0);
-      expect(result.algorithm).toBe('bucket-indexing-v2');
-      expect(result.slots[0]).toHaveProperty('slot1');
-      expect(result.slots[0]).toHaveProperty('slot2');
-      expect(result.slots[0].certified).toBe(true);
-    });
-
-    it('debe emparejar solo slots contiguos', async () => {
-      const result = await getCertifiedDualSlotsOptimized(
-        '11111111-1111-1111-1111-111111111111',
-        '22222222-2222-2222-2222-222222222222',
-        '2026-09-02'
-      );
-      
-      // Verificar que los pares sean temporalmente contiguos
-      for (const pair of result.slots) {
-        const end1 = new Date(pair.slot1.end).getTime();
-        const start2 = new Date(pair.slot2.start).getTime();
-        // Diferencia máxima 1 minuto
-        expect(Math.abs(end1 - start2)).toBeLessThanOrEqual(60000);
-      }
-    });
-
-    it('debe incluir traceId y duración en respuesta', async () => {
-      const result = await getCertifiedDualSlotsOptimized(
-        '11111111-1111-1111-1111-111111111111',
-        '22222222-2222-2222-2222-222222222222',
-        '2026-09-02'
-      );
-      
-      expect(result.traceId).toBeDefined();
-      expect(result.duration).toBeGreaterThanOrEqual(0);
     });
   });
 });

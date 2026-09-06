@@ -109,7 +109,8 @@
    const hashInput = f2Start ? `${srvId}_${resId}_${f1Start}_${f2Start}` : `${srvId}_${resId}_${f1Start}`;
    return `pt_${hashSHA256(hashInput).substring(0, 16)}_${emailHash}`;
  }
- function _extractCheckoutId(checkoutSession) {
+ // FIX: exported for testability (utilidad pura de contrato checkout)
+  export function _extractCheckoutId(checkoutSession) {
    // createCheckoutElevated returns { ok, data: { checkoutId, status } }
    // Supports Wix raw shape ({ checkout: { _id } }) and legacy envelope
    return (

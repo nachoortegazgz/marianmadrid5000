@@ -19,7 +19,7 @@ vi.mock('wix-ecom-backend', () => ({
 }));
 
 vi.mock('wix-auth', () => ({
-  elevate: vi.fn((fn) => fn())
+  elevate: vi.fn((fn) => async (...args) => fn(...args))
 }));
 
 vi.mock('wix-data', () => ({
@@ -310,11 +310,13 @@ describe('bookingCore', () => {
       expect(result.ok).toBe(true);
       expect(wixData.default.update).toHaveBeenCalledWith(
         'SlotLocks',
-        expect.objectContaining({ _id: 'lock-1', status: 'RELEASED' })
+        expect.objectContaining({ _id: 'lock-1', status: 'RELEASED' }),
+        { suppressAuth: true }
       );
       expect(wixData.default.insert).toHaveBeenCalledWith(
         'SlotLocks',
-        expect.objectContaining({ lockKey: 'lock:k', ownerId: 'owner-1', status: 'ACQUIRED' })
+        expect.objectContaining({ lockKey: 'lock:k', ownerId: 'owner-1', status: 'ACQUIRED' }),
+        { suppressAuth: true }
       );
     });
 
@@ -357,7 +359,7 @@ describe('bookingCore', () => {
         startDate: new Date('2026-09-03T10:00:00.000Z'),
         endDate: new Date('2026-09-03T10:30:00.000Z'),
         tipo: 'simple',
-        meta: { estadoPago: 'PENDING_PAYMENT' }
+        meta: { paymentStatus: 'PENDING_PAYMENT' }
       });
 
       expect(wixData.default.insert).toHaveBeenCalledWith(
@@ -369,7 +371,7 @@ describe('bookingCore', () => {
       expect(wixData.default.insert.mock.calls[0][1]).not.toHaveProperty('serviceId');
     });
 
-    it('debe fallar con un error controlado si falta meta.estadoPago', async () => {
+    it('debe fallar con un error controlado si falta meta.paymentStatus', async () => {
       await expect(_persistBooking({
         bookingId: 'booking-2',
         primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
@@ -380,7 +382,7 @@ describe('bookingCore', () => {
         meta: null
       })).rejects.toMatchObject({
         code: 'INVALID_PAYLOAD',
-        message: expect.stringMatching(/meta.*estadoPago|estadoPago.*meta/i)
+        message: expect.stringMatching(/paymentStatus/i)
       });
     });
   });

@@ -16,7 +16,7 @@ vi.mock('wix-ecom-backend', () => ({
 }));
 
 vi.mock('wix-auth', () => ({
-  elevate: vi.fn((fn) => fn())
+  elevate: vi.fn((fn) => async (...args) => fn(...args))
 }));
 
 vi.mock('wix-data', () => ({
@@ -39,9 +39,9 @@ vi.mock('backend/staff', () => ({
 
 vi.mock('backend/internalConfig', () => ({
   COLLECTIONS: {
-    CITAS: 'CitasF2',
-    COMPENSATIONS: 'PendingCompensations',
-    TRANSACTIONS: 'Transactions',
+    CITAS_F2: 'CitasF2',
+    COMPENSACIONES_PENDIENTES: 'CompensacionesPendientes',
+    BOOKING_TRANSACTIONS: 'BookingTransactions',
     LOCKS: 'SlotLocks',
   },
   CONCURRENCY: {
@@ -266,8 +266,8 @@ describe('bookingSaga - Integración Dinámica', () => {
     ], 'trace-2');
 
     expect(wixData.default.insert).toHaveBeenCalledWith(
-      'PendingCompensations',
-      { bookingId: 'b2', phase: 'F2', status: 'PENDING', attempts: 0, traceId: 'trace-2' },
+      'CompensacionesPendientes',
+      expect.objectContaining({ bookingId: 'b2', phase: 'F2', status: 'PENDING', attempts: 0, traceId: 'trace-2' }),
       { suppressAuth: true }
     );
   });

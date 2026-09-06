@@ -87,12 +87,12 @@ describe('bookingCore.ts', () => {
   describe('_projectCertifiedSlot', () => {
     it('debe proyectar slot válido a formato certificado', () => {
       const slot = {
-        serviceId: '11111111-1111-4111-8111-111111111111',
+        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
         scheduleId: '22222222-2222-4222-8222-222222222222',
         localStartDate: '2026-09-02T10:00:00',
         localEndDate: '2026-09-02T10:30:00',
         resourceId: '33333333-3333-4333-8333-333333333333',
-        resourceName: 'María García'
+        resourceName: 'Maria Garcia'
       };
       
       const result = _projectCertifiedSlot(slot);
@@ -102,7 +102,7 @@ describe('bookingCore.ts', () => {
         scheduleId: '22222222-2222-4222-8222-222222222222',
         resource: {
           id: '33333333-3333-4333-8333-333333333333',
-          name: 'María García'
+          name: 'Maria Garcia'
         },
         localStartDate: '2026-09-02T10:00:00',
         localEndDate: '2026-09-02T10:30:00'
@@ -208,23 +208,23 @@ describe('bookingCore.ts', () => {
     it('debe lanzar error si serviceId no es GUID válido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        serviceId: 'invalid-guid',
+        primaryServiceGuid: 'invalid-guid',
         scheduleId: 'sch-1'
       };
       
       await expect(_persistBooking(params, 'trace-1'))
-        .rejects.toThrow('Invalid serviceId');
+        .rejects.toThrow('Invalid primaryServiceGuid');
     });
 
     it('debe lanzar error si tipo de booking es inválido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        serviceId: '11111111-1111-4111-8111-111111111111',
+        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
         scheduleId: 'sch-1',
         startDate: new Date(),
         endDate: new Date(),
         tipo: 'tipo_invalido',
-        meta: { estadoPago: 'UNPAID' }
+        meta: { paymentStatus: 'UNPAID' }
       };
       
       await expect(_persistBooking(params, 'trace-1'))
@@ -234,12 +234,12 @@ describe('bookingCore.ts', () => {
     it('debe lanzar error si estado de pago es inválido', async () => {
       const params: any = {
         bookingId: 'book-1',
-        serviceId: '11111111-1111-4111-8111-111111111111',
+        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
         scheduleId: 'sch-1',
         startDate: new Date(),
         endDate: new Date(),
         tipo: 'simple',
-        meta: { estadoPago: 'INVALID_STATE' }
+        meta: { paymentStatus: 'INVALID_STATE' }
       };
       
       await expect(_persistBooking(params, 'trace-1'))
@@ -250,7 +250,7 @@ describe('bookingCore.ts', () => {
       const params = {
         bookingId: 'book-123',
         revision: 1,
-        serviceId: '11111111-1111-4111-8111-111111111111',
+        primaryServiceGuid: '11111111-1111-4111-8111-111111111111',
         scheduleId: '22222222-2222-4222-8222-222222222222',
         resourceId: '33333333-3333-4333-8333-333333333333',
         startDate: new Date('2026-09-02T10:00:00'),
@@ -269,11 +269,11 @@ describe('bookingCore.ts', () => {
           secondaryServiceId: null,
           traceId: 'trace-1',
           esCombinado: false,
-          fechaYmdMadrid: '2026-09-02',
+          dateYmd: '2026-09-02',
           servicioNombre: 'Servicio Test',
-          estadoPago: 'UNPAID' as const,
-          metodoPago: 'ONLINE' as const,
-          precioAuditado: 100
+          paymentStatus: 'UNPAID' as const,
+          paymentMethod: 'ONLINE' as const,
+          auditedPrice: 100
         }
       };
       
@@ -281,7 +281,7 @@ describe('bookingCore.ts', () => {
       
       expect(result.created).toBe(true);
       expect(result.item._id).toBe('book-123');
-      expect(result.item.tipo).toBe('simple');
+      expect(result.item.bookingType).toBe('simple');
     });
   });
 

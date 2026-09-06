@@ -183,7 +183,10 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
       }
       if (hasActiveLock) return { ok: false, code: ERROR_CODES.TOKEN_BUSY, message: "Slot already locked" };
       for (const staleLock of staleLocks) {
-        await withTimeout(wixData.update(LOCKS_COLLECTION, { _id: staleLock._id, status: "RELEASED", releasedAt: new Date() }), API_TIMEOUT_MS).catch(() => {});
+        await withTimeout(
+          wixData.update(LOCKS_COLLECTION, { _id: staleLock._id, status: "RELEASED", releasedAt: new Date() }, { suppressAuth: true }),
+          API_TIMEOUT_MS
+        ).catch(() => {});
       }
     }
     await withTimeout(wixData.insert(LOCKS_COLLECTION, {
@@ -358,18 +361,32 @@ export async function confirmOrDeclineBookingElevated(bookingId, action) {
   try {
     const resolvedAction = typeof action === "string" ? action.toLowerCase()
       : (action && typeof action === "object" ? String(action.action || action.type || action.status || "").toLowerCase() : "");
-    if (resolvedAction === "confirm" || (!resolvedAction && action && typeof action === "object" && action.paymentStatus !== "DECLINED")) {
-      const confirmPayload = action && typeof action === "object" ? { bookingId, ...action } : { bookingId };
-      await elevate(() => bookings.confirmBooking(confirmPayload));
-      return { ok: true, data: { bookingId, status: "CONFIRMED" } };
-    }
-    if (resolvedAction === "decline" || (action && typeof action === "object" && String(action.status || action.action || "").toLowerCase() === "declined")) {
-      const declinePayload = action && typeof action === "object" ? { bookingId, ...action } : { bookingId };
-      await elevate(() => bookings.declineBooking(declinePayload));
+    const actionObj = action && typeof action === "object" ? action : null;
+    // FIX: paymentStatus DECLINED must decline (never confirm)
+    if (actionObj && String(actionObj.paymentStatus || "").toUpperCase() === "DECLINED") {
+      const declineElevated = elevate(bookings.declineBooking);
+      await declineElevated({ bookingId, ...actionObj });
       return { ok: true, data: { bookingId, status: "DECLINED" } };
     }
-    if (action && typeof action === "object") {
-      await elevate(() => bookings.confirmBooking({ bookingId, ...action }));
+    // FIX: REFUNDED is terminal - neither confirm nor decline
+    if (actionObj && String(actionObj.paymentStatus || "").toUpperCase() === "REFUNDED") {
+      return { ok: false, code: ERROR_CODES.BOOKING_CREATION_FAILED, message: "Refunded bookings cannot be confirmed or declined" };
+    }
+    if (resolvedAction === "confirm" || (!resolvedAction && actionObj && actionObj.paymentStatus !== "DECLINED" && actionObj.paymentStatus !== "REFUNDED")) {
+      const confirmPayload = actionObj ? { bookingId, ...actionObj } : { bookingId };
+      const confirmElevated = elevate(bookings.confirmBooking);
+      await confirmElevated(confirmPayload);
+      return { ok: true, data: { bookingId, status: "CONFIRMED" } };
+    }
+    if (resolvedAction === "decline" || (actionObj && String(actionObj.status || actionObj.action || "").toLowerCase() === "declined")) {
+      const declinePayload = actionObj ? { bookingId, ...actionObj } : { bookingId };
+      const declineElevated = elevate(bookings.declineBooking);
+      await declineElevated(declinePayload);
+      return { ok: true, data: { bookingId, status: "DECLINED" } };
+    }
+    if (actionObj) {
+      const confirmElevated = elevate(bookings.confirmBooking);
+      await confirmElevated({ bookingId, ...actionObj });
       return { ok: true, data: { bookingId, status: "CONFIRMED" } };
     }
     return { ok: false, code: ERROR_CODES.INVALID_CLOCK_TYPE, message: "Invalid action" };
@@ -396,9 +413,10 @@ export async function rescheduleBookingElevated(bookingId, schedule, options = {
 
 // FIX: Firma canonica de 4 args (slot, resourceId, primaryServiceGuid, durationMinutes)
 export async function _forceStaffInPristineSlot(slot, resourceId, primaryServiceGuid, durationMinutes) {
-  const legacyDurationSignature = typeof primaryServiceGuid === "number" && durationMinutes === undefined;
+  const legacyDurationSignature = typeof primaryServiceGuid === "number"
+    || (typeof primaryServiceGuid === "string" && primaryServiceGuid.trim() !== "" && !isNaN(Number(primaryServiceGuid)));
   if (legacyDurationSignature) {
-    durationMinutes = primaryServiceGuid;
+    durationMinutes = Number(primaryServiceGuid);
     primaryServiceGuid = slot?.primaryServiceGuid || slot?.serviceId || null;
   }
   if (!primaryServiceGuid) {
