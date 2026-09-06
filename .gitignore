@@ -106,4 +106,4 @@ build/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```
+```.codeviz/
