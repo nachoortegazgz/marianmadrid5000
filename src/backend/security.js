@@ -12,7 +12,7 @@ import { getSecret } from "wix-secrets-backend";
 import { currentMember } from "wix-members-backend";
 import wixData from "wix-data";
 import { SECRETS } from "backend/mmSecrets";
-import { COLLAB_ROLES } from "backend/internalConfig";
+import { COLLAB_ROLES, COLLECTIONS } from "backend/internalConfig";
 import { makeTraceId, _safeEmail, _safeTrim } from "public/mmUtils";
 import { logger, ERROR_CODES, createBookingError } from "backend/booking/bookingCore";
 
