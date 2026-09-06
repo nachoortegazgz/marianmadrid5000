@@ -14,7 +14,6 @@ RESOURCE_TO_DISPLAY: Object.freeze({}),
 export const COLLECTIONS = Object.freeze({
 // Mision 1: Catalogo, Servicios y Recursos de Reserva
 SERVICIOS_CATALOGO: "ServiciosCatalogo",
-COMPLEMENTOS_CATALOGO: "ComplementosCatalogo",
 MAPA_STAFF: "MapaStaff",
 CITAS_F2: "CitasF2",
 // Mision 2: Motor de Disponibilidad y Cache
@@ -34,7 +33,7 @@ PROVEEDORES_LISTA: "ProveedoresLista",
 CAJA_ACTUAL: "CajaActual",
 MOVIMIENTOS_CAJA: "MovimientosCaja",
 CONTROL_PARCIAL_X: "ControlParcialX",
-CIERRES_Z: "CierresZ",
+CIERRES_Z: "HistoricoCierresZ",
 SECUENCIA_TICKETS: "SecuenciaTickets",
 // Mision 6: Fiscalidad, Libros de IVA y Contabilidad General (PGC)
 CONFIGURACION_FISCAL: "ConfiguracionFiscal",
@@ -43,7 +42,7 @@ LIBRO_IVA_FACTURAS_RECIBIDAS: "LibroIvaFacturasRecibidas",
 PLAN_CUENTAS_CONTABLES: "PlanCuentasContables",
 ASIENTOS_CONTABLES: "AsientosContables",
 LINEAS_ASIENTO_CONTABLE: "LineasAsientoContable",
-LIBRO_MAYOR_CONTABLE_SALDOS: "LibroMayorContableSaldos",
+LIBRO_MAYOR_CONTABLE_SALDOS: "MayorContableSaldos",
 // Mision 7: Auditoria, Seguridad y Control Laboral
 EVENTOS_SISTEMA_FACTURACION: "EventosSistemaFacturacion",
 MM_AUDIT_LOG: "MmAuditLog",

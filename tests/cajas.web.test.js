@@ -65,7 +65,7 @@ vi.mock('backend/responseUtils', () => ({
 vi.mock('backend/internalConfig', () => ({
   COLLECTIONS: {
     SECUENCIA_TICKETS: 'SecuenciaTickets', MOVIMIENTOS_CAJA: 'MovimientosCaja',
-    CAJA_ACTUAL: 'CajaActual', CIERRES_Z: 'CierresZ',
+    CAJA_ACTUAL: 'CajaActual', CIERRES_Z: 'HistoricoCierresZ',
     COMPENSACIONES_PENDIENTES: 'CompensacionesPendientes', MM_AUDIT_LOG: 'MmAuditLog',
   },
   SINGLETONS: { CAJA: 'CAJA_PRINCIPAL' },
