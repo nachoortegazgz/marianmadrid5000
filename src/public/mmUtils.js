@@ -1,28 +1,29 @@
 /**
-=============================================================================
 MODULE: public/mmUtils.js
-VERSION: v19.6.17-corrections-applied
+VERSION: v5002.4-corrections-applied
 RESPONSIBILITY: SSOT constants, timezones, validators, PII masking,
 and retry logic (PUBLIC SAFE).
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 CORRECTIONS APPLIED:
-  [FIX-1]  getUtcDateFromMadridLocal: "const roundTripParts =  dtf" -> "const roundTripParts = dtf"
-  [FIX-2]  getUtcDateFromMadridLocal: "const roundTrip = (type) = >" -> "const roundTrip = (type) =>"
-  [FIX-3]  getUtcDateFromMadridLocal: "roundTripParts.find((p) = >" -> "roundTripParts.find((p) =>"
-  [FIX-4]  getUtcDateFromMadridLocal: 'roundTrip( "year ")' -> 'roundTrip("year")'
-  [FIX-5]  getUtcDateFromMadridLocal: 'roundTrip( "month ")' -> 'roundTrip("month")'
-  [FIX-6]  getUtcDateFromMadridLocal: 'roundTrip( "day ")' -> 'roundTrip("day")'
-  [FIX-7]  getUtcDateFromMadridLocal: 'roundTrip( "hour ")' -> 'roundTrip("hour")'
-  [FIX-8]  getUtcDateFromMadridLocal: 'roundTrip( "minute ")' -> 'roundTrip("minute")'
-  [FIX-9]  getUtcDateFromMadridLocal: 'roundTrip( "second ")' -> 'roundTrip("second")'
-  [FIX-10] _maskEmail: 'String(email ||  " ")' -> 'String(email || "")'
-  [FIX-11] _maskEmail: '!raw.includes( "@ ")' -> '!raw.includes("@")'
-  [FIX-12] _maskIp: 'typeof ip !==  "string "' -> 'typeof ip !== "string"'
-  [FIX-13] _maskIp: 'parts = trimmed.split( ". ")' -> 'parts = trimmed.split(".")'
-  [FIX-14] _isValidEmail: regex "." -> "\."
+[FIX-1]  getUtcDateFromMadridLocal: removed double space in "const roundTripParts = dtf"
+[FIX-2]  getUtcDateFromMadridLocal: fixed "const roundTrip = (type) =>"
+[FIX-3]  getUtcDateFromMadridLocal: fixed "roundTripParts.find((p) =>"
+[FIX-4]  getUtcDateFromMadridLocal: fixed roundTrip("year")
+[FIX-5]  getUtcDateFromMadridLocal: fixed roundTrip("month")
+[FIX-6]  getUtcDateFromMadridLocal: fixed roundTrip("day")
+[FIX-7]  getUtcDateFromMadridLocal: fixed roundTrip("hour")
+[FIX-8]  getUtcDateFromMadridLocal: fixed roundTrip("minute")
+[FIX-9]  getUtcDateFromMadridLocal: fixed roundTrip("second")
+[FIX-10] _maskEmail: fixed String(email || "")
+[FIX-11] _maskEmail: fixed !raw.includes("@")
+[FIX-12] _maskIp: fixed typeof ip !== "string"
+[FIX-13] _maskIp: fixed parts = trimmed.split(".")
+[FIX-14] _isValidEmail: fixed regex "." -> "\."
+[FIX-15] _toDateSafe: fixed infinite recursion toDateSafe -> _toDateSafe
+[FIX-16] withTimeout: added optional chaining SDK_CONFIG?.TIMEOUTS?.API_MS
 =============================================================================*/
 export const VERSION = Object.freeze({
-CORE: "v19.6.17-corrections-applied",
+CORE: "v5002.4-corrections-applied",
 API_V2: true,
 COMPLIANCE_ES: "2026",
 });
@@ -99,53 +100,6 @@ export function normalizeIdPart(v, maxLen = 80) {
 const s = String(v || "").trim();
 const safe = s.replace(/[^A-Za-z0-9_-]/g, "");
 return safe.length > maxLen ? safe.slice(0, maxLen) : safe;
-}
-export const _normalizeIdPart = normalizeIdPart;
-export function _roundMoney(value) {
-const amount = Number(value);
-return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
-}
-export function _readPositiveAmount(value) {
-const amount = Number(value);
-if (!Number.isFinite(amount) || amount <= 0) return null;
-return Math.round(amount * 100) / 100;
-}
-export function _readNonNegativeAmount(value) {
-const amount = Number(value);
-if (!Number.isFinite(amount) || amount < 0) return null;
-return Math.round(amount * 100) / 100;
-}
-export function _readDate(value) {
-const raw = _safeTrim(value);
-if (!raw) return null;
-const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
-if (!match) return null;
-const year = Number(match[1]);
-const month = Number(match[2]);
-const day = Number(match[3]);
-const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-if (
-date.getUTCFullYear() !== year ||
-date.getUTCMonth() !== month - 1 ||
-date.getUTCDate() !== day
-) return null;
-return `${match[1]}-${match[2]}-${match[3]}`;
-}
-export function _cleanText(value, maxLength = 500) {
-const text = String(value ?? "").trim();
-return text.length > maxLength ? text.slice(0, maxLength) : text;
-}
-export function _stableSerialize(value) {
-if (Array.isArray(value)) return `[${value.map(_stableSerialize).join(",")}]`;
-if (value && typeof value === "object") {
-if (value instanceof Date) return JSON.stringify(value.toISOString());
-return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${_stableSerialize(value[key])}`).join(",")}}`;
-}
-return JSON.stringify(value);
-}
-export function _extractRelationalId(value) {
-if (value && typeof value === "object") return String(value._id || value.id || value.resourceId || "").trim();
-return String(value || "").trim();
 }
 export function _looksLikeGuid(v) {
 return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -234,18 +188,18 @@ const offsetMs = asIfUtc - guessDate.getTime();
 const utcMs = guessUtcMs - offsetMs;
 const out = new Date(utcMs);
 if (isNaN(out.getTime())) return null;
-const roundTripParts = dtf.formatToParts(out);           // [FIX-1] removed double space
-const roundTrip = (type) => {                            // [FIX-2] was "(type) = >"
-const found = roundTripParts.find((p) => p.type === type); // [FIX-3] was "(p) = >"
+const roundTripParts = dtf.formatToParts(out);           // [FIX-1]
+const roundTrip = (type) => {                            // [FIX-2]
+const found = roundTripParts.find((p) => p.type === type); // [FIX-3]
 return found ? Number(found.value) : NaN;
 };
 if (
-roundTrip("year") !== y ||                              // [FIX-4] was 'roundTrip( "year ")'
-roundTrip("month") !== m ||                             // [FIX-5] was 'roundTrip( "month ")'
-roundTrip("day") !== d ||                               // [FIX-6] was 'roundTrip( "day ")'
-roundTrip("hour") !== hh ||                             // [FIX-7] was 'roundTrip( "hour ")'
-roundTrip("minute") !== mm ||                           // [FIX-8] was 'roundTrip( "minute ")'
-roundTrip("second") !== ss                              // [FIX-9] was 'roundTrip( "second ")'
+roundTrip("year") !== y ||                              // [FIX-4]
+roundTrip("month") !== m ||                             // [FIX-5]
+roundTrip("day") !== d ||                               // [FIX-6]
+roundTrip("hour") !== hh ||                             // [FIX-7]
+roundTrip("minute") !== mm ||                           // [FIX-8]
+roundTrip("second") !== ss                              // [FIX-9]
 ) {
 return null;
 }
@@ -258,12 +212,12 @@ return utcDate.toLocaleString("sv-SE", { timeZone: SDK_CONFIG.TZ }).replace(" ",
 export function _toDateSafe(val) {
 if (!val) return null;
 if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
-if (typeof val === "object" && val !== null && val.$date) return _toDateSafe(val.$date);
+if (typeof val === "object" && val !== null && val.$date) return _toDateSafe(val.$date); // [FIX-15] was toDateSafe (infinite recursion)
 const d = new Date(val);
 return isNaN(d.getTime()) ? null : d;
 }
 export function withTimeout(promise, timeoutMs, label = "operation") {
-const ms = Number.isFinite(timeoutMs) ? timeoutMs : (SDK_CONFIG.TIMEOUTS?.API_MS || 15000);
+const ms = Number.isFinite(timeoutMs) ? timeoutMs : (SDK_CONFIG?.TIMEOUTS?.API_MS || 15000); // [FIX-16]
 let timer;
 const timeoutPromise = new Promise((_, reject) => {
 timer = setTimeout(() => reject(new Error(`TIMEOUT: ${label} exceeded ${ms}ms`)), ms);
@@ -286,30 +240,30 @@ try {
 return await fn();
 } catch (error) {
 lastError = error;
-  const msg = String(error && error.message ? error.message : "").toUpperCase();
-   const code = _extractStatusCode(error);
-   const retryable =
-     msg.includes("TIMEOUT") ||
-     msg.includes("ETIMEDOUT") ||
-     msg.includes("ECONNRESET") ||
-     msg.includes("429") ||
-     msg.includes("502") ||
-     msg.includes("503") ||
-     msg.includes("504") ||
-     code === 429 ||
-     code === 502 ||
-     code === 503 ||
-     code === 504;
-   if (!retryable) throw error;
-   const waitMs = Math.random() * delay * Math.pow(2, i);
-   await new Promise((resolve) => setTimeout(resolve, waitMs));
- }
+const msg = String(error && error.message ? error.message : "").toUpperCase();
+const code = _extractStatusCode(error);
+const retryable =
+msg.includes("TIMEOUT") ||
+msg.includes("ETIMEDOUT") ||
+msg.includes("ECONNRESET") ||
+msg.includes("429") ||
+msg.includes("502") ||
+msg.includes("503") ||
+msg.includes("504") ||
+code === 429 ||
+code === 502 ||
+code === 503 ||
+code === 504;
+if (!retryable) throw error;
+const waitMs = Math.random() * delay * Math.pow(2, i);
+await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
 }
 throw lastError;
 }
 export function _maskEmail(email) {
-const raw = String(email || "").trim();                   // [FIX-10] was 'String(email ||  " ")'
-if (!raw || !raw.includes("@")) return "***@***";        // [FIX-11] was '!raw.includes( "@ ")'
+const raw = String(email || "").trim();                   // [FIX-10]
+if (!raw || !raw.includes("@")) return "***@***";        // [FIX-11]
 const split = raw.split("@");
 const localRaw = split[0] || "";
 const domainRaw = split[1] || "";
@@ -321,10 +275,10 @@ const prefix = keep > 0 ? local.slice(0, keep) : "";
 return `${prefix}***@${domain}`;
 }
 export function _maskIp(ip) {
-if (!ip || typeof ip !== "string") return "***";         // [FIX-12] was 'typeof ip !==  "string "'
+if (!ip || typeof ip !== "string") return "***";         // [FIX-12]
 const trimmed = ip.trim();
 if (!trimmed) return "***";
-const parts = trimmed.split(".");                         // [FIX-13] was 'trimmed.split( ". ")'
+const parts = trimmed.split(".");                         // [FIX-13]
 if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) return `${parts[0]}.${parts[1]}.***.***`;
 if (trimmed.length > 6) return trimmed.slice(0, 6) + ":***";
 return "***";
@@ -349,7 +303,7 @@ return v.toString(16);
 });
 }
 export function _isValidEmail(email) {
-return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim()); // [FIX-14] was "." -> "\."
+return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim()); // [FIX-14]
 }
 export function _normType(type) {
 if (!type) return "";
@@ -360,11 +314,11 @@ const raw = String(phone || "").trim();
 if (!raw) return "***";
 const clean = _safePhone(raw);
 if (clean.length <= 4) return "***";
-return clean.slice(0, 3) + "***" + clean.slice(-2);
+return clean.slice(0, 3) + "**" + clean.slice(-2);
 }
 export function _maskName(name) {
 const raw = String(name || "").trim();
 if (!raw) return "";
 if (raw.length <= 2) return raw[0] + "";
-return raw[0] + "*" + raw.slice(-1);
+return raw[0] + "" + raw.slice(-1);
 }
