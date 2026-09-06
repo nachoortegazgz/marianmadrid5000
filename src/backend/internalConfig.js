@@ -32,18 +32,17 @@ export const COLLECTIONS = Object.freeze({
   // Mision 4: Gestion de Inventario, Catalogo de Venta y Proveedores
   INVENTARIO_STOCK_VENTA: "InventarioStockVenta",
   MOVIMIENTOS_INVENTARIO: "MovimientosInventario",
-  INVENTARIO_STOCK_VENTA_CIERRE: "InventarioStockVentaCierre",
   PROVEEDORES_LISTA: "ProveedoresLista",
   // Mision 5: TPV, Control de Caja Diaria, Arqueos y Secuencia Fiscal
   CAJA_ACTUAL: "CajaActual",
   MOVIMIENTOS_CAJA: "MovimientosCaja",
   CONTROL_PARCIAL_X: "ControlParcialX",
-  CIERRES_Z: "CierresZ",
+  HISTORICO_CIERRES_Z: "HistoricoCierresZ",
   SECUENCIA_TICKETS: "SecuenciaTickets",
   // Mision 6: Fiscalidad, Libros de IVA y Contabilidad General (PGC)
   CONFIGURACION_FISCAL: "ConfiguracionFiscal",
-  LIBRO_IVA_FACTURAS_EXPEDIDAS: "LibroIvaFacturasExpedidas",
-  LIBRO_IVA_FACTURAS_RECIBIDAS: "LibroIvaFacturasRecibidas",
+  LIBRO_IVA_FACTURAS_EXPEDIDAS: "LibroIVAFacturasExpedidas",
+  LIBRO_IVA_FACTURAS_RECIBIDAS: "LibroIVAFacturasRecibidas",
   PLAN_CUENTAS_CONTABLES: "PlanCuentasContables",
   ASIENTOS_CONTABLES: "AsientosContables",
   LINEAS_ASIENTO_CONTABLE: "LineasAsientoContable",
@@ -53,7 +52,7 @@ export const COLLECTIONS = Object.freeze({
   MM_AUDIT_LOG: "MmAuditLog",
   REGISTROS_HORARIOS_STAFF: "RegistrosHorariosStaff",
   // Infraestructura de Bloqueos (Mutex)
-  LOCKS: "SlotLocks",
+  SLOT_LOCKS: "SlotLocks",
   RATE_LIMIT_BLOCKS: "RateLimitBlocks",
   ALERTAS_OPERATIVAS: "AlertasOperativas",
 });
