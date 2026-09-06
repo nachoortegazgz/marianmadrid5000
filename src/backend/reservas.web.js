@@ -712,7 +712,7 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
         secondaryServiceGuid: String(slotPair.secondaryServiceGuid),
         dateYMD: String(dateYMD),
         expiresAt,
-        createdAt: new Date(),
+        _createdDate: new Date(),
         status: "ACTIVE",
       };
       return wixData.save(DUAL_CACHE_COL, record, { suppressAuth: true }).catch(() => null);

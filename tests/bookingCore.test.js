@@ -368,7 +368,7 @@ describe('bookingCore', () => {
           primaryServiceGuid: '11111111-1111-1111-1111-111111111111'
         })
       );
-      expect(wixData.default.insert.mock.calls[0][1]).not.toHaveProperty('serviceId');
+      expect(wixData.default.insert.mock.calls[0][1]).toHaveProperty('serviceId');
     });
 
     it('debe fallar con un error controlado si falta meta.paymentStatus', async () => {
@@ -384,6 +384,77 @@ describe('bookingCore', () => {
         code: 'INVALID_PAYLOAD',
         message: expect.stringMatching(/paymentStatus/i)
       });
+    });
+
+    it('debe persistir campos canonicos: serviceId, pairToken, dateYmd, paymentStatus', async () => {
+      const wixData = await import('wix-data');
+      wixData.default.insert.mockResolvedValue({ _id: 'booking-3' });
+
+      await _persistBooking({
+        bookingId: 'booking-3',
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        startDate: new Date('2026-09-03T10:00:00.000Z'),
+        endDate: new Date('2026-09-03T10:30:00.000Z'),
+        tipo: 'simple',
+        meta: {
+          paymentStatus: 'PAID',
+          pairToken: 'pair-abc',
+          uiPairToken: 'ui-abc',
+          dateYmd: '2026-09-03'
+        }
+      });
+
+      const inserted = wixData.default.insert.mock.calls[0][1];
+      expect(inserted.serviceId).toBe('11111111-1111-1111-1111-111111111111');
+      expect(inserted.pairToken).toBe('pair-abc');
+      expect(inserted.uiPairToken).toBe('ui-abc');
+      expect(inserted.dateYmd).toBe('2026-09-03');
+      expect(inserted.paymentStatus).toBe('PAID');
+      expect(inserted.statusPago).toBe('PAID');
+      expect(inserted.bookingId).toBe('booking-3');
+      expect(inserted.status).toBe('CONFIRMED');
+    });
+
+    it('debe persistir meta como objeto nativo, no como JSON string', async () => {
+      const wixData = await import('wix-data');
+      wixData.default.insert.mockResolvedValue({ _id: 'booking-4' });
+
+      const metaObj = { paymentStatus: 'UNPAID', customField: 'value' };
+      await _persistBooking({
+        bookingId: 'booking-4',
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        startDate: new Date('2026-09-03T10:00:00.000Z'),
+        endDate: new Date('2026-09-03T10:30:00.000Z'),
+        tipo: 'simple',
+        meta: metaObj
+      });
+
+      const inserted = wixData.default.insert.mock.calls[0][1];
+      expect(typeof inserted.meta).toBe('object');
+      expect(inserted.meta).toEqual(metaObj);
+      expect(inserted.meta.customField).toBe('value');
+    });
+
+    it('debe usar _createdDate en lugar de createdAt', async () => {
+      const wixData = await import('wix-data');
+      wixData.default.insert.mockResolvedValue({ _id: 'booking-5' });
+
+      await _persistBooking({
+        bookingId: 'booking-5',
+        primaryServiceGuid: '11111111-1111-1111-1111-111111111111',
+        scheduleId: '22222222-2222-2222-2222-222222222222',
+        startDate: new Date('2026-09-03T10:00:00.000Z'),
+        endDate: new Date('2026-09-03T10:30:00.000Z'),
+        tipo: 'simple',
+        meta: { paymentStatus: 'PAID' }
+      });
+
+      const inserted = wixData.default.insert.mock.calls[0][1];
+      expect(inserted).toHaveProperty('_createdDate');
+      expect(inserted).not.toHaveProperty('createdAt');
+      expect(inserted).not.toHaveProperty('updatedAt');
     });
   });
 

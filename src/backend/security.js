@@ -61,6 +61,8 @@ export async function isKeyPersistentlyBlocked(surface, key) {
   }
 }
 
+const PERSIST_THRESHOLD = 3;
+
 export function rateLimiter({ surface, key }, maxRequests, windowMs) {
   const cleanKey = `${surface || "global"}:${key || "anon"}`;
   const now = Date.now();
@@ -68,11 +70,23 @@ export function rateLimiter({ surface, key }, maxRequests, windowMs) {
   const window = windowMs || RATE_LIMIT_WINDOW_MS;
   const entry = rateLimitCache.get(cleanKey);
   if (!entry || now - entry.windowStart > window) {
-    rateLimitCache.set(cleanKey, { count: 1, windowStart: now });
+    rateLimitCache.set(cleanKey, { count: 1, windowStart: now, violations: 0 });
     return { allowed: true, retryAfter: 0 };
   }
   entry.count++;
   if (entry.count > max) {
+    entry.violations = (entry.violations || 0) + 1;
+    if (entry.violations >= PERSIST_THRESHOLD) {
+      const blockKey = `RL-${cleanKey}-${now}`;
+      wixData.insert(COLLECTIONS.RATE_LIMIT_BLOCKS || "RateLimitBlocks", {
+        _id: blockKey,
+        surface: surface || "global",
+        key: key || "anon",
+        violations: entry.violations,
+        expiresAt: new Date(now + 60 * 60 * 1000),
+        _createdDate: new Date(),
+      }, { suppressAuth: true }).catch(() => {});
+    }
     const retryAfter = window - (now - entry.windowStart);
     return { allowed: false, retryAfter: Math.max(0, retryAfter) };
   }

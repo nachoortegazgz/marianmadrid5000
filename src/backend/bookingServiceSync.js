@@ -107,7 +107,7 @@ export async function enqueueBookingsServiceSync(serviceItem) {
         status: "PENDING",
         attempts: 0,
         nextAttemptAt: new Date(),
-        updatedAt: new Date(),
+        _createdDate: new Date(),
     };
 
     return await wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true });
@@ -147,7 +147,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
                 ...safeItem,
                 status: "COMPLETED",
                 completedAt: new Date(),
-                updatedAt: new Date(),
+                _updatedDate: new Date(),
             }, { suppressAuth: true }).catch(() => null);
             completed++;
         } catch (err) {
@@ -160,7 +160,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
                 attempts,
                 lastError: err?.message || "SYNC_ERROR",
                 nextAttemptAt: new Date(Date.now() + BACKOFF_MS * Math.pow(2, attempts - 1)),
-                updatedAt: new Date(),
+                _updatedDate: new Date(),
             }, { suppressAuth: true }).catch(() => null);
             failed++;
         }

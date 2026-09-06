@@ -171,8 +171,7 @@ export async function _initTransaction(pairToken, payloadHashOrTraceId, traceId 
       traceId: activeTraceId,
       payloadHash,
       status: "INITIATED",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      _createdDate: new Date(),
     };
     await withTimeout(wixData.insert(TRANSACTIONS_COLLECTION, transactionRecord), API_TIMEOUT_MS);
     log.info("[bookingCore] Transaction initialized", { transactionId, pairToken });
@@ -186,7 +185,7 @@ export async function _initTransaction(pairToken, payloadHashOrTraceId, traceId 
 export async function _completeTransaction(transactionId, result = null) {
   try {
     await withTimeout(
-      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "COMPLETED", result, updatedAt: new Date() }),
+      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "COMPLETED", result }),
       API_TIMEOUT_MS
     );
     log.info("[bookingCore] Transaction completed", { transactionId });
@@ -200,7 +199,7 @@ export async function _completeTransaction(transactionId, result = null) {
 export async function _failTransaction(transactionId, reason) {
   try {
     await withTimeout(
-      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "FAILED", failureReason: reason, updatedAt: new Date() }),
+      wixData.update(TRANSACTIONS_COLLECTION, { _id: transactionId, status: "FAILED", error: reason }),
       API_TIMEOUT_MS
     );
     log.warn("[bookingCore] Transaction failed", { transactionId, reason });
@@ -259,7 +258,7 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
       lockKey,
       ownerId,
       status: "ACQUIRED",
-      createdAt: new Date(),
+      _createdDate: new Date(),
       expiresAt: new Date(Date.now() + ttlMs),
       ttlMs,
     };
@@ -303,7 +302,7 @@ export async function _renewLock(lockKey, ownerId, ttlMs = LOCK_TTL_MS) {
     if (existingLocks.items && existingLocks.items.length > 0) {
       const lock = existingLocks.items[0];
       await withTimeout(
-        wixData.update(LOCKS_COLLECTION, { _id: lock._id, expiresAt: new Date(Date.now() + ttlMs), updatedAt: new Date() }, { suppressAuth: true }),
+        wixData.update(LOCKS_COLLECTION, { _id: lock._id, expiresAt: new Date(Date.now() + ttlMs) }, { suppressAuth: true }),
         API_TIMEOUT_MS
       );
       log.info("[bookingCore] Lock renewed", { lockKey, ownerId });
@@ -327,7 +326,7 @@ export async function _persistBooking(params, traceId = "no-trace") {
     if (!serviceId) missingFields.push("primaryServiceGuid");
     if (!params.scheduleId) missingFields.push("scheduleId");
     const error = createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Missing required fields: ${missingFields.join(", ")}`, { traceId, missingFields });
-    console.error(`[bookingCore][${traceId}] ${error.message}`);
+    log.error(`[bookingCore] ${error.message}`, { traceId });
     throw error;
   }
   if (!_looksLikeGuid(serviceId)) {
@@ -352,27 +351,40 @@ export async function _persistBooking(params, traceId = "no-trace") {
   if (!validPaymentStates.includes(paymentStatus)) {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state (estadoPago): ${paymentStatus}`, { traceId, paymentStatus });
   }
+  const startDateLocal = getMadridLocalStringNoZ(params.startDate) || "";
+  const endDateLocal = getMadridLocalStringNoZ(params.endDate) || "";
+  const dateYmd = meta.dateYmd || startDateLocal.slice(0, 10);
+  const pairToken = meta.pairToken || null;
+  const uiPairToken = meta.uiPairToken || pairToken || null;
   const bookingRecord = {
     _id: params.bookingId,
-    revision: params.revision,
+    bookingId: params.bookingId,
+    serviceId,
     primaryServiceGuid: serviceId,
     scheduleId: params.scheduleId,
     resourceId: params.resourceId,
+    pairToken,
+    uiPairToken,
     startDate: params.startDate,
     endDate: params.endDate,
-    contactDetails: params.contactDetails,
+    startDateLocal,
+    endDateLocal,
+    dateYmd,
+    status: "CONFIRMED",
+    paymentStatus,
+    statusPago: paymentStatus,
     bookingType: params.tipo,
-    meta: JSON.stringify(meta),
+    contactDetails: params.contactDetails,
+    meta,
     traceId,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    _createdDate: new Date(),
   };
   try {
     const result = await withTimeout(wixData.insert(CITAS_COLLECTION, bookingRecord), API_TIMEOUT_MS);
-    console.log(`[bookingCore][${traceId}] Booking persistido: ${result._id || params.bookingId}`);
+    log.info(`[bookingCore] Booking persistido: ${result._id || params.bookingId}`, { traceId });
     return { created: true, item: result };
   } catch (error) {
-    console.error(`[bookingCore][${traceId}] Error persistiendo booking: ${error.message}`);
+    log.error(`[bookingCore] Error persistiendo booking: ${error.message}`, { traceId });
     throw error;
   }
 }

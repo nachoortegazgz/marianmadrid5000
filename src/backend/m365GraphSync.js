@@ -112,7 +112,7 @@ export async function enqueueM365LedgerRecord(movement, traceId) {
     const queue = {
         _id: queueId, payload, payloadHash: payload.integrityHash,
         status: "PENDING", attempts: 0, nextAttemptAt: new Date(),
-        traceId: payload.correlationId, createdAt: new Date(), updatedAt: new Date(),
+        traceId: payload.correlationId, _createdDate: new Date(),
     };
 
     try {
@@ -143,7 +143,7 @@ export async function processM365GraphSyncQueue(options = {}) {
     for (const queue of pending.items) {
         try {
             const postResult = await _postListItem(config, token, queue.payload);
-            await wixData.update(QUEUE_COL, { ...queue, status: "COMPLETED", externalRecordId: postResult.externalRecordId, updatedAt: new Date() }, { suppressAuth: true });
+            await wixData.update(QUEUE_COL, { ...queue, status: "COMPLETED", externalRecordId: postResult.externalRecordId }, { suppressAuth: true });
             processed++;
         } catch (error) {
             const attempts = queue.attempts + 1;
@@ -153,7 +153,7 @@ export async function processM365GraphSyncQueue(options = {}) {
                 status: terminal ? "FAILED" : "RETRY",
                 attempts,
                 nextAttemptAt: new Date(Date.now() + BACKOFF_MS * Math.pow(2, attempts - 1)),
-                updatedAt: new Date()
+                _updatedDate: new Date()
             }, { suppressAuth: true });
         }
     }
