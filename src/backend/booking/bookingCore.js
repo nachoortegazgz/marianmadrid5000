@@ -402,6 +402,13 @@ export async function _handleError(error, context = {}) {
   return { ok: false, error: bookingError };
 }
 
+// elevate() de wix-auth devuelve una funcion elevada que debe invocarse.
+// Este helper la invoca si es funcion y, si no (mocks legacy), espera el valor.
+async function _invokeElevated(fnFactory) {
+  const elevated = elevate(fnFactory);
+  return typeof elevated === "function" ? elevated() : elevated;
+}
+
 export async function createBookingElevated(payload) {
   try {
     const elevatedPayload = {
@@ -411,7 +418,7 @@ export async function createBookingElevated(payload) {
       totalParticipants: payload.totalParticipants,
       options: payload.options,
     };
-    const result = await elevate(() => bookings.createBooking(elevatedPayload));
+    const result = await _invokeElevated(() => bookings.createBooking(elevatedPayload));
     const booking = result?.booking || result?.data?.booking || result;
     const bookingId = booking?._id || booking?.id || result?.bookingId;
     log.info("[bookingCore] Booking created via elevated", { bookingId });
@@ -428,7 +435,7 @@ export async function cancelBookingElevated(bookingId, options = {}) {
       bookingId,
       ...(options && typeof options === "object" ? options : {}),
     };
-    const result = await elevate(() => bookings.cancelBooking(cancelPayload));
+    const result = await _invokeElevated(() => bookings.cancelBooking(cancelPayload));
     log.info("[bookingCore] Booking cancelled via elevated", { bookingId });
     return { ok: true, data: { bookingId, status: "CANCELLED" } };
   } catch (error) {
@@ -443,7 +450,7 @@ export async function createCheckoutElevated(payload) {
       lineItems: payload.lineItems,
       buyerInfo: payload.buyerInfo,
     };
-    const result = await elevate(() => checkout.createCheckout(elevatedPayload));
+    const result = await _invokeElevated(() => checkout.createCheckout(elevatedPayload));
     log.info("[bookingCore] Checkout created via elevated", { checkoutId: result.checkout?._id });
     return { ok: true, data: { checkoutId: result.checkout?._id, status: result.checkout?.status } };
   } catch (error) {
@@ -454,7 +461,7 @@ export async function createCheckoutElevated(payload) {
 
 export async function getCheckoutUrlElevated(checkoutId) {
   try {
-    const result = await elevate(() => checkout.getCheckoutUrl({ checkoutId }));
+    const result = await _invokeElevated(() => checkout.getCheckoutUrl({ checkoutId }));
     log.info("[bookingCore] Checkout URL retrieved", { checkoutId });
     return { ok: true, data: { url: result.url } };
   } catch (error) {
@@ -472,19 +479,19 @@ export async function confirmOrDeclineBookingElevated(bookingId, action) {
       : (isObjectAction ? String(action.action || action.type || action.status || "").toLowerCase() : "");
     if (resolvedAction === "confirm" || (!resolvedAction && isObjectAction && paymentStatus !== "DECLINED" && paymentStatus !== "REFUNDED")) {
       const confirmPayload = isObjectAction ? { bookingId, ...action } : { bookingId };
-      const result = await elevate(() => bookings.confirmBooking(confirmPayload));
+      const result = await _invokeElevated(() => bookings.confirmBooking(confirmPayload));
       log.info("[bookingCore] Booking confirmed", { bookingId });
       return { ok: true, data: { bookingId, status: "CONFIRMED" } };
     }
     if (resolvedAction === "decline" || paymentStatus === "DECLINED" || (isObjectAction && String(action.status || action.action || "").toLowerCase() === "declined")) {
       const declinePayload = isObjectAction ? { bookingId, ...action } : { bookingId };
-      const result = await elevate(() => bookings.declineBooking(declinePayload));
+      const result = await _invokeElevated(() => bookings.declineBooking(declinePayload));
       log.info("[bookingCore] Booking declined", { bookingId });
       return { ok: true, data: { bookingId, status: "DECLINED" } };
     }
     if (isObjectAction && paymentStatus !== "DECLINED" && paymentStatus !== "REFUNDED") {
       const confirmPayload = { bookingId, ...action };
-      const result = await elevate(() => bookings.confirmBooking(confirmPayload));
+      const result = await _invokeElevated(() => bookings.confirmBooking(confirmPayload));
       log.info("[bookingCore] Booking confirmed", { bookingId });
       return { ok: true, data: { bookingId, status: "CONFIRMED" } };
     }
@@ -507,7 +514,7 @@ export async function rescheduleBookingElevated(bookingId, schedule, options = {
       schedule,
       ...(options && typeof options === "object" ? options : {}),
     };
-    const result = await elevate(() => bookings.rescheduleBooking(payload));
+    const result = await _invokeElevated(() => bookings.rescheduleBooking(payload));
     const booking = result?.booking || result;
     const revision = Number(booking?.revision || options?.revision || 1);
     log.info("[bookingCore] Booking rescheduled via elevated", { bookingId: cleanBookingId, revision });

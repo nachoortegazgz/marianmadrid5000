@@ -212,7 +212,7 @@ describe('bookingCore.ts', () => {
       };
       
       await expect(_persistBooking(params, 'trace-1'))
-        .rejects.toThrow('Invalid primaryServiceGuid');
+        .rejects.toThrow('Invalid serviceId');
     });
 
     it('debe lanzar error si tipo de booking es inválido', async () => {

@@ -56,6 +56,12 @@ coverage/
 .env.*
 !.env.example
 
+# E2E (Playwright)
+test-results/
+playwright-report/
+.env.e2e
+
+
 # IDE
 *.swp
 *.swo

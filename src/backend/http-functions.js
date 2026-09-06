@@ -12,6 +12,8 @@ import { makeTraceId, _safeTrim, _safeSlugOrId, _looksLikeGuid } from "public/mm
 import { hmacSha256Hex } from "backend/securityEngine";
 import { _getServiceBySlugOrIdInternal } from "backend/reservas.web";
 import { logger } from "backend/booking/bookingCore";
+import { cancelBookingElevated } from "backend/booking/bookingCore";
+import { processDualBooking } from "backend/citasManager.web";
 
 const log = logger;
 const HMAC_MAX_CLOCK_SKEW_SECONDS = 60;
@@ -118,7 +120,59 @@ export async function get_health(request) {
       status: "OK",
       timestamp: new Date().toISOString(),
       traceId,
-      version: "v5003.0-canonical-clean",
+      version: "v5003.0-canary-e2e",
     },
   });
+}
+
+// E2E booking: replica el punto de entrada que usa el widget HTML para
+// completar una reserva real (procesa cliente + metaCita + slotF1/slotF2).
+// Autenticado por HMAC con el mismo secreto que el webhook M365.
+export async function post_booking(request) {
+  const traceId = _safeTraceId("http-e2e-booking");
+  try {
+    const bodyString = typeof request.body === "string" ? request.body : JSON.stringify(request.body || {});
+    const isValid = await _validateHMACSignature(request, bodyString, traceId);
+    if (!isValid) {
+      log.warn("E2E booking HMAC validation failed", { traceId });
+      return unauthorized({ body: { error: "UNAUTHORIZED" } });
+    }
+    const payload = typeof request.body === "string" ? JSON.parse(request.body) : (request.body || {});
+    const result = await processDualBooking({ ...payload, traceId });
+    const status = result?.status === "SUCCESS" ? 200 : 400;
+    return { status, headers: { 'Content-Type': 'application/json' }, body: result };
+  } catch (error) {
+    log.error("post_booking failed", { traceId, error: error?.message });
+    return serverError({ body: { error: "INTERNAL_ERROR" } });
+  }
+}
+
+// E2E cleanup: cancela una reserva de prueba de forma autenticada.
+// Solo admins (mismos correos que autorizan el sitio) pueden invocarlo.
+export async function post_e2e_cancel(request) {
+  const traceId = _safeTraceId("http-e2e-cancel");
+  try {
+    const bodyString = typeof request.body === "string" ? request.body : JSON.stringify(request.body || {});
+    const isValid = await _validateHMACSignature(request, bodyString, traceId);
+    if (!isValid) {
+      log.warn("E2E cancel HMAC validation failed", { traceId });
+      return unauthorized({ body: { error: "UNAUTHORIZED" } });
+    }
+    const body = typeof request.body === "string" ? JSON.parse(request.body) : (request.body || {});
+    const bookingId = _safeTrim(body.bookingId || "");
+    const revision = body.revision;
+    if (!bookingId) {
+      return badRequest({ body: { error: "BOOKING_ID_REQUIRED" } });
+    }
+    const result = await cancelBookingElevated(bookingId, revision ? { revision } : {});
+    if (!result.ok) {
+      log.warn("E2E cancel fallo", { traceId, bookingId, error: result.message });
+      return serverError({ body: { error: "CANCEL_FAILED", detail: result.message } });
+    }
+    log.info("E2E cancel OK", { traceId, bookingId });
+    return ok({ body: { cancelled: true, bookingId } });
+  } catch (error) {
+    log.error("post_e2e_cancel failed", { traceId, error: error?.message });
+    return serverError({ body: { error: "INTERNAL_ERROR" } });
+  }
 }

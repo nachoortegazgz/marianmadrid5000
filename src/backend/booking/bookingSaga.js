@@ -71,14 +71,14 @@ const API_TIMEOUT_MS = SDK_CONFIG?.TIMEOUTS?.API_MS || 15000;
 const HEARTBEAT_MS = CONCURRENCY?.HEARTBEAT_MS || 15000;
 const LOCK_TTL_MS = Number(CONCURRENCY?.MUTEX_TTL_MS) || 300000;
 
-export function normalizePersistedMeta(meta) {
+export function _normalizePersistedMeta(meta) {
   if (!meta) return {};
   if (typeof meta === "object") return meta;
   if (typeof meta !== "string") return {};
   try {
     const parsed = JSON.parse(meta);
     return parsed && typeof parsed === "object" ? parsed : {};
-  } catch () {
+  } catch {
     return {};
   }
 }

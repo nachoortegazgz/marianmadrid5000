@@ -161,7 +161,7 @@ function _parseServiceAddons(rawAddons) {
   try {
     const parsed = JSON.parse(rawAddons);
     return Array.isArray(parsed) ? parsed : [];
-  } catch () {
+  } catch {
     return [];
   }
 }
