@@ -12,8 +12,7 @@ const {
   _persistBooking,
   _generatePairToken,
   _areSlotsCompatible,
-  _auditBookingPrice,
-  _areSlotsContiguous
+  _auditBookingPrice
 } = bookingCore;
 
 describe('bookingCore.ts', () => {
