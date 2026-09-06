@@ -27,6 +27,7 @@ COMPENSACIONES_PENDIENTES: "CompensacionesPendientes",
 M365_GRAPH_SYNC_QUEUE: "M365GraphSyncQueue",
 // Mision 4: Gestion de Inventario, Catalogo de Venta y Proveedores
 INVENTARIO_STOCK_VENTA: "InventarioStockVenta",
+INVENTARIO_STOCK_VENTA_CIERRE: "InventarioStockVentaCierre",
 MOVIMIENTOS_INVENTARIO: "MovimientosInventario",
 PROVEEDORES_LISTA: "ProveedoresLista",
 // Mision 5: TPV, Control de Caja Diaria, Arqueos y Secuencia Fiscal

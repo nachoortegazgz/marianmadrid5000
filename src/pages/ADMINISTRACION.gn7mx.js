@@ -60,7 +60,7 @@
      return;
    }
    createWidgetBridge(widget, {
-     slug: "administracion",
+     slugUrl: "administracion",
      traceId,
      onContextReady: async () => {
        const [cashierRes, invRes, queueRes] = await Promise.all([

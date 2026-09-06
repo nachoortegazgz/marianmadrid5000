@@ -268,13 +268,13 @@ export async function executeBookingSaga(unsafePayload) {
     if (isDualRequested && !serviceData.allowCombine) {
       return { status: "ERROR", error: { code: "DUAL_NOT_ALLOWED", message: "Este servicio no permite combinacion en dos fases." } };
     }
-    const tiempoFase1Ms = (Number(serviceData.phase1Duration) || 0) * 60 * 1000;
+    const phase1DurationMs = (Number(serviceData.phase1Duration) || 0) * 60 * 1000;
     const exposureMs = (Number(serviceData.exposureDuration) || 0) * 60 * 1000;
-    const tiempoFase2Ms = (Number(serviceData.phase2Duration) || 0) * 60 * 1000;
+    const phase2DurationMs = (Number(serviceData.phase2Duration) || 0) * 60 * 1000;
     const f1StartUtc = getUtcDateFromMadridLocal(f1LocalStart);
     if (!f1StartUtc) throw createBookingError("INVALID_DATES", "Error al convertir la fecha local de la Fase 1.");
     const f1LocalEndSSOT = _normalizeLocalIsoStr(slotF1.localEndDate) ||
-      getMadridLocalStringNoZ(new Date(f1StartUtc.getTime() + tiempoFase1Ms));
+      getMadridLocalStringNoZ(new Date(f1StartUtc.getTime() + phase1DurationMs));
     const isDual = !!(
       isDualRequested &&
       serviceData.allowCombine &&
@@ -294,8 +294,8 @@ export async function executeBookingSaga(unsafePayload) {
       f2LocalStart = _normalizeLocalIsoStr(slotF2?.localStartDate);
       f2LocalEnd = _normalizeLocalIsoStr(slotF2?.localEndDate);
       if (!f2LocalStart || !f2LocalEnd) {
-        const f2StartUtcSSOT = new Date(f1StartUtc.getTime() + tiempoFase1Ms + exposureMs);
-        const f2EndUtcSSOT = new Date(f2StartUtcSSOT.getTime() + tiempoFase2Ms);
+        const f2StartUtcSSOT = new Date(f1StartUtc.getTime() + phase1DurationMs + exposureMs);
+        const f2EndUtcSSOT = new Date(f2StartUtcSSOT.getTime() + phase2DurationMs);
         f2LocalStart = getMadridLocalStringNoZ(f2StartUtcSSOT);
         f2LocalEnd = getMadridLocalStringNoZ(f2EndUtcSSOT);
       }

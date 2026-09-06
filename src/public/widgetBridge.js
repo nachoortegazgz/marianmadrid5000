@@ -11,7 +11,9 @@ import { MESSAGE_TYPES, makeTraceId, _safeSlugOrId, withTimeout } from "public/m
 
 export function createWidgetBridge(widgetElement, options = {}) {
     const traceId = options.traceId || makeTraceId("bridge");
-    const slug = _safeSlugOrId(options.slug || "") || "unknown";
+    // [W-01] slugUrl canonical (Biblia v5002.4); options.slug is accepted only as
+    // migration tolerance until every caller passes slugUrl.
+    const slugUrl = _safeSlugOrId(options.slugUrl || options.slug || "") || "unknown";
 
     if (!widgetElement || typeof widgetElement.postMessage !== "function") {
         console.error("[widgetBridge] HTML widget component not found or incompatible.");
@@ -54,7 +56,9 @@ export function createWidgetBridge(widgetElement, options = {}) {
                 const contextData = typeof options.onContextReady === "function"
                     ? await withTimeout(options.onContextReady(), contextTimeoutMs, "widget context")
                     : {};
-                post(MESSAGE_TYPES.CONTEXT, { ...contextData, slug });
+                // [W-01] slugUrl canonical; deprecated wire alias slug kept until
+                // the HTML widgets finish migrating to slugUrl.
+                post(MESSAGE_TYPES.CONTEXT, { ...contextData, slugUrl, slug: slugUrl });
                 contextSent = true;
                 clearTimeout(handshakeTimer);
                 handshakeTimer = null;

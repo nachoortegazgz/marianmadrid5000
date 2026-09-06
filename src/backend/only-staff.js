@@ -46,7 +46,7 @@
      return;
    }
    bridge = createWidgetBridge(widget, {
-     slug: "only-staff",
+     slugUrl: "only-staff",
      traceId,
      handshakeTimeoutMs: UI.HANDSHAKE_TIMEOUT_MS,
      contextTimeoutMs: UI.CONTEXT_TIMEOUT_MS,

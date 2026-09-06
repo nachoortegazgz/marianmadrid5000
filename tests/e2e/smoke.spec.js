@@ -22,7 +22,7 @@ test.describe('Smoke - endpoints publicos', () => {
     expect(typeof s.price).toBe('number');
   });
 
-  test('get_service devuelve detalle por slug', async () => {
+  test('get_service devuelve detalle por slugUrl', async () => {
     const services = await getServices();
     const target = services.find((s) => s.slugUrl) || services[0];
     const detail = await getService(target.slugUrl || target.serviceId);

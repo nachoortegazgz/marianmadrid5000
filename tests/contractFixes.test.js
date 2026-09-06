@@ -119,15 +119,19 @@ vi.mock('backend/staff', () => ({
 
 vi.mock('backend/internalConfig', () => ({
   COLLECTIONS: {
-    CITAS: 'CitasF2',
-    COMPENSATIONS: 'PendingCompensations',
-    TRANSACTIONS: 'BookingTransactions',
-    LOCKS: "SlotLocks",
-    SERVICIOS_RESERVA: "ServiciosCatalogo",
-    INVENTARIO_PRODUCTO: "InventarioStockVenta",
-    MOVIMIENTO_INVENTARIO: "MovimientosInventario",
-    CONCILIACION_STOCK_WIX: "MovimientosInventario",
-    REGISTRO_HORARIO: "RegistrosHorariosStaff",
+    CITAS_F2: 'CitasF2',
+    COMPENSACIONES_PENDIENTES: 'CompensacionesPendientes',
+    BOOKING_TRANSACTIONS: 'BookingTransactions',
+    SLOT_LOCKS: 'SlotLocks',
+    SERVICIOS_CATALOGO: 'ServiciosCatalogo',
+    INVENTARIO_STOCK_VENTA: 'InventarioStockVenta',
+    INVENTARIO_STOCK_VENTA_CIERRE: 'InventarioStockVentaCierre',
+    MOVIMIENTOS_INVENTARIO: 'MovimientosInventario',
+    MM_AUDIT_LOG: 'MmAuditLog',
+    REGISTROS_HORARIOS_STAFF: 'RegistrosHorariosStaff',
+    RATE_LIMIT_BLOCKS: 'RateLimitBlocks',
+    DUAL_SLOT_CACHE: 'DualSlotCache',
+    AVAILABILITY_DAYS_CACHE: 'AvailabilityDaysCache',
   },
   CONCURRENCY: { HEARTBEAT_MS: 15000, MUTEX_TTL_MS: 120000 },
   SDK_CONFIG: {

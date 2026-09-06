@@ -26,7 +26,7 @@
  }
  async function resolveServiceLookup() {
    const query = wixLocation.query || {};
-   const slugCandidates = [query.slugUrl, query.slug, query.serviceKey];
+   const slugCandidates = [query.slugUrl, query.serviceKey];
    for (const candidate of slugCandidates) {
      const slugUrl = _safeSlugOrId(candidate);
      if (slugUrl) return slugUrl;
@@ -54,7 +54,7 @@
      }
      let resolvedService = null;
      createWidgetBridge(widget, {
-       slug: lookupValue,
+       slugUrl: lookupValue,
        traceId,
        onContextReady: async () => {
          const result = await getServiceBySlugOrId(lookupValue);
@@ -71,7 +71,7 @@
          if (type === MESSAGE_TYPES.BOOK) {
            const base = URLS?.CALENDARIO_2 || "/booking-calendar/calendario-2";
            const query = [
-             `slugUrl=${encodeURIComponent(resolvedService.slugUrl || resolvedService.slug || lookupValue)}`,
+             `slugUrl=${encodeURIComponent(resolvedService.slugUrl || lookupValue)}`,
              `serviceId=${encodeURIComponent(resolvedService.serviceId)}`,
              "referral=servicio-2",
            ];

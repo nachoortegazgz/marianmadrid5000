@@ -42,7 +42,7 @@ vi.mock('backend/internalConfig', () => ({
     CITAS_F2: 'CitasF2',
     COMPENSACIONES_PENDIENTES: 'CompensacionesPendientes',
     BOOKING_TRANSACTIONS: 'BookingTransactions',
-    LOCKS: 'SlotLocks',
+    SLOT_LOCKS: 'SlotLocks',
   },
   CONCURRENCY: {
     HEARTBEAT_MS: 15000,

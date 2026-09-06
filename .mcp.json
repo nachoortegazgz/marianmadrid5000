@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "wix": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@wix/mcp@latest"]
+    }
+  }
+}

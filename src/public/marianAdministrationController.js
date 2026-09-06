@@ -224,7 +224,7 @@ const ADMIN_ACTION_DISPATCH = Object.freeze({
     },
 });
 
-export async function initMarianAdministration(widget, slug = "administracion") {
+export async function initMarianAdministration(widget, slugUrl = "administracion") {
     const traceId = makeTraceId("marian-admin");
     if (!widget || typeof widget.postMessage !== "function") return;
 
@@ -272,7 +272,7 @@ export async function initMarianAdministration(widget, slug = "administracion") 
     }
 
     createWidgetBridge(widget, {
-        slug,
+        slugUrl,
         traceId,
         requiresServiceId: false,
         onContextReady: loadContext,

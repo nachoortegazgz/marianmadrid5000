@@ -20,7 +20,7 @@ export interface BookingMeta {
   secondaryServiceId: string | null;
   traceId: string;
   esCombinado: boolean;
-  fechaYmdMadrid: string;
+  dateYmd: string;
   serviceName: string;
   paymentStatus: 'UNPAID' | 'PENDING_PAYMENT' | 'CONFIRMED_UNPAID' | 'PAID';
   paymentMethod: 'ONLINE' | 'PRESENCIAL';

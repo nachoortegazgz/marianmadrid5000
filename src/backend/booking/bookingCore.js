@@ -9,6 +9,7 @@ FIXES APPLIED:
   [C-05] rescheduleBookingElevated: valida bookingId y schedule
   [C-06] COLLECTIONS.LOCKS -> COLLECTIONS.SLOT_LOCKS
   [C-07] Eliminado _buildLockKeys_DEPRECATED, reemplazado por _buildLockKeys
+  [C-08] bookingRecord: eliminado alias legacy statusPago (canonical: paymentStatus)
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 */
 import { bookings } from "wix-bookings.v2";
@@ -372,7 +373,6 @@ export async function _persistBooking(params, traceId = "no-trace") {
     dateYmd,
     status: "CONFIRMED",
     paymentStatus,
-    statusPago: paymentStatus,
     bookingType: params.tipo,
     contactDetails: params.contactDetails,
     meta,

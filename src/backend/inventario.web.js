@@ -8,7 +8,8 @@
  CORRECTIONS APPLIED (Matriz Correspondencia):
    - INVENTARIO_PRODUCTO -> INVENTARIO_STOCK_VENTA -> "InventarioStockVenta"
    - MOVIMIENTO_INVENTARIO -> MOVIMIENTOS_INVENTARIO -> "MovimientosInventario"
-   - CONCILIACION_STOCK_WIX -> ELIMINADA (absorbida por MovimientosInventario
+   - Legacy stock reconciliation collection was removed (absorbed by
+     MovimientosInventario)
      con .eq("requiresWixReconciliation", true))
    - stockActual / existenciasEsperadasUnidades -> stockExpected
    - nombreProducto -> productName
@@ -90,7 +91,7 @@
  });
 
  // ============================================================================
- // GET INVENTORY RECONCILIATION QUEUE (absorbed from ConciliacionStockWix)
+ // GET INVENTORY RECONCILIATION QUEUE (absorbed from the legacy stock reconciliation collection)
  // ============================================================================
  export const getInventoryReconciliationQueue = webMethod(Permissions.SiteMember, async (options = {}) => {
    const traceId = options.traceId || makeTraceId("inv-queue");
