@@ -1,0 +1,35 @@
+tu criterio
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.associations": {
+    "*.js": "javascript",
+    "*.mjs": "javascript",
+    "*.jsw": "javascript"
+  },
+  "files.exclude": {
+    "**/*.bak": true,
+    "**/node_modules": true,
+    "**/.wix": true
+  },
+  "search.exclude": {
+    "**/*.bak": true,
+    "**/node_modules": true,
+    "**/.wix": true,
+    "**/dist": true
+  },
+  "javascript.validate.enable": true,
+  "eslint.validate": ["javascript", "javascriptreact"],
+  "vitest.enable": true,
+  "vitest.commandLine": "npx vitest run",
+  "[javascript]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "editor.rulers": [120]
+}

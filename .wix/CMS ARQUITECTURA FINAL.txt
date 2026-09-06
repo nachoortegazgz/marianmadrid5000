@@ -1,0 +1,1691 @@
+# ESQUEMA TÉCNICO COMPLETO Y ACTUALIZADO DE COLECCIONES EN WIX CMS
+
+**Proyecto:** MARIANMADRID4001 / MARIANMADRID4002
+**Versión de Arquitectura:** v21.0.0-LTS
+**Estándar de Nomenclatura:** Nombre visible en MAYUSCULAS_CON_GUION_BAJO | ID interna de colección según SSOT (internalConfig.js) | Campos en camelCase / ID exacta | Claves foráneas sin traducir.
+
+---
+
+## 🧭 1. REGLAS DE NOMENCLATURA, TIPOS Y PERMISOS
+
+1. **Nombre Visible de Colección:** Siempre en MAYUSCULAS_CON_GUION_BAJO (ej. SERVICIOS_RESERVA, MOVIMIENTO_CAJA, REGISTRO_HORARIO).
+2. **Identificador Interno (collectionId):** Cadena técnica exacta consumida por las APIs de wix-data en el backend.
+3. **Identificadores Nativos (Invariables):** Los campos que enlazan con APIs nativas de Wix nunca se traducen (serviceId, bookingId, resourceId, scheduleId, locationId, orderId, checkoutId, productId, variantId, sku).
+4. **Niveles de Permisos en Wix CMS:**
+   - Público (Anyone): Lectura abierta para catálogo y disponibilidad pública.
+   - Miembro (SiteMember): Fichajes propios, consultas de empleado o pedidos de usuario autenticado.
+   - Administrador (Admin) / Sistema Backend: Escritura protegida, auditoría, contabilidad, ledger inmutable y crones con elevación (suppressAuth: true).
+
+---
+
+## 📦 2. ESQUEMA TÉCNICO DE COLECCIONES POR ÁREAS
+
+### ÁREA 1: CATÁLOGO COMERCIAL, PERSONAL Y SALÓN
+
+#### 1. SERVICIOS_RESERVA
+
+- **ID Oculta / Técnica:** `ServiciosCatalogo`
+- **Propósito:** Catálogo maestro de servicios, configuración de dos fases (dual slot) y tiempos de exposición.
+- **Permisos CMS:**
+  - Lectura: Anyone (Público)
+  - Creación / Modificación / Eliminación: Admin (con hooks de validación en data.js)
+- **Índices:**
+  - Primario: `_id` (UUID)
+  - Únicos: `slugUrl`, `idServicio` (serviceId), `codigoSku`
+  - Secundarios: `nombreCategoria`, `allowCombine`, `estado`, `hidden`
+
+| Nombre Visible del Campo       | ID Oculta del Campo         | Tipo en Wix CMS   | Restricciones / Opciones              |
+| :----------------------------- | :-------------------------- | :---------------- | :------------------------------------ |
+| **ID del Elemento**            | `_id`                       | `Text`            | Clave primaria (UUID)                 |
+| **Título del Servicio**        | `title`                     | `Text`            | Máx. 160 caracteres (Display Field)   |
+| **Slug URL**                   | `slugUrl`                   | `Text`            | Índice único, kebab-case              |
+| **Categoría**                  | `nombreCategoria`           | `Reference`       | Vinculado a `CATEGORIAS_SERVICIO`     |
+| **ID Categoría Wix**           | `idCategoria`               | `Text`            | GUID de categoría de Bookings         |
+| **ID Servicio Wix Bookings**   | `serviceId`                 | `Text`            | GUID primario (Fase 1)                |
+| **Permitir Combinar (Dual)**   | `allowCombine`              | `Boolean`         | `true` = 2 fases con gap              |
+| **ID Servicio Fase 2**         | `linkedPhases`              | `Text`            | GUID Fase 2 en Wix Bookings           |
+| **Servicio Fase 2 Enlazado**   | `tituloServicioFaseDos`     | `Reference`       | Auto-referencia a `SERVICIOS_RESERVA` |
+| **Resumen Corto**              | `tagLine`                   | `Text`            | Máx. 120 caracteres                   |
+| **Descripción Larga**          | `description`               | `Rich Text`       | Máx. 6000 caracteres                  |
+| **Modelo de Precio**           | `pricingModel`              | `Choices`         | `FIXED`, `NO_FEE`                     |
+| **Precio (€)**                 | `price`                     | `Number`          | Moneda base (EUR), ≥ 0               |
+| **Moneda**                     | `currency`                  | `Choices`         | `EUR`                                 |
+| **Tipo de Depósito**           | `depositType`               | `Choices`         | `FIJO`, `PORCENTAJE`                  |
+| **Valor Depósito**             | `depositAmount`             | `Number`          | Importe en EUR o %                    |
+| **Imagen Principal**           | `mainMedia`                 | `Image`           | URL multimedia Wix Static             |
+| **Tipo de Servicio**           | `serviceType`               | `Choices`         | `CITA`, `EVENTO`, `CLASE`             |
+| **Tiempo Fase 1 (min)**        | `phase1Duration`            | `Number`          | Duración fase 1                       |
+| **Tiempo Exposición (min)**    | `exposureDuration`          | `Number`          | Tiempo de espera/químico              |
+| **Tiempo Fase 2 (min)**        | `phase2Duration`            | `Number`          | Duración fase 2                       |
+| **Duración Total (min)**       | `totalDuration`             | `Number`          | F₁ + Gap + F₂                        |
+| **Margen de Tiempo (min)**     | `buffer`                    | `Number`          | Buffer de preparación                 |
+| **Localización**               | `location`                  | `Reference`       | Vinculado a `LOCALIZACIONES_SALON`    |
+| **Nombre Localización**        | `nombreLocalizacion`        | `Text`            | Nombre visible del salón              |
+| **ID Localización Wix**        | `idLocalizacion`            | `Text`            | GUID ubicación nativa                 |
+| **Impuesto Incluido**          | `taxIncluded`               | `Boolean`         | Predeterminado `true`                 |
+| **Tipo de IVA**                | `taxRate`                   | `Choices`         | `0.21`, `0.10`, `0.00`               |
+| **Permite Pago Online**        | `onlinePayment`             | `Boolean`         | Checkout eCommerce                    |
+| **Permite Pago Presencial**    | `inPersonPayment`           | `Boolean`         | Pago en salón / TPV                   |
+| **Código SKU**                 | `sku`                       | `Text`            | Formato `SRV-XXX-XXXXXXXX`            |
+| **Oculto en Catálogo**         | `hidden`                    | `Boolean`         | `true` para sub-servicios F2          |
+| **Estado**                     | `status`                    | `Choices`         | `ACTIVO`, `INACTIVO`, `BORRADOR`      |
+| **Personal Disponible (JSON)** | `availableStaff`            | `Object`          | Array estructurado de staffIds        |
+| **Estilistas Autorizados**     | `personalDisponibleNombres` | `Multi-Reference` | Vinculado a `MAPA_STAFF`              |
+| **IDs de Addons**              | `addOnOptions`              | `Tags` / `Array`  | GUIDs de complementos                 |
+| **Complementos Elegibles**     | `addOnTitles`               | `Multi-Reference` | Vinculado a `ADDONS_CATALOGO`         |
+
+---
+
+#### 2. ADDONS_CATALOGO
+
+- **ID Oculta / Técnica:** `ComplementosCatalogo`
+- **Propósito:** Opciones extra seleccionables por el cliente durante la reserva.
+- **Permisos CMS:** Lectura: Anyone | Escritura: Admin
+- **Índices:** Primario: `_id` | Secundarios: `idAddonBookings`, `active`, `categoriaAddon`
+
+| Nombre Visible del Campo    | ID Oculta del Campo                       | Tipo en Wix CMS   | Restricciones / Opciones           |
+| :-------------------------- | :---------------------------------------- | :---------------- | :--------------------------------- |
+| **ID del Elemento**         | `_id`                                     | `Text`            | Clave primaria (UUID)              |
+| **ID Addon**                | `addOnId`                                 | `Text`            | Identificador interno              |
+| **ID Addon Bookings**       | `idAddonBookings`                         | `Text`            | GUID nativo Bookings V2            |
+| **ID Grupo Addon Bookings** | `idGrupoAddonBookings`                    | `Text`            | GUID grupo nativo Bookings         |
+| **Título del Complemento**  | `title`                                   | `Text`            | Display Field                      |
+| **Resumen Corto**           | `tagLine`                                 | `Text`            | Descripción breve                  |
+| **Descripción Larga**       | `description`                             | `Rich Text`       | Detalles del extra                 |
+| **Precio Addon (€)**        | `price`                                   | `Number`          | Tarifa suplementaria               |
+| **Tiempo Adicional (min)**  | `durationInMinutes`                       | `Number`          | Minutos sumados al slot            |
+| **Imagen**                  | `mainMedia`                               | `Image`           | Fotografía del extra               |
+| **Grupo Interno**           | `internalGroup`                           | `Text`            | Agrupador editorial                |
+| **Categoría**               | `categoriaAddon`                          | `Choices`         | `BOOKINGS`, `PRODUCTO`             |
+| **Disponible Online**       | `availableOnline`                         | `Boolean`         | Visible en web                     |
+| **Cantidad Máxima**         | `maxQuantity`                             | `Number`          | Máximo por cita (1-5)              |
+| **Activo**                  | `active`                                  | `Boolean`         | `true` / `false`                   |
+| **Estado**                  | `status`                                  | `Choices`         | `PUBLISHED`, `DRAFT`               |
+| **Localización**            | `location`                                | `Reference`       | Vinculado a `LOCALIZACIONES_SALON` |
+| **Servicios Vinculados**    | `referenciaOpcionesAddonServiciosReserva` | `Multi-Reference` | Enlace N:M a `SERVICIOS_RESERVA`   |
+
+---
+
+#### 3. CATEGORIAS_SERVICIO
+
+- **ID Oculta / Técnica:** `CategoriasServicio`
+- **Propósito:** Categorización comercial de servicios de peluquería y estética.
+- **Permisos CMS:** Lectura: Anyone | Escritura: Admin
+- **Índices:** Primario: `_id` | Únicos: `nombreCategoria`, `idCategoria`
+
+| Nombre Visible del Campo | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones                  |
+| :----------------------- | :------------------ | :-------------- | :---------------------------------------- |
+| **ID del Elemento**      | `_id`               | `Text`          | Formato `CAT_XXXX`                        |
+| **Nombre de Categoría**  | `nombreCategoria`   | `Text`          | Display Field (`COLOR PROFESIONAL`, etc.) |
+| **ID Categoría Wix**     | `idCategoria`       | `Text`          | GUID nativo en Bookings                   |
+| **Descripción**          | `description`       | `Text`          | Resumen de la categoría                   |
+| **Orden Visual**         | `orden`             | `Number`        | Prioridad de visualización                |
+| **Activo**               | `active`            | `Boolean`       | `true` / `false`                          |
+
+---
+
+#### 4. LOCALIZACIONES_SALON
+
+- **ID Oculta / Técnica:** `LocalizacionesSalon`
+- **Propósito:** Sedes físicas y geolocalización de salones autorizados.
+- **Permisos CMS:** Lectura: Anyone | Escritura: Admin
+- **Índices:** Primario: `_id` | Único: `idLocalizacion`
+
+| Nombre Visible del Campo   | ID Oculta del Campo  | Tipo en Wix CMS   | Restricciones / Opciones                 |
+| :------------------------- | :------------------- | :---------------- | :--------------------------------------- |
+| **ID del Elemento**        | `_id`                | `Text`            | Formato `LOC_XXXX`                       |
+| **Nombre de Localización** | `nombreLocalizacion` | `Text`            | Display Field (`Salón Central Zaragoza`) |
+| **ID Localización Wix**    | `idLocalizacion`     | `Text`            | GUID nativo (`7a12abfd...`)              |
+| **Dirección**              | `direccion`          | `Text`            | Dirección física                         |
+| **Código Postal**          | `codigoPostal`       | `Number` / `Text` | Código postal (`50012`)                  |
+| **Municipio / Ciudad**     | `municipio`          | `Text`            | Ciudad (`Zaragoza`)                      |
+| **Provincia**              | `provincia`          | `Text`            | Provincia (`Zaragoza`)                   |
+| **País**                   | `pais`               | `Text`            | Código ISO (`ES`)                        |
+| **Teléfono**               | `telefono`           | `Text`            | Teléfono de contacto                     |
+| **Email**                  | `email`              | `Text`            | Email de gestión                         |
+| **Activo**                 | `active`             | `Boolean`         | `true` / `false`                         |
+
+---
+
+#### 5. MAPA_STAFF
+
+- **ID Oculta / Técnica:** `MapaStaff`
+- **Propósito:** Autoridad única (SSOT) para estilistas, recursos de agenda y roles.
+- **Permisos CMS:** Lectura: SiteMember / Admin | Escritura: Admin (Hooks en data.js)
+- **Índices:** Primario: `_id` | Únicos: `resourceId`, `email`, `staffMemberId`
+
+| Nombre Visible del Campo    | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones              |
+| :-------------------------- | :------------------ | :-------------- | :------------------------------------ |
+| **ID del Elemento**         | `_id`               | `Text`          | UUID                                  |
+| **Nombre Visible**          | `displayName`       | `Text`          | Display Field (`MARIAN MADRID`, etc.) |
+| **ID Recurso Wix Bookings** | `resourceId`        | `Text`          | GUID nativo del profesional           |
+| **Email Corporativo**       | `email`             | `Text`          | Correo en minúsculas                  |
+| **ID Miembro Staff**        | `staffMemberId`     | `Text`          | GUID de `wix-members`                 |
+| **ID Horario Agenda**       | `scheduleId`        | `Text`          | GUID de calendario nativo             |
+| **ID Localización**         | `locationId`        | `Text`          | GUID de ubicación                     |
+| **Rol en Salón**            | `rol`               | `Choices`       | `ADMIN`, `GESTION`, `ESTILISTA`       |
+| **Teléfono**                | `phone`             | `Text`          | Teléfono directo                      |
+| **Activo**                  | `active`            | `Boolean`       | `true` / `false`                      |
+| **Notas Internas**          | `notes`             | `Text`          | Observaciones administrativas         |
+
+---
+
+### ÁREA 2: RESERVAS, CONCURRENCIA Y SAGAS
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                                 CITASF2                                  │
+│                 (Registro unificado de Citas y Fases)                    │
+└──────┬───────────────────────────────┬───────────────────────────┬───────┘
+       │ (1:1 por pairToken)           │ (1:1 Mutex Key)           │ (1:N)
+       ▼                               ▼                           ▼
+┌──────────────────────────┐   ┌───────────────┐   ┌───────────────────────┐
+│   BookingTransactions    │   │   SlotLocks   │   │ CompensacionesPendientes│
+│ (Idempotencia transacc.) │   │(Cerrojo slot) │   │ (Rollback & Recovery)  │
+└──────────────────────────┘   └───────────────┘   └───────────────────────┘
+```
+
+#### 6. CITAS_F2 (Nombre Técnico: CitasF2)
+
+- **ID Oculta / Técnica:** `CitasF2`
+- **Propósito:** Persistencia de citas creadas en Bookings V2 (F1 simple, F1 dual, F2 dual).
+- **Permisos CMS:** Lectura: SiteMember (citas propias) / Admin | Escritura: Admin / Backend
+- **Índices:** Primario: `_id` | Único: `bookingId` | Secundarios: `pairToken`, `uiPairToken`, `dateYmd`, `resourceId`, `status`, `paymentStatus`
+
+| Nombre Visible del Campo    | ID Oculta del Campo  | Tipo en Wix CMS | Restricciones / Opciones                                                                |
+| :-------------------------- | :------------------- | :-------------- | :-------------------------------------------------------------------------------------- |
+| **ID del Elemento**         | `_id`                | `Text`          | Formato `booking_<bookingId>`                                                           |
+| **ID Reserva Wix**          | `bookingId`          | `Text`          | GUID nativo Bookings V2                                                                 |
+| **Token de Reserva Par**    | `pairToken`          | `Text`          | Hash SHA-256 de los slots                                                               |
+| **Token UI**                | `uiPairToken`        | `Text`          | Token efímero de interfaz                                                               |
+| **Revisión de Reserva**     | `revision`           | `Number`        | Control de concurrencia optimista                                                       |
+| **ID Servicio**             | `serviceId`          | `Text`          | GUID del servicio asociado                                                              |
+| **ID Horario**              | `scheduleId`         | `Text`          | GUID del horario de staff                                                               |
+| **ID Profesional**          | `resourceId`         | `Text`          | GUID de `MAPA_STAFF`                                                                    |
+| **Fecha/Hora Inicio (UTC)** | `startDate`          | `Date and Time` | Marca temporal UTC                                                                      |
+| **Fecha/Hora Fin (UTC)**    | `endDate`            | `Date and Time` | Marca temporal UTC                                                                      |
+| **Inicio Local Madrid**     | `startDateLocal`     | `Text`          | Formato ISO `YYYY-MM-DDTHH:mm:ss`                                                       |
+| **Fin Local Madrid**        | `endDateLocal`       | `Text`          | Formato ISO `YYYY-MM-DDTHH:mm:ss`                                                       |
+| **Fecha Madrid (YMD)**      | `dateYmd`            | `Text`          | Formato `YYYY-MM-DD`                                                                    |
+| **Tipo de Cita**            | `bookingType`        | `Choices`       | `simple`, `dual_fase1`, `dual_fase2`                                                    |
+| **Estado de la Cita**       | `status`             | `Choices`       | `CONFIRMED`, `PENDING_PAYMENT`, `CANCELED`, `REFUNDED`                                  |
+| **Estado del Pago**         | `paymentStatus`      | `Choices`       | `UNPAID`, `PENDING_PAYMENT`, `PENDING_LEDGER`, `PAID`, `REFUNDED`, `PARTIALLY_REFUNDED` |
+| **Metadatos de la Cita**    | `meta`               | `Object`        | Addons, precios, checkoutId, etc.                                                       |
+| **Datos de Contacto**       | `contactDetails`     | `Object`        | Nombre, apellidos, email, teléfono                                                      |
+| **ID de Traza**             | `traceId`            | `Text`          | Identificador de trazabilidad                                                           |
+| **Fecha de Creación**       | `_createdDate`       | `Date and Time` | Timestamp automático                                                                    |
+| **Fecha de Actualización**  | `_updatedDate`       | `Date and Time` | Timestamp automático                                                                    |
+
+---
+
+#### 7. BOOKING_TRANSACTIONS (Nombre Técnico: BookingTransactions)
+
+- **ID Oculta / Técnica:** `BookingTransactions`
+- **Propósito:** Tabla de control de idempotencia transaccional y prevención de duplicados.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend exclusivo
+- **Índices:** Primario: `_id` (pairToken) | Secundarios: `status`, `payloadHash`
+
+| Nombre Visible del Campo   | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones              |
+| :------------------------- | :------------------ | :-------------- | :------------------------------------ |
+| **ID Transacción / Token** | `_id`               | `Text`          | `pairToken` (Clave primaria)          |
+| **Token Par**              | `pairToken`         | `Text`          | Coincide con `_id`                    |
+| **Estado**                 | `status`            | `Choices`       | `PENDING`, `COMPLETED`, `FAILED`      |
+| **Hash del Payload**       | `payloadHash`       | `Text`          | SHA-256 de los parámetros solicitados |
+| **Resultado de la Saga**   | `result`            | `Object`        | JSON con IDs de booking y checkout    |
+| **Error Registrado**       | `error`             | `Text`          | Mensaje de fallo en caso de error     |
+| **ID de Traza**            | `traceId`           | `Text`          | Identificador de trazabilidad         |
+| **Fecha Creación**         | `_createdDate`      | `Date and Time` | Timestamp                             |
+| **Fecha Actualización**    | `_updatedDate`      | `Date and Time` | Timestamp                             |
+
+---
+
+#### 8. COMPENSACIONES_PENDIENTES (Nombre Técnico: CompensacionesPendientes)
+
+- **ID Oculta / Técnica:** `CompensacionesPendientes`
+- **Propósito:** Cola de compensación diferida para cancelaciones de reservas y recuperaciones fiscales.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend exclusivo
+- **Índices:** Primario: `_id` | Secundarios: `status`, `kind`, `_createdDate`, `bookingId`, `transactionId`
+
+| Nombre Visible del Campo   | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones                       |
+| :------------------------- | :------------------ | :-------------- | :--------------------------------------------- |
+| **ID de Compensación**     | `_id`               | `Text`          | `COMP_<bookingId>_<traceId>` o `FISCAL_<txId>` |
+| **Tipo de Compensación**   | `kind`              | `Choices`       | `BOOKING_CANCELLATION`, `FISCAL_LEDGER`        |
+| **ID Reserva a Compensar** | `bookingId`         | `Text`          | GUID reserva en Wix Bookings                   |
+| **Fase**                   | `phase`             | `Text`          | `F1`, `F2`, `WAIT_FOR_ORIGINAL_ORDER_LEDGER`   |
+| **Estado**                 | `status`            | `Choices`       | `PENDING`, `COMPLETED`, `FAILED`               |
+| **Número de Intentos**     | `attempts`          | `Number`        | Contador (máx. 3 intentos)                     |
+| **Importe**                | `amount`            | `Number`        | Importe en compensaciones fiscales             |
+| **Forma de Pago**          | `paymentMethod`     | `Choices`       | `ONLINE`, `TARJETA`, `EFECTIVO`, `BIZUM`       |
+| **ID Transacción**         | `transactionId`     | `Text`          | Identificador único de orden/reembolso         |
+| **ID Pedido**              | `orderId`           | `Text`          | ID de pedido Wix Stores / Checkout             |
+| **ID Reembolso**           | `refundId`          | `Text`          | ID de devolución eCommerce                     |
+| **Concepto**               | `concept`           | `Text`          | Descripción del movimiento fiscal              |
+| **Tipo de Movimiento**     | `movementType`      | `Text`          | `VENTA_ONLINE`, `REEMBOLSO`                    |
+| **Alerta Requerida**       | `alertRequired`     | `Boolean`       | `true` si agota reintentos                     |
+| **Último Error**           | `lastError`         | `Text`          | Causa del fallo                                |
+| **ID de Traza**            | `traceId`           | `Text`          | Trace ID de depuración                         |
+| **Fecha Creación**         | `_createdDate`      | `Date and Time` | Timestamp                                      |
+| **Fecha Actualización**    | `_updatedDate`      | `Date and Time` | Timestamp                                      |
+
+---
+
+#### 9. BOOKINGS_SERVICE_SYNC_QUEUE (Nombre Técnico: BookingsServiceSyncQueue)
+
+- **ID Oculta / Técnica:** `BookingsServiceSyncQueue`
+- **Propósito:** Cola de sincronización asíncrona desde SERVICIOS_RESERVA hacia Wix Bookings Services V2. **Colección propia, NO absorbida por BookingTransactions.**
+- **Permisos CMS:** Lectura / Escritura: Admin
+- **Índices:** Primario: `_id` (`SYNC_<serviceId>`) | Secundarios: `status`, `nextAttemptAt`
+
+| Nombre Visible del Campo  | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones                  |
+| :------------------------ | :------------------ | :-------------- | :---------------------------------------- |
+| **ID de Cola**            | `_id`               | `Text`          | `SYNC_<serviceId>`                        |
+| **ID del Servicio**       | `serviceId`         | `Text`          | GUID del servicio                         |
+| **Payload Deseado**       | `desiredPayload`    | `Object`        | Esquema proyectado de Bookings V2         |
+| **Hash del Payload**      | `payloadHash`       | `Text`          | SHA-256 para evitar reprocesados          |
+| **Estado**                | `status`            | `Choices`       | `PENDING`, `RETRY`, `COMPLETED`, `FAILED` |
+| **Intentos**              | `attempts`          | `Number`        | Contador de reintentos (máx. 5)           |
+| **Próximo Intento**       | `nextAttemptAt`     | `Date and Time` | Timestamp con backoff exponencial         |
+| **Último Error**          | `lastError`         | `Text`          | Detalle del fallo                         |
+| **Fecha de Finalización** | `completedAt`       | `Date and Time` | Timestamp                                 |
+| **Fecha Actualización**   | `_updatedDate`      | `Date and Time` | Timestamp                                 |
+
+---
+
+#### 10. DUAL_SLOT_CACHE (Nombre Técnico: DualSlotCache)
+
+- **ID Oculta / Técnica:** `DualSlotCache`
+- **Propósito:** Caché de pares de slots certificados en dos fases con TTL controlado.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend
+- **Índices:** Primario: `_id` | Secundarios: `phase1ServiceId`, `dateYmd`, `expiresAt`, `status`
+
+| Nombre Visible del Campo     | ID Oculta del Campo    | Tipo en Wix CMS  | Restricciones / Opciones        |
+| :--------------------------- | :--------------------- | :--------------- | :------------------------------ |
+| **ID / Token Par UI**        | `_id`                  | `Text`           | `uiPairToken` (UUID)            |
+| **Token Par**                | `pairToken`            | `Text`           | UUID                            |
+| **ID Servicio Principal**    | `serviceId`            | `Text`           | GUID de servicio Fase 1         |
+| **ID Servicio Fase 1**       | `phase1ServiceId`      | `Text`           | GUID Fase 1                     |
+| **ID Servicio Fase 2**       | `phase2ServiceId`      | `Text`           | GUID Fase 2                     |
+| **Slot Fase 1**              | `slotF1`               | `Object`         | Payload canónico del slot F1    |
+| **Slot Fase 2**              | `slotF2`               | `Object`         | Payload canónico del slot F2    |
+| **ID Profesional Asignado**  | `resourceId`           | `Text`           | GUID del profesional            |
+| **Profesionales Candidatos** | `candidateResourceIds` | `Tags` / `Array` | Lista de GUIDs válidos          |
+| **Fecha Madrid (YMD)**       | `dateYmd`              | `Text`           | Formato `YYYY-MM-DD`            |
+| **Fecha de Expiración**      | `expiresAt`            | `Date and Time`  | Timestamp (TTL 15 min)          |
+| **Estado**                   | `status`               | `Choices`        | `ACTIVE`, `CONSUMED`, `EXPIRED` |
+
+---
+
+#### 11. SLOT_LOCKS (Nombre Técnico: SlotLocks)
+
+- **ID Oculta / Técnica:** `SlotLocks`
+- **Propósito:** Cerrojos de exclusión mutua (Distributed Mutex) para slots temporales.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend
+- **Índices:** Primario: `_id` (`lk_<sha256>`) | Secundarios: `slotKey`, `expiresAt`, `traceId`
+
+| Nombre Visible del Campo | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones                    |
+| :----------------------- | :------------------ | :-------------- | :------------------------------------------ |
+| **ID del Cerrojo**       | `_id`               | `Text`          | Formato `lk_<sha256>`                       |
+| **Clave del Slot**       | `slotKey`           | `Text`          | `slot_<sha256>` del horario                 |
+| **Propietario / Traza**  | `traceId`           | `Text`          | Identificador del proceso que posee el lock |
+| **Fecha de Expiración**  | `expiresAt`         | `Date and Time` | Timestamp límite del lease                  |
+| **Fecha Creación**       | `_createdDate`      | `Date and Time` | Timestamp                                   |
+| **Fecha Actualización**  | `_updatedDate`      | `Date and Time` | Timestamp de renovación (*heartbeat*)       |
+
+---
+
+### ÁREA 3: INVENTARIO, PRODUCTOS Y CONCILIACIÓN
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                  INVENTARIO_STOCK_VENTA                                   │
+│               (Stock Disponible en Salón)                                 │
+└────────────┬─────────────────────────────────────────────┬───────────────┘
+             │ (1:N)                       │ (1:N)
+             ▼                             ▼
+┌──────────────────────────┐   ┌───────────────────────────┐
+│   MOVIMIENTOS_INVENTARIO │   │  MOVIMIENTOS_INVENTARIO   │
+│  (Trazabilidad consumos) │   │  (requiresWixReconciliation│
+│                          │   │   = true → Conciliación)  │
+└──────────────────────────┘   └───────────────────────────┘
+```
+
+#### 12. INVENTARIO_PRODUCTO (Alias: PRODUCTOS_VENTA)
+
+- **ID Oculta / Técnica:** `InventarioStockVenta`
+- **Propósito:** Maestro de productos comerciales y stock disponible para uso técnico en salón.
+- **Permisos CMS:** Lectura: SiteMember / Admin | Escritura: Admin / CAJERO
+- **Índices:** Primario: `_id` | Únicos: `sku`, `wixProductId` | Secundarios: `lowStockAlert`, `stockExpected`, `active`
+
+| Nombre Visible del Campo    | ID Oculta del Campo               | Tipo en Wix CMS | Restricciones / Opciones      |
+| :-------------------------- | :-------------------------------- | :-------------- | :---------------------------- |
+| **ID del Elemento**         | `_id`                             | `Text`          | `INV_STORE_<SKU>`             |
+| **Código SKU**              | `sku`                             | `Text`          | Código de barras / SKU único  |
+| **Nombre del Producto**     | `productName`                     | `Text`          | Display Field                 |
+| **Descripción**             | `description`                     | `Text`          | Detalles del producto         |
+| **Categoría**               | `category`                        | `Text`          | Categoría de inventario       |
+| **Precio Venta (IVA Inc.)** | `salePriceTaxIncluded`            | `Number`        | PVP en tienda                 |
+| **Coste Sin IVA**           | `costExTax`                       | `Number`        | Precio de coste               |
+| **Proveedor**               | `supplier`                        | `Text`          | Nombre de distribuidor        |
+| **Stock Disponible**        | `stockExpected`                   | `Number`        | Unidades físicas en salón     |
+| **Stock Esperado**          | `stockExpected`                   | `Number`        | Unidades tras conciliación    |
+| **Alerta Stock Bajo**       | `lowStockAlert`                   | `Number`        | Umbral mínimo para aviso      |
+| **Punto de Reposición**     | `reorderPoint`                    | `Number`        | Nivel para pedido a proveedor |
+| **Ubicación en Salón**      | `location`                        | `Text`          | Estantería / Almacén          |
+| **ID Producto Wix Stores**  | `wixProductId`                    | `Text`          | GUID de Wix Stores / Catalogs |
+| **ID Variante Wix**         | `wixVariantId`                    | `Text`          | GUID variante en Wix          |
+| **Requiere Conciliación**   | `needsWixReconciliation`          | `Boolean`       | `true` si no es nativo online |
+| **Activo**                  | `active`                          | `Boolean`       | `true` / `false`              |
+| **Fecha Último Movimiento** | `lastInventoryMovementAt`         | `Date and Time` | Timestamp                     |
+| **ID Último Movimiento**    | `lastInventoryMovementId`         | `Text`          | Token del último movimiento   |
+
+---
+
+#### 13. MOVIMIENTO_INVENTARIO (Nombre Técnico: MovimientosInventario)
+
+- **ID Oculta / Técnica:** `MovimientosInventario`
+- **Propósito:** Libro diario de movimientos de stock (ventas, consumos en cabina, recepciones). **Incluye conciliación con Wix Stores mediante `requiresWixReconciliation=true`.**
+- **Permisos CMS:** Lectura: SiteMember / Admin | Escritura: Admin / CAJERO
+- **Índices:** Primario: `_id` (movementToken) | Secundarios: `sku`, `movementType`, `_createdDate`, `orderId`
+
+| Nombre Visible del Campo        | ID Oculta del Campo         | Tipo en Wix CMS | Restricciones / Opciones                                                                       |
+| :------------------------------ | :-------------------------- | :-------------- | :--------------------------------------------------------------------------------------------- |
+| **ID / Token Movimiento**       | `_id`                       | `Text`          | `USE_<sku>_<ts>`, `RECV_<sku>_<ts>`                                                            |
+| **Token Movimiento**            | `movementToken`             | `Text`          | Identificador único                                                                            |
+| **Código SKU**                  | `sku`                       | `Text`          | SKU del producto                                                                               |
+| **Nombre Producto**             | `productName`               | `Text`          | Denominación del producto                                                                      |
+| **Cantidad**                    | `quantity`                  | `Number`        | Cantidad con signo (+ o −)                                                                     |
+| **Delta de Cantidad**           | `quantityDelta`             | `Number`        | Variación de stock                                                                             |
+| **Stock Anterior**              | `stockBefore`               | `Number`        | Existencias previas                                                                            |
+| **Stock Posterior**             | `stockAfter`                | `Number`        | Existencias resultantes                                                                        |
+| **Tipo de Movimiento**          | `movementType`              | `Choices`       | `CONSUMO_PROFESIONAL`, `RECEPCION_PROVEEDOR`, `VENTA_ONLINE`, `DEVOLUCION_ONLINE_REABASTECIDA` |
+| **Motivo / Nota**               | `reason`                    | `Text`          | Explicación del movimiento                                                                     |
+| **ID de Referencia**            | `referenceId`               | `Text`          | ID de cita, orden o albarán                                                                    |
+| **ID Pedido Wix**               | `orderId`                   | `Text`          | En pedidos de tienda                                                                           |
+| **ID Reembolso**                | `refundId`                  | `Text`          | En devoluciones                                                                                |
+| **Email del Operador**          | `actorEmail`                | `Text`          | Empleada que realiza el uso                                                                    |
+| **ID Miembro Operador**         | `actorMemberId`             | `Text`          | ID de usuario Wix                                                                              |
+| **Requiere Conciliación**       | `requiresWixReconciliation` | `Boolean`       | `true` si debe enviarse a Wix                                                                  |
+| **Movimiento Comercial Nativo** | `nativeCommercialMovement`  | `Boolean`       | Generado por Wix eCommerce                                                                     |
+| **ID Producto Wix**             | `wixProductId`              | `Text`          | GUID en Wix Stores                                                                             |
+| **ID Variante Wix**             | `wixVariantId`              | `Text`          | GUID de variante                                                                               |
+| **ID de Traza**                 | `traceId`                   | `Text`          | Trace ID                                                                                       |
+| **Fecha de Registro**           | `_createdDate`              | `Date and Time` | Timestamp                                                                                      |
+
+---
+
+### ÁREA 4: CAJA, FACTURACIÓN Y FISCALIDAD (LIBRO DIARIO INMUTABLE)
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                   MOVIMIENTOS_CAJA                                        │
+│         (Libro Diario Inmutable / Hash Chain)                             │
+└────────────┬─────────────────────────────────────────────┬───────────────┘
+             │ (Proyección diaria)          │ (Cierre Z nocturno)
+             ▼                             ▼
+┌──────────────────────────┐   ┌───────────────────────────┐
+│       CAJA_ACTUAL        │   │    CIERRES_Z              │
+│  (Singleton tiempo real) │   │ (Cierres Z Criptográficos)│
+└──────────────────────────┘   └───────────────────────────┘
+```
+
+#### 14. MOVIMIENTO_CAJA (Nombre Técnico: MovimientosCaja)
+
+- **ID Oculta / Técnica:** `MovimientosCaja`
+- **Propósito:** Libro diario de ingresos y devoluciones con encadenamiento SHA-256 y firma HMAC-SHA256 (Veri*Factu).
+- **Permisos CMS:** Lectura: Admin / CAJERO | Creación: Backend protegido | Modificación / Eliminación: PROHIBIDAS POR GANCHO CMS (data.js)
+- **Índices:** Primario: `_id` | Únicos: `sequenceNumber`, `invoiceNumber`, `transactionId` | Secundarios: `operationDate`, `fiscalPeriod`, `paymentMethod`, `movementType`, `reservaIdVinculada`
+
+| Nombre Visible del Campo       | ID Oculta del Campo       | Tipo en Wix CMS | Restricciones / Opciones                                                                           |
+| :----------------------------- | :------------------------ | :-------------- | :------------------------------------------------------------------------------------------------- |
+| **ID del Registro**            | `_id`                     | `Text`          | `MOV_<dayKey>_<tipoMov>_<txId>`                                                                    |
+| **Secuencia Global**           | `sequenceNumber`          | `Number`        | Contador incremental estricto (1, 2, 3…)                                                           |
+| **Número de Ticket / Factura** | `invoiceNumber`           | `Text`          | Formato `FAC-YYYY-NNNNN`                                                                           |
+| **Tipo de Movimiento**         | `movementType`            | `Choices`       | `VENTA_EFECTIVO`, `VENTA_TARJETA`, `VENTA_BIZUM`, `VENTA_ONLINE`, `REEMBOLSO`, `PROPINA`, `AJUSTE` |
+| **Concepto**                   | `description`             | `Text`          | Descripción del servicio o venta                                                                   |
+| **Origen**                     | `recordSource`            | `Text`          | `INTERNAL`, `WIX_ECOM_PAYMENT_WEBHOOK`, `ADMIN_ORDER_CONFIRMATION`, etc.                           |
+| **ID Pedido Wix**              | `orderId`                 | `Text`          | Enlace a pedidos Wix eCommerce                                                                     |
+| **ID Reembolso Wix**           | `refundId`                | `Text`          | Enlace a reembolsos Wix eCommerce                                                                  |
+| **Importe Total (€)**          | `totalAmount`             | `Number`        | Valor absoluto                                                                                     |
+| **Signo**                      | `accountingSign`          | `Number`        | `1` (Ingreso), `-1` (Reembolso)                                                                    |
+| **Importe Contable (€)**       | `accountingAmount`        | `Number`        | Importe con signo                                                                                  |
+| **Base Imponible (€)**         | `taxableAmount`           | `Number`        | Base imponible calculada                                                                           |
+| **Cuota IVA (€)**              | `taxAmount`               | `Number`        | Cuota de IVA calculada                                                                             |
+| **Tasa IVA**                   | `taxRate`                 | `Number`        | `0.21`, `0.10`, `0.00`                                                                             |
+| **Naturaleza Operación**       | `operationNature`         | `Choices`       | `VENTA`, `DEVOLUCION`, `PROPINA`, `AJUSTE`                                                         |
+| **Tratamiento IVA**            | `taxTreatment`            | `Choices`       | `IVA_GENERAL`, `PROPINA_PENDIENTE_GESTORIA`                                                        |
+| **Referencia Rectificativa**   | `rectifiedInvoiceReference`| `Text`          | Factura original en caso de abono                                                                  |
+| **Detalle de Líneas**          | `lineItems`               | `Object`        | Array de líneas desglosadas con IVA                                                                |
+| **Versión de Payload**         | `schemaIntegrityVersion`  | `Text`          | `LEDGER_V2`                                                                                        |
+| **NIF Emisor**                 | `businessTaxId`           | `Text`          | NIF de la empresa                                                                                  |
+| **Hash Previo**                | `previousRecordHash`      | `Text`          | SHA-256 del registro anterior                                                                      |
+| **Hash de Cadena**             | `currentRecordHash`       | `Text`          | SHA-256 del bloque actual                                                                          |
+| **Firma Digital**              | `digitalSignature`        | `Text`          | Formato `HMAC-SHA256 | currentRecordHash`                                                          |
+| **Forma de Pago**              | `paymentMethod`           | `Choices`       | `EFECTIVO`, `TARJETA`, `BIZUM`, `ONLINE`                                                           |
+| **ID Reserva Vinculada**       | `reservaIdVinculada`      | `Text`          | GUID(s) de cita en `CitasF2`                                                                       |
+| **ID Transacción**             | `transactionId`           | `Text`          | `TX_...`, `ORDER-...`, `REFUND-...`                                                                |
+| **ID Operador / Puesto**       | `resourceId`              | `Text`          | GUID estilista o `TPV` / `online`                                                                  |
+| **Día Clave (YMD)**            | `operationDate`           | `Text`          | `YYYY-MM-DD`                                                                                       |
+| **Mes Clave (YM)**             | `fiscalPeriod`            | `Text`          | `YYYY-MM`                                                                                          |
+| **ID de Traza**                | `traceId`                 | `Text`          | Identificador de trazabilidad                                                                      |
+| **Fecha Creación**             | `registeredAt`            | `Date and Time` | Timestamp UTC inmutable                                                                            |
+
+---
+
+#### 15. CAJA_ACTUAL (Nombre Técnico: CajaActual)
+
+- **ID Oculta / Técnica:** `CajaActual`
+- **Propósito:** Singleton de estado de caja y balance acumulado de la jornada en curso.
+- **Permisos CMS:** Lectura: SiteMember / Admin | Escritura: Backend (ID fija CAJA_PRINCIPAL)
+- **Índices:** Primario: `_id` (CAJA_PRINCIPAL) | Secundario: `operationDate`
+
+| Nombre Visible del Campo | ID Oculta del Campo   | Tipo en Wix CMS | Restricciones / Opciones   |
+| :----------------------- | :-------------------- | :-------------- | :------------------------- |
+| **ID del Elemento**      | `_id`                 | `Text`          | Fijo: `CAJA_PRINCIPAL`     |
+| **Día Clave (YMD)**      | `operationDate`       | `Text`          | `YYYY-MM-DD`               |
+| **Saldo Efectivo (€)**   | `cashBalance`         | `Number`        | Total cobrado en metálico  |
+| **Saldo Tarjeta (€)**    | `cardBalance`         | `Number`        | Total cobrado por datáfono |
+| **Saldo Bizum (€)**      | `bizumBalance`        | `Number`        | Total cobrado por Bizum    |
+| **Saldo Online (€)**     | `onlineBalance`       | `Number`        | Total liquidado por web    |
+| **Saldo Total (€)**      | `totalBalance`        | `Number`        | Suma de todos los métodos  |
+| **Total Operaciones**    | `totalOperations`     | `Number`        | Conteo de movimientos      |
+| **Estado de Caja**       | `cashRegisterStatus`  | `Choices`       | `ABIERTA`, `CERRADA`       |
+| **Fecha de Apertura**    | `openedAt`            | `Date and Time` | Inicio de jornada          |
+| **Fecha de Cierre**      | `closedAt`            | `Date and Time` | Fin de jornada             |
+| **Última Actualización** | `lastActivityAt`      | `Date and Time` | Timestamp de proyección    |
+
+---
+
+#### 16. HISTORICO_CIERRES_Z (Nombre Técnico: CierresZ)
+
+- **ID Oculta / Técnica:** `CierresZ`
+- **Propósito:** Cierres diarios definitivos sellados criptográficamente (Fiscal Z-Report).
+- **Permisos CMS:** Lectura: Admin | Creación: Backend / Cron | Modificación / Eliminación: PROHIBIDAS (data.js)
+- **Índices:** Primario: `_id` (`Z_YYYY-MM-DD`) | Único: `operationDate`
+
+| Nombre Visible del Campo     | ID Oculta del Campo         | Tipo en Wix CMS | Restricciones / Opciones             |
+| :--------------------------- | :-------------------------- | :-------------- | :----------------------------------- |
+| **ID de Cierre Z**           | `_id`                       | `Text`          | Formato `Z_YYYY-MM-DD`               |
+| **Día Clave**                | `operationDate`             | `Text`          | `YYYY-MM-DD`                         |
+| **Versión**                  | `closingSchemaVersion`      | `Text`          | `Z_V2`                               |
+| **Zona Horaria**             | `timeZone`                  | `Text`          | `Europe/Madrid`                      |
+| **Origen del Cierre**        | `closingSource`             | `Choices`       | `CRON`, `ADMIN`                      |
+| **Secuencia Inicio**         | `startSequence`             | `Number`        | Primer `sequenceNumber` del día      |
+| **Secuencia Fin**            | `endSequence`               | `Number`        | Último `sequenceNumber` del día      |
+| **Hash Inicio**              | `startRecordHash`           | `Text`          | Hash inicial de la cadena            |
+| **Hash Fin**                 | `endRecordHash`             | `Text`          | Hash final de la jornada             |
+| **Ticket Inicio**            | `startTicketNumber`         | `Text`          | Primer número de factura             |
+| **Ticket Fin**               | `endTicketNumber`           | `Text`          | Último número de factura             |
+| **Total Efectivo (€)**       | `totalCash`                 | `Number`        | Sumatorio                            |
+| **Total Tarjeta (€)**        | `totalCard`                 | `Number`        | Sumatorio                            |
+| **Total Bizum (€)**          | `totalBizum`                | `Number`        | Sumatorio                            |
+| **Total Online (€)**         | `totalOnline`               | `Number`        | Sumatorio                            |
+| **Total General (€)**        | `consolidatedTotalAmount`   | `Number`        | Total del día                        |
+| **Total Ventas (€)**         | `grossSalesTotal`           | `Number`        | Ventas brutas                        |
+| **Total Reembolsos (€)**     | `totalRefunds`              | `Number`        | Devoluciones                         |
+| **Total Propinas (€)**       | `totalTips`                 | `Number`        | Propinas separadas                   |
+| **Total Ajustes (€)**        | `totalAdjustments`          | `Number`        | Ajustes de caja                      |
+| **Base Imponible Neta (€)**  | `netTaxableAmount`          | `Number`        | Base imponible fiscal                |
+| **Cuota IVA Neta (€)**       | `netTaxAmount`              | `Number`        | Cuota IVA fiscal                     |
+| **Desglose por Movimiento**  | `movementTypeBreakdown`     | `Object`        | Totales por categoría                |
+| **Desglose por Tipo de IVA** | `taxTypeBreakdown`          | `Object`        | Base y cuota por tipo (21%, 10%, 0%) |
+| **Número de Operaciones**    | `totalOperations`           | `Number`        | Total de movimientos                 |
+| **Integridad Verificada**    | `isIntegrityVerified`       | `Boolean`       | `true` si la cadena es 100% válida   |
+| **Registros Auditados**      | `auditedRecordsCount`       | `Number`        | Cantidad de filas auditadas          |
+| **Estado**                   | `closingStatus`             | `Choices`       | `CERRADA`                            |
+| **Hash de Cierre Z**         | `closingHash`               | `Text`          | SHA-256 del resumen                  |
+| **Firma Cierre Z**           | `closingSignature`          | `Text`          | HMAC-SHA256 con clave fiscal         |
+| **Fecha de Cierre**          | `closedAt`                  | `Date and Time` | Timestamp                            |
+| **Fecha Verificación**       | `verifiedAt`                | `Date and Time` | Timestamp                            |
+| **ID de Traza**              | `traceId`                   | `Text`          | Trace ID                             |
+
+---
+
+#### 17. CONTEOS_X (Nombre Técnico: ControlParcialX)
+
+- **ID Oculta / Técnica:** `ControlParcialX`
+- **Propósito:** Registro de arqueos intermedios y verificación de descuadres de efectivo.
+- **Permisos CMS:** Lectura / Escritura: Admin / CAJERO
+- **Índices:** Primario: `_id` | Secundarios: `operationDate`, `countedAt`
+
+| Nombre Visible del Campo | ID Oculta del Campo    | Tipo en Wix CMS | Restricciones / Opciones          |
+| :----------------------- | :--------------------- | :-------------- | :-------------------------------- |
+| **ID del Elemento**      | `_id`                  | `Text`          | UUID                              |
+| **Día Clave**            | `operationDate`        | `Text`          | `YYYY-MM-DD`                      |
+| **Metálico Contado (€)** | `countedCash`          | `Number`        | Efectivo físico en cajón          |
+| **Efectivo Teórico (€)** | `expectedCash`         | `Number`        | Saldo calculado en ledger         |
+| **Descuadre (€)**        | `discrepancyAmount`    | `Number`        | Contado − Teórico                 |
+| **Estado del Cuadre**    | `reconciliationStatus` | `Choices`       | `CUADRADO`, `DESCUADRE`           |
+| **Fecha Conteo**         | `countedAt`            | `Date and Time` | Timestamp                         |
+| **Fecha Arqueo**         | `reconciledAt`         | `Date and Time` | Timestamp                         |
+| **ID de Traza**          | `traceId`              | `Text`          | Trace ID                          |
+
+---
+
+#### 18. CONTADORES_FISCALES (Nombre Técnico: SecuenciaTickets)
+
+- **ID Oculta / Técnica:** `SecuenciaTickets`
+- **Propósito:** Generador atómico de números de factura correlativos anuales y globales.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend exclusivo
+- **Índices:** Primario: `_id` (GLOBAL)
+
+| Nombre Visible del Campo | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones                   |
+| :----------------------- | :------------------ | :-------------- | :----------------------------------------- |
+| **ID del Elemento**      | `_id`               | `Text`          | Fijo: `GLOBAL`                             |
+| **Datos de Secuencia**   | `sequenceCounters`  | `Object`        | Objeto con `{ "2026": N, "seqGlobal": N }` |
+
+---
+
+### ÁREA 5: RECURSOS HUMANOS Y CONTROL HORARIO (RD-LEY 8/2019)
+
+#### 19. REGISTRO_HORARIO (Nombre Técnico: RegistrosHorariosStaff)
+
+- **ID Oculta / Técnica:** `RegistrosHorariosStaff`
+- **Propósito:** Registro oficial de jornada laboral, turnos y pausas inmutables.
+- **Permisos CMS:** Lectura: SiteMember (propios) / Admin | Creación: SiteMember / Admin | Modificación / Eliminación: PROHIBIDAS POR GANCHO CMS (data.js)
+- **Índices:** Primario: `_id` | Secundarios: `resourceId`, `dayKey`, `monthKey`, `recordedAt`, `clockEventType`
+
+| Nombre Visible del Campo   | ID Oculta del Campo     | Tipo en Wix CMS | Restricciones / Opciones                                   |
+| :------------------------- | :---------------------- | :-------------- | :--------------------------------------------------------- |
+| **ID del Elemento**        | `_id`                   | `Text`          | UUID                                                       |
+| **ID Profesional**         | `resourceId`            | `Text`          | GUID vinculado a `MAPA_STAFF`                              |
+| **Nombre Profesional**     | `resourceName`          | `Text`          | Nombre visible del empleado                                |
+| **Tipo de Fichaje**        | `clockEventType`        | `Choices`       | `ENTRADA`, `PAUSA_INICIO`, `PAUSA_FIN`, `SALIDA`, `AJUSTE` |
+| **Fecha y Hora**           | `recordedAt`            | `Date and Time` | Timestamp exacto (sin marcas futuras)                      |
+| **Día Clave**              | `dayKey`                | `Text`          | `YYYY-MM-DD`                                               |
+| **Mes Clave**              | `monthKey`              | `Text`          | `YYYY-MM`                                                  |
+| **Hora**                   | `recordedTime`          | `Text`          | Formato `HH:mm:ss`                                         |
+| **IP / Dispositivo**       | `deviceIpAddress`       | `Text`          | IP anonimizada / enmascarada                               |
+| **Motivo del Ajuste**      | `adjustmentReason`      | `Text`          | Obligatorio si `clockEventType === 'AJUSTE'`               |
+| **Registrado Por**         | `registeredBy`          | `Choices`       | `SELF`, `ADMIN`                                            |
+| **ID Miembro Registrador** | `registeredByMemberId`  | `Text`          | GUID de `wix-members`                                      |
+| **Fecha de Creación**      | `_createdDate`          | `Date and Time` | Timestamp automático                                       |
+
+---
+
+### ÁREA 6: AUDITORÍA, LOGS Y SINCRONIZACIÓN EXTERNA
+
+#### 20. AUDIT_LOG (Nombre Técnico: MmAuditLog)
+
+- **ID Oculta / Técnica:** `MmAuditLog`
+- **Propósito:** Registro central de seguridad, errores críticos de webhook y alertas de integridad.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend
+- **Índices:** Primario: `_id` | Secundarios: `eventType`, `level`, `loggedAt`, `traceId`
+
+| Nombre Visible del Campo | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones                                  |
+| :----------------------- | :------------------ | :-------------- | :-------------------------------------------------------- |
+| **ID del Elemento**      | `_id`               | `Text`          | `AUDIT_<evento>_<ts>`                                     |
+| **Tipo de Evento**       | `eventType`         | `Text`          | `LEDGER_REGISTRATION_FAILED`, `INTEGRITY_VIOLATION`, etc. |
+| **Nivel**                | `level`             | `Choices`       | `INFO`, `WARN`, `ERROR`                                   |
+| **Mensaje**              | `message`           | `Text`          | Descripción del evento                                    |
+| **Datos / Contexto**     | `data`              | `Object`        | Parámetros del error / diagnóstico                        |
+| **Recurso / Operador**   | `resourceId`        | `Text`          | `SYSTEM` o GUID de staff                                  |
+| **Origen / Módulo**      | `source`            | `Text`          | Archivo emisor (`cajas.web.js`, `events.js`, etc.)        |
+| **Fecha del Log**        | `loggedAt`          | `Date and Time` | Timestamp (Retención 90 días)                             |
+| **ID de Traza**          | `traceId`           | `Text`          | Trace ID                                                  |
+
+---
+
+#### 21. SYNC_LOG (Nombre Técnico: M365GraphSyncQueue)
+
+- **ID Oculta / Técnica:** `M365GraphSyncQueue`
+- **Propósito:** Histórico de sincronizaciones y llamadas a endpoints HTTP (Power Automate / M365).
+- **Permisos CMS:** Lectura / Escritura: Admin
+- **Índices:** Primario: `_id` | Secundarios: `syncDate`, `status`, `type`
+
+| Nombre Visible del Campo    | ID Oculta del Campo | Tipo en Wix CMS | Restricciones / Opciones                   |
+| :-------------------------- | :------------------ | :-------------- | :----------------------------------------- |
+| **ID del Elemento**         | `_id`               | `Text`          | UUID / Trace                               |
+| **Origen**                  | `source`            | `Text`          | Endpoint HTTP o tabla interna              |
+| **Destino**                 | `destination`       | `Text`          | `M365_SHAREPOINT_EXCEL`, etc.              |
+| **Estado**                  | `status`            | `Choices`       | `SUCCESS`, `ERROR`, `BLOCKED`, `DUPLICATE` |
+| **Cantidad Registros**      | `recordCount`       | `Number`        | Filas transmitidas                         |
+| **Mensaje**                 | `message`           | `Text`          | Código o traceId                           |
+| **Metadatos**               | `meta`              | `Object`        | Detalles de la petición                    |
+| **Tipo de Sincronización**  | `type`              | `Text`          | `SYNC_EXECUTION`, `M365_GRAPH_SYNC`        |
+| **Fecha de Sincronización** | `syncDate`          | `Date and Time` | Timestamp                                  |
+
+---
+
+#### 22. AVAILABILITY_DAYS_CACHE (Nombre Técnico: AvailabilityDaysCache)
+
+- **ID Oculta / Técnica:** `AvailabilityDaysCache`
+- **Propósito:** Caché de fechas mensuales con turnos hábiles calculados.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend
+- **Índices:** Primario: `_id` | Secundarios: `serviceId`, `yearMonth`, `expiresAt`
+
+| Nombre Visible del Campo | ID Oculta del Campo  | Tipo en Wix CMS | Restricciones / Opciones  |
+| :----------------------- | :------------------- | :-------------- | :------------------------ |
+| **ID del Elemento**      | `_id`                | `Text`          | UUID                      |
+| **ID Servicio**          | `serviceId`          | `Text`          | GUID del servicio         |
+| **ID Servicio Fase 1**   | `phase1ServiceId`    | `Text`          | GUID Fase 1               |
+| **Año-Mes**              | `yearMonth`          | `Text`          | Formato `YYYY-MM`         |
+| **Clave Personal**       | `staffKey`           | `Text`          | Hash de filtro de staff   |
+| **Hash Clave Recursos**  | `resourceKeyHash`    | `Text`          | Hash de recursos          |
+| **Días Disponibles**     | `days`               | `Object`        | Mapa de días              |
+| **Array Días Hábiles**   | `daysArr`            | `Array`         | Lista de fechas           |
+| **Versión**              | `version`            | `Number`        | Versión de estructura     |
+| **Fecha Generación**     | `generatedAt`        | `Date and Time` | Timestamp                 |
+| **Fecha Expiración**     | `expiresAt`          | `Date and Time` | Timestamp TTL             |
+
+---
+
+### ÁREA 7: DOCUMENTACIÓN FISCAL Y CONTABILIDAD
+
+#### 23. LIBRO_INVENTARIO_CIERRE (Nombre Técnico: InventarioStockVentaCierre)
+
+- **ID Oculta / Técnica:** `InventarioStockVentaCierre`
+- **Propósito:** Histórico de versiones de paquetes fiscales trimestrales generados para gestoría.
+- **Permisos CMS:** Lectura / Escritura: Exclusivo requireMarianManager / Admin
+- **Índices:** Primario: `_id` (documentId) | Secundarios: `year`, `quarter`, `_createdDate`
+
+| Nombre Visible del Campo  | ID Oculta del Campo | Tipo en Wix CMS    | Restricciones / Opciones                      |
+| :------------------------ | :------------------ | :----------------- | :-------------------------------------------- |
+| **ID del Paquete Fiscal** | `_id`               | `Text`             | `DOC_GESTORIA_YYYY_TQ_PAQUETE_GESTORIA_VNNNN` |
+| **ID del Documento**      | `documentId`        | `Text`             | Coincide con `_id`                            |
+| **Ejercicio (Año)**       | `year`              | `Number`           | Año fiscal (ej. `2026`)                       |
+| **Trimestre**             | `quarter`           | `Number`           | Trimestre (`1`, `2`, `3`, `4`)                |
+| **Versión**               | `version`           | `Number`           | Número correlativo (1, 2…)                    |
+| **Resumen Tributario**    | `summaryData`       | `Object`           | Borradores de Mod. 303 e IRPF                 |
+| **Libro de Facturas**     | `invoiceData`       | `Object` / `Array` | Filas del Libro Registro Expedidas            |
+| **Estado**                | `status`            | `Choices`          | `PREPARED`, `SENT_TO_MANAGER`                 |
+| **ID de Traza**           | `traceId`           | `Text`             | Trace ID                                      |
+| **Fecha de Creación**     | `_createdDate`      | `Date and Time`    | Timestamp                                     |
+
+---
+
+#### 24. ASIENTOS_CONTABLES (Nombre Técnico: AsientosContables)
+
+- **ID Oculta / Técnica:** `AsientosContables`
+- **Propósito:** Cabeceras de asientos contables de partida doble generados desde MovimientosCaja.
+- **Permisos CMS:** Lectura / Escritura: Admin
+- **Índices:** Primario: `_id` (journalEntryId) | Único: `entryNumber` | Secundarios: `fiscalYear`, `fiscalPeriod`, `operationDate`
+
+| Nombre Visible del Campo | ID Oculta del Campo     | Tipo en Wix CMS | Restricciones / Opciones                    |
+| :----------------------- | :---------------------- | :-------------- | :------------------------------------------ |
+| **ID Asiento**           | `_id`                   | `Text`          | `ASIENTO_<movimientoId>`                    |
+| **Número de Asiento**    | `entryNumber`           | `Number`        | Correlativo                                 |
+| **Ejercicio Fiscal**     | `fiscalYear`            | `Number`        | Año (ej. `2026`)                            |
+| **Periodo Fiscal**       | `fiscalPeriod`          | `Text`          | Mes (`01` a `12`)                           |
+| **Fecha de Operación**   | `operationDate`         | `Date and Time` | Fecha valor                                 |
+| **Tipo de Asiento**      | `entryType`             | `Text`          | Tipo de movimiento                          |
+| **Categoría Operación**  | `operationCategory`     | `Text`          | Categoría contable                          |
+| **Concepto del Asiento** | `entryConcept`          | `Text`          | Descripción del hecho contable              |
+| **Origen Registro**      | `recordSource`          | `Text`          | `MOVIMIENTO_CAJA`                           |
+| **ID Origen**            | `sourceId`              | `Text`          | ID de `MovimientosCaja`                     |
+| **ID Transacción**       | `transactionId`         | `Text`          | Transaction ID                              |
+| **ID Pedido Wix**        | `wixOrderId`            | `Text`          | ID orden en eCommerce                       |
+| **Número de Factura**    | `invoiceNumber`         | `Text`          | Número de ticket                            |
+| **Importe Total (€)**    | `totalDocumentAmount`   | `Number`        | Total del documento                         |
+| **Total Debe (€)**       | `totalDebit`            | `Number`        | Suma de debe (Debe = Haber)                 |
+| **Total Haber (€)**      | `totalCredit`           | `Number`        | Suma de haber                               |
+| **Medio de Pago**        | `paymentMethod`         | `Text`          | `EFECTIVO`, `TARJETA`, etc.                 |
+| **Estado del Asiento**   | `entryStatus`           | `Choices`       | `CONFIRMADO`, `BORRADOR`                    |
+| **Hash del Asiento**     | `entryHash`             | `Text`          | Hash encadenado del asiento                 |
+| **Firma del Asiento**    | `entrySignature`        | `Text`          | Firma HMAC                                  |
+| **ID de Traza**          | `traceId`               | `Text`          | Trace ID                                    |
+
+---
+
+#### 25. LINEAS_ASIENTO_CONTABLE (Nombre Técnico: LineasAsientoContable)
+
+- **ID Oculta / Técnica:** `LineasAsientoContable`
+- **Propósito:** Apuntes individuales (líneas de Debe y Haber con desglose de IVA).
+- **Permisos CMS:** Lectura / Escritura: Admin
+- **Índices:** Primario: `_id` (entryLineId) | Secundarios: `journalEntryId`, `accountCode`
+
+| Nombre Visible del Campo   | ID Oculta del Campo    | Tipo en Wix CMS | Restricciones / Opciones                      |
+| :------------------------- | :--------------------- | :-------------- | :-------------------------------------------- |
+| **ID Línea Asiento**       | `_id`                  | `Text`          | `<journalEntryId>_LNNN`                       |
+| **ID Asiento Padre**       | `journalEntryId`       | `Text`          | Enlace a `AsientosContables`                  |
+| **Número de Línea**        | `lineNumber`           | `Number`        | Posición (1, 2, 3…)                           |
+| **Código Cuenta Contable** | `accountCode`          | `Text`          | Cuenta PGC (ej. `570000`, `705000`, `477000`) |
+| **Nombre Cuenta Contable** | `accountName`          | `Text`          | Denominación de la cuenta                     |
+| **Importe Debe (€)**       | `debitAmount`          | `Number`        | Anotación al Debe                             |
+| **Importe Haber (€)**      | `creditAmount`         | `Number`        | Anotación al Haber                            |
+| **Importe Neto (€)**       | `netAmount`            | `Number`        | Debe − Haber                                  |
+| **Descripción Línea**      | `lineDescription`      | `Text`          | Concepto del apunte                           |
+| **Base Imponible (€)**     | `taxableAmount`        | `Number`        | Base imponible sujeta                         |
+| **Tipo de IVA**            | `taxRate`              | `Number`        | `0.21`, `0.10`, `0.00`                        |
+| **Cuota IVA (€)**          | `taxAmount`            | `Number`        | Importe del impuesto                          |
+| **Hash de Línea**          | `lineHash`             | `Text`          | SHA-256 de la línea                           |
+| **ID de Traza**            | `traceId`              | `Text`          | Trace ID                                      |
+
+---
+
+#### 26. PLAN_CUENTAS_CONTABLES (Nombre Técnico: PlanCuentasContables)
+
+- **ID Oculta / Técnica:** `PlanCuentasContables`
+- **Propósito:** Mapeo y parametrización de cuentas contables predeterminadas por tipo de operación.
+- **Permisos CMS:** Lectura / Escritura: Admin
+- **Índices:** Primario: `_id` | Único: `operationCategory`
+
+| Nombre Visible del Campo        | ID Oculta del Campo               | Tipo en Wix CMS | Restricciones / Opciones                                                  |
+| :------------------------------ | :-------------------------------- | :-------------- | :------------------------------------------------------------------------ |
+| **ID del Elemento**             | `_id`                             | `Text`          | UUID                                                                      |
+| **Categoría de Operación**      | `operationCategory`               | `Choices`       | `VENTA_EFECTIVO`, `VENTA_TARJETA`, `VENTA_ONLINE`, `REEMBOLSO`, `PROPINA` |
+| **Cuenta Debe Predeterminada**  | `defaultDebitAccountCode`         | `Text`          | Cuenta de tesorería/cliente (ej. `570000`)                                |
+| **Nombre Cuenta Debe**          | `defaultDebitAccountName`         | `Text`          | Denominación cuenta debe                                                  |
+| **Cuenta Haber Predeterminada** | `defaultCreditAccountCode`        | `Text`          | Cuenta de ingresos/ventas (ej. `705000`)                                  |
+| **Nombre Cuenta Haber**         | `defaultCreditAccountName`        | `Text`          | Denominación cuenta haber                                                 |
+| **Cuenta IVA Repercutido**      | `outputTaxAccountCode`            | `Text`          | Cuenta de IVA (ej. `477000`)                                              |
+| **Nombre Cuenta IVA**           | `outputTaxAccountName`            | `Text`          | Hacienda Pública IVA Repercutido                                          |
+| **Activa**                      | `active`                          | `Boolean`       | Habilitada                                                                |
+| **Validada por Gestoría**       | `validatedByAgency`               | `Boolean`       | Aprobada por asesor contable                                              |
+
+---
+
+#### 27. CONFIGURACION_FISCAL (Nombre Técnico: ConfiguracionFiscal)
+
+- **ID Oculta / Técnica:** `ConfiguracionFiscal`
+- **Propósito:** Configuración fiscal global del negocio (NIF, régimen, series).
+- **Permisos CMS:** Lectura / Escritura: Admin exclusivo
+- **Índices:** Primario: `_id`
+
+| Nombre Visible del Campo       | ID Oculta del Campo        | Tipo en Wix CMS | Restricciones / Opciones            |
+| :----------------------------- | :------------------------- | :-------------- | :---------------------------------- |
+| **ID del Elemento**            | `_id`                      | `Text`          | UUID                                |
+| **NIF Emisor**                 | `taxId`                    | `Text`          | NIF del negocio                     |
+| **Nombre Razón Social**        | `businessName`             | `Text`          | Denominación social                 |
+| **Dirección Fiscal**           | `streetAddress`            | `Text`          | Calle y número                      |
+| **Código Postal Fiscal**       | `postalCode`               | `Text`          | CP                                  |
+| **Municipio Fiscal**           | `city`                     | `Text`          | Ciudad                              |
+| **Provincia Fiscal**           | `subdivision`              | `Text`          | Provincia                           |
+| **País Fiscal**                | `country`                  | `Text`          | `ES`                                |
+| **Moneda**                     | `currency`                 | `Text`          | `EUR`                               |
+| **Zona Horaria**               | `timeZone`                 | `Text`          | `Europe/Madrid`                     |
+| **Régimen IVA**                | `taxRegime`                | `Choices`       | `GENERAL`, `SIMPLIFICADO`, `RECARGO`|
+| **Sujeto SII**                 | `isSiiSubject`             | `Boolean`       | `true` / `false`                    |
+| **Serie Factura Predeterminada**| `defaultInvoiceSeries`     | `Text`          | Prefijo de serie                    |
+| **Versión Configuración**      | `configVersion`            | `Text`          | Versión del esquema                 |
+| **Activo**                     | `active`                   | `Boolean`       | `true` / `false`                    |
+
+---
+
+#### 28. EVENTOS_SISTEMA_FACTURACION (Nombre Técnico: EventosSistemaFacturacion)
+
+- **ID Oculta / Técnica:** `EventosSistemaFacturacion`
+- **Propósito:** Registro de eventos del sistema de facturación para trazabilidad SIF / Veri*factu.
+- **Permisos CMS:** Lectura / Escritura: Admin / Backend exclusivo
+- **Índices:** Primario: `_id` | Secundarios: `eventDateTime`, `eventType`, `severity`
+
+| Nombre Visible del Campo    | ID Oculta del Campo     | Tipo en Wix CMS | Restricciones / Opciones                    |
+| :-------------------------- | :---------------------- | :-------------- | :------------------------------------------ |
+| **ID del Elemento**         | `_id`                   | `Text`          | UUID                                        |
+| **ID Evento Sistema**       | `systemEventId`         | `Text`          | Identificador único del evento              |
+| **Fecha Hora Evento**       | `eventDateTime`         | `Date and Time` | Timestamp del evento                        |
+| **Tipo de Evento**          | `eventType`             | `Text`          | `LEDGER_WRITE`, `Z_CLOSING`, `HASH_BREAK`   |
+| **Severidad**               | `severity`              | `Choices`       | `INFO`, `WARN`, `ERROR`, `CRITICAL`         |
+| **Resultado**               | `result`                | `Text`          | `SUCCESS`, `FAILURE`, `PARTIAL`             |
+| **Origen Evento**           | `eventSource`           | `Text`          | Módulo emisor                               |
+| **ID Usuario Responsable**  | `responsibleUserId`     | `Text`          | ID del usuario                              |
+| **ID Miembro Responsable**  | `responsibleMemberId`   | `Text`          | GUID de wix-members                         |
+| **ID Asiento**              | `journalEntryId`        | `Text`          | Enlace a AsientosContables                  |
+| **ID Transacción**          | `transactionId`         | `Text`          | ID de transacción                           |
+| **ID Referencia**           | `referenceId`           | `Text`          | Referencia externa                          |
+| **Detalle Seguro**          | `secureDetail`          | `Object`        | Datos criptográficos del evento             |
+| **Hash Evento Anterior**    | `previousEventHash`     | `Text`          | SHA-256 del evento previo                   |
+| **Hash Evento**             | `eventHash`             | `Text`          | SHA-256 del evento actual                   |
+| **Firma Evento**            | `eventSignature`        | `Text`          | HMAC-SHA256                                 |
+| **Versión Sistema**         | `systemVersion`         | `Text`          | Versión del software                        |
+| **Versión Esquema**         | `schemaVersion`         | `Text`          | Versión del esquema de datos                |
+| **ID de Traza**             | `traceId`               | `Text`          | Trace ID                                    |
+
+---
+
+## 🔗 3. MATRIZ DE VÍNCULOS Y RELACIONES ENTRE COLECCIONES
+
+```
+┌─────────────────────────────┐
+│   CATEGORIAS_SERVICIO       │
+│   (Display: nombreCategoria)│
+└──────────────▲──────────────┘
+               │ 1:1 (Reference)
+┌─────────────────────────────┐   ┌──────────────┴──────────────┐   ┌─────────────────────────────┐
+│       MAPA_STAFF            │   │      SERVICIOS_RESERVA      │   │      ADDONS_CATALOGO        │
+│   (Display: displayName)    │◄──┤  (Display: title)           ├──►│   (Display: title)          │
+└──────────────┬──────────────┘   └──────────────┬──────────────┘   └─────────────────────────────┘
+               │ 1:N (Multi-Ref)                 │ 1:1 (Self-Ref F2)               ▲
+               │                                 ▼                                 │
+               │                  ┌─────────────────────────────┐                  │
+               │                  │      SERVICIOS_RESERVA      │                  │
+               │                  │       (Sub-servicio F2)     │                  │
+               │                  └─────────────────────────────┘                  │
+               │                                                                   │
+               ├───────────────────────────────────────────────────────────────────┤
+               ▼ (Asignación staff y complementos)                                 │
+┌─────────────────────────────┐                                                    │
+│          CITASF2            ├────────────────────────────────────────────────────┘
+│  (Reserva, Slots y Fechas)  │
+└──────────────┬──────────────┘
+               │ 1:1 (reservaIdVinculada)
+               ▼
+┌─────────────────────────────┐
+│       MOVIMIENTOS_CAJA      │
+│(Ledger Inmutable / Cierre Z)│
+└──────────────┬──────────────┘
+               │ 1:1 (sourceId)
+               ▼
+┌─────────────────────────────┐
+│     ASIENTOS_CONTABLES      │
+│  (Partida doble y balance)  │
+└─────────────────────────────┘
+```
+
+### Detalle de Relaciones:
+
+1. **SERVICIOS_RESERVA → CATEGORIAS_SERVICIO** (1:1 / Reference):
+   - Campo: `nombreCategoria`
+   - Comportamiento: En el CMS se visualiza y selecciona el nombre comercial (PELUQUERIA MUJER, COLOR PROFESIONAL, etc.), vinculando el registro maestro de categoría.
+
+2. **SERVICIOS_RESERVA → MAPA_STAFF** (1:N / Multi-Reference):
+   - Campo: `personalDisponibleNombres`
+   - Comportamiento: Permite asociar una o varias estilistas autorizadas para impartir el servicio. El backend resuelve la disponibilidad nativa en Wix Bookings cruzando con resourceId.
+
+3. **SERVICIOS_RESERVA → ADDONS_CATALOGO** (1:N / Multi-Reference):
+   - Campo: `addOnTitles`
+   - Comportamiento: Define qué complementos o tratamientos adicionales son compatibles con el servicio principal.
+
+4. **SERVICIOS_RESERVA → SERVICIOS_RESERVA** (1:1 / Auto-Referencia Reflexiva):
+   - Campo: `tituloServicioFaseDos`
+   - Comportamiento: En servicios duales (con tiempo de exposición intermedio), enlaza el servicio de Fase 1 con su correspondiente sub-servicio de Fase 2 (ej. Babylights F1 → F2-Babylights: Aclarado y Matizado).
+
+5. **SERVICIOS_RESERVA → LOCALIZACIONES_SALON** (1:1 / Reference):
+   - Campo: `location`
+   - Comportamiento: Vincula el servicio al salón físico autorizado (Salón Central Zaragoza).
+
+6. **CITAS_F2 → MAPA_STAFF** (1:1 / Clave Foránea resourceId):
+   - Comportamiento: Cada reserva almacena el resourceId de la estilista asignada tras resolver el balanceo de carga por minutos de trabajo diarios.
+
+7. **MOVIMIENTOS_CAJA → CITAS_F2** (1:1 / reservaIdVinculada):
+   - Comportamiento: Asocia el cobro o abono fiscal con la(s) cita(s) de Bookings V2 mediante el bookingId o pairToken.
+
+8. **ASIENTOS_CONTABLES → MOVIMIENTOS_CAJA** (1:1 / sourceId):
+   - Comportamiento: Cada movimiento de caja confirmado genera de manera determinista un asiento contable cuadrado en Debe y Haber.
+
+---
+
+## 🚀 4. GUÍA RÁPIDA DE DESPLIEGUE EN WIX DATA CMS
+
+1. **Paso 1 - Crear Colecciones Auxiliares (sin dependencias):**
+   - Crear `LocalizacionesSalon`, `CategoriasServicio`, `MapaStaff` y `ComplementosCatalogo`.
+   - Importar los archivos CSV correspondientes y definir sus respectivos Display Fields (`nombreLocalizacion`, `nombreCategoria`, `displayName`, `title`).
+
+2. **Paso 2 - Crear Colección Principal SERVICIOS_RESERVA:**
+   - Importar `ServiciosCatalogo.csv`.
+   - Configurar los tipos de campo como Reference y Multi-Reference apuntando a las colecciones auxiliares creadas en el Paso 1.
+
+3. **Paso 3 - Crear Colecciones Transaccionales e Inmutables:**
+   - Crear `CitasF2`, `SlotLocks`, `BookingTransactions`, `CompensacionesPendientes`, `BookingsServiceSyncQueue`, `DualSlotCache`.
+   - Crear `MovimientosCaja`, `CajaActual`, `CierresZ`, `ControlParcialX`, `SecuenciaTickets`, `RegistrosHorariosStaff`.
+   - Crear `InventarioStockVenta`, `MovimientosInventario`.
+
+4. **Paso 4 - Publicar y Activar Hooks:**
+   - Publicar el sitio. Los hooks de backend/data.js entrarán en funcionamiento inmediatamente, asegurando la inmutabilidad fiscal, la validación de jornadas y la sincronización de inventario.
+
+---
+
+## 📋 5. TABLA RESUMEN DE IDs CORREGIDAS (BLOQUE A — DIVERGENCIAS)
+
+| # | ELEMENTO | ID TEÓRICA ERRÓNEA (MATRIZ) | ID CORRECTA (APLICADA) |
+|---|----------|------------------------------|------------------------|
+| 1 | Campo slug (ServiciosCatalogo) | `slug` | **`slugUrl`** |
+| 2 | Colección compensaciones | `PendingCompensations` | **`CompensacionesPendientes`** |
+| 3 | Cola sync de servicios | `BookingTransactions` (absorbida) | **`BookingsServiceSyncQueue`** (colección propia) |
+
+**Regla aplicada:** toda consulta `wixData.*` y toda escritura en los módulos usa exclusivamente la columna **ID CORRECTA**. Las IDs teóricas de la matriz (`slug`, `PendingCompensations`, absorción de `BookingsServiceSyncQueue`) quedan descartadas por contradecir el CMS real.
+
+
+# MATRIZ DE CORRESPONDENCIA TÉCNICA PARA REFACTORIZACIÓN DE CÓDIGO
+### `idOcultoAnterior` > `idPrimarioActual` (Wix V2 Canónico)
+
+Esta matriz proporciona la correlación campo a campo para realizar labores de búsqueda, reemplazo y refactorización en el código backend (`.web.js`, `.js`, `.jsw`), funciones HTTP (`http-functions.js`), hooks de datos (`data.js`) y controladores de página en Wix Velo:
+```javascript
+// Patrón de refactorización en consultas Wix Data:
+// ANTERIOR:
+wixData.query("ServiciosCatalogo").eq("tipoServicio", "APPOINTMENT").find();
+// ACTUAL:
+wixData.query("ServiciosCatalogo").eq("serviceType", "APPOINTMENT").find();
+```
+
+---
+
+## MISIÓN 1: Catálogo, Servicios y Recursos de Reserva (Wix Bookings Core)
+
+### 1. `SERVICIOS_CATALOGO — ServiciosCatalogo`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `title` | > | `title` | `titulo` | `TEXT` | Sin cambio de clave |
+| `tituloServicio` | > | `title` | `titulo` | `TEXT` | Consolidado en `title` |
+| `slugUrl` | > | `slugUrl` | `enlaceSlug` | `TEXT` | Renombrado a estándar Wix |
+| `tipoServicio` | > | `serviceType` | `servicioTipo` | `TEXT` | Renombrado a Wix V2 |
+| `duracionTotal` | > | `totalDuration` | `duracionTotal` | `NUMBER` | Renombrado a camelCase inglés |
+| `tiempoFase1` | > | `phase1Duration` | `fase1Duracion` | `NUMBER` | Renombrado a camelCase inglés |
+| `tiempoExposicion` | > | `exposureDuration` | `exposicionDuracion` | `NUMBER` | Renombrado a camelCase inglés |
+| `tiempoFase2` | > | `phase2Duration` | `fase2Duracion` | `NUMBER` | Renombrado a camelCase inglés |
+| `buffer` | > | `buffer` | `buffer` | `NUMBER` | Sin cambio de clave |
+| `linkFases` | > | `linkedPhases` | `enlazadasFases` | `TEXT` | Renombrado a camelCase inglés |
+| `permitirCombinar` | > | `allowCombine` | `permitirCombinar` | `BOOLEAN` | Renombrado a camelCase inglés |
+| `precio` | > | `price` | `precio` | `NUMBER` | Renombrado a Wix V2 |
+| `moneda` | > | `currency` | `moneda` | `TEXT` | Renombrado a estándar ISO |
+| `modeloPrecio` | > | `pricingModel` | `tarificacionModelo` | `TEXT` | Renombrado a Wix V2 |
+| `depositoValor` | > | `depositAmount` | `depositoMonto` | `NUMBER` | Renombrado a Wix V2 |
+| `depositoTipo` | > | `depositType` | `depositoTipo` | `TEXT` | Renombrado a Wix V2 |
+| `pagoOnline` | > | `onlinePayment` | `onlinePago` | `BOOLEAN` | Renombrado a Wix V2 |
+| `pagoPresencial` | > | `inPersonPayment` | `presencialPago` | `BOOLEAN` | Renombrado a Wix V2 |
+| `impuestoIncluido` | > | `taxIncluded` | `impuestoIncluido` | `BOOLEAN` | Renombrado a Wix eCom |
+| `impuestoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom |
+| `codigoSku` | > | `sku` | `articuloSku` | `TEXT` | Renombrado a Wix V2 |
+| `categoriaId` | > | `categoryId` | `categoriaId` | `TEXT` | Renombrado a Wix V2 |
+| `categoriaNombre` | > | `categoryName` | `categoriaNombre` | `TEXT` | Renombrado a Wix V2 |
+| `localizacionId` | > | `locationId` | `ubicacionId` | `TEXT` | Renombrado a Wix V2 |
+| `localizacion` | > | `location` | `ubicacion` | `TEXT` | Renombrado a Wix V2 |
+| `staffDisponible` | > | `availableStaff` | `disponiblePersonal` | `OBJECT` | Renombrado a Wix V2 |
+| `addonsOptions` | > | `addOnOptions` | `complementoOpciones` | `MULTI_REFERENCE` | Renombrado a Wix V2 |
+| `tituloAddons` | > | `addOnTitles` | `complementoTitulos` | `MULTI_REFERENCE` | Renombrado a Wix V2 |
+| `resumenCorto` | > | `tagLine` | `lemaEtiqueta` | `TEXT` | Renombrado a Wix V2 |
+| `descripcionLarga` | > | `description` | `descripcion` | `TEXT` | Renombrado a Wix V2 |
+| `imagenPrincipal` | > | `mainMedia` | `principalMultimedia` | `TEXT` | Renombrado a Wix V2 |
+| `oculto` | > | `hidden` | `oculto` | `BOOLEAN` | Renombrado a Wix V2 |
+| `notasInternas` | > | `internalNotes` | `internasNotas` | `TEXT` | Renombrado a camelCase inglés |
+| `_id` | > | `_id` | `idElemento` | `TEXT` | Clave de sistema nativa |
+| `_createdDate` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Clave de sistema nativa |
+| `_updatedDate` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Clave de sistema nativa |
+| `_owner` | > | `_owner` | `propietario` | `TEXT` | Clave de sistema nativa |
+
+---
+
+### 2. `MAPA_STAFF — MapaStaff`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `staffMemberId` | > | `staffMemberId` | `personalMiembroId` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `displayName` | > | `displayName` | `mostradoNombre` | `TEXT` | Sin cambio de clave |
+| `scheduleId` | > | `scheduleId` | `horarioId` | `TEXT` | Sin cambio de clave |
+| `email` | > | `email` | `correoElectronico` | `TEXT` | Sin cambio de clave |
+| `telefono` | > | `phone` | `telefono` | `TEXT` | Renombrado a Wix V2 |
+| `localizacionId` | > | `locationId` | `ubicacionId` | `TEXT` | Renombrado a Wix V2 |
+| `localizacion` | > | `location` | `ubicacion` | `TEXT` | Renombrado a Wix V2 |
+| `activo` | > | `active` | `activo` | `BOOLEAN` | Renombrado a Wix V2 |
+| `notas` | > | `notes` | `notas` | `TEXT` | Renombrado a Wix V2 |
+| `_id` | > | `_id` | `idElemento` | `TEXT` | Clave de sistema nativa |
+| `_createdDate` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Clave de sistema nativa |
+| `_updatedDate` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Clave de sistema nativa |
+| `_owner` | > | `_owner` | `propietario` | `TEXT` | Clave de sistema nativa |
+
+---
+
+### 3. `CITAS_F2 — CitasF2`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `bookingId` | > | `bookingId` | `reservaId` | `TEXT` | Sin cambio de clave |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `scheduleId` | > | `scheduleId` | `horarioId` | `TEXT` | Sin cambio de clave |
+| `pairToken` | > | `pairToken` | `parToken` | `TEXT` | Sin cambio de clave |
+| `uiPairToken` | > | `uiPairToken` | `uiParToken` | `TEXT` | Sin cambio de clave |
+| `startDate` | > | `startDate` | `inicioFecha` | `DATETIME` | Sin cambio de clave |
+| `endDate` | > | `endDate` | `finFecha` | `DATETIME` | Sin cambio de clave |
+| `startDateLocal` | > | `startDateLocal` | `inicioFechaLocal` | `TEXT` | Sin cambio de clave |
+| `endDateLocal` | > | `endDateLocal` | `finFechaLocal` | `TEXT` | Sin cambio de clave |
+| `fechaYmdMadrid` | > | `dateYmd` | `fechaYmd` | `TEXT` | Renombrado a estándar técnico |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `statusPago` | > | `paymentStatus` | `pagoEstado` | `TEXT` | Renombrado a Wix eCom/Payments |
+| `tipo` | > | `bookingType` | `reservaTipo` | `TEXT` | Renombrado a Wix Bookings V2 |
+| `revision` | > | `revision` | `revision` | `NUMBER` | Sin cambio de clave |
+| `contactDetails` | > | `contactDetails` | `contactoDetalles` | `OBJECT` | Sin cambio de clave |
+| `meta` | > | `meta` | `meta` | `OBJECT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+| `fechaCreacion` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Consolidado en campo de sistema |
+| `fechaActualizacion`| > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+| `Owner` | > | `_owner` | `propietario` | `TEXT` | Consolidado en campo de sistema |
+
+---
+
+## MISIÓN 2: Motor de Disponibilidad, Slots y Caché (Availability & Cache Engine)
+
+### 4. `AVAILABILITY_DAYS_CACHE — AvailabilityDaysCache`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `phase1ServiceId` | > | `phase1ServiceId` | `servicioFase1Id` | `TEXT` | Sin cambio de clave |
+| `yearMonth` | > | `yearMonth` | `anioMes` | `TEXT` | Sin cambio de clave |
+| `staffKey` | > | `staffKey` | `personalClave` | `TEXT` | Sin cambio de clave |
+| `resourceKeyHash` | > | `resourceKeyHash` | `recursoClaveHash` | `TEXT` | Sin cambio de clave |
+| `days` | > | `days` | `dias` | `OBJECT` | Sin cambio de clave |
+| `daysArr` | > | `daysArr` | `diasArreglo` | `ARRAY_STRING` | Sin cambio de clave |
+| `version` | > | `version` | `version` | `NUMBER` | Sin cambio de clave |
+| `generatedAt` | > | `generatedAt` | `generadoFecha` | `DATETIME` | Sin cambio de clave |
+| `expiresAt` | > | `expiresAt` | `expiraFecha` | `DATETIME` | Sin cambio de clave |
+| `createdAt` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 5. `DUAL_SLOT_CACHE — DualSlotCache`
+*(Incluye absorción completa de campos de la eliminada `AVAILABILITY_SLOTS_CACHE`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `pairToken` | > | `pairToken` | `parToken` | `TEXT` | Sin cambio de clave |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | Sin cambio de clave |
+| `phase1ServiceId` | > | `phase1ServiceId` | `servicioFase1Id` | `TEXT` | Sin cambio de clave |
+| `phase2ServiceId` | > | `phase2ServiceId` | `servicioFase2Id` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `candidateResourceIds`| > | `candidateResourceIds`| `candidatoRecursoIds`| `ARRAY_STRING`| Sin cambio de clave |
+| `resourceKeyHash` | > | `resourceKeyHash` | `recursoClaveHash` | `TEXT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `dateYMD` | > | `dateYmd` | `fechaYmd` | `TEXT` | Normalizado a camelCase |
+| `fromLocal` | > | `fromLocal` | `desdeLocal` | `TEXT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `toLocal` | > | `toLocal` | `hastaLocal` | `TEXT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `slotF1` | > | `slotF1` | `franjaF1` | `OBJECT` | Sin cambio de clave |
+| `slotF2` | > | `slotF2` | `franjaF2` | `OBJECT` | Sin cambio de clave |
+| `slots` | > | `slots` | `franjas` | `OBJECT` | **Absorbido de `AvailabilitySlotsCache`** |
+| `bookingIdF2` | > | `bookingIdF2` | `reservaIdF2` | `TEXT` | Sin cambio de clave |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `expiresAt` | > | `expiresAt` | `expiraFecha` | `DATETIME` | Sin cambio de clave |
+| `createdAt` / `updatedAt`| > | `_createdDate` / `_updatedDate` | `fechaCreacion` / `fechaActualizacion` | `DATETIME` | Consolidados en sistema |
+
+---
+
+## MISIÓN 3: Orquestación Transaccional, Colas y Sincronización (Transaction & Sync Orchestration)
+
+### 6. `BOOKING_TRANSACTIONS — BookingTransactions`
+*(Incluye absorción completa de campos de la eliminada `BOOKINGS_SERVICE_SYNC_QUEUE`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `pairToken` | > | `pairToken` | `parToken` | `TEXT` | Sin cambio de clave |
+| `serviceId` | > | `serviceId` | `servicioId` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `sourceItemId` | > | `sourceItemId` | `origenElementoId` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `title` | > | `title` | `titulo` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `payloadHash` | > | `payloadHash` | `cargaHash` | `TEXT` | Sin cambio de clave |
+| `desiredHash` | > | `desiredHash` | `deseadoHash` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `attempts` | > | `attempts` | `intentos` | `NUMBER` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `nextAttemptAt` | > | `nextAttemptAt` | `siguienteIntentoFecha`| `DATETIME` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `completedAt` | > | `completedAt` | `completadoFecha` | `DATETIME` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `failedAt` | > | `failedAt` | `fallidoFecha` | `DATETIME` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `errorCode` | > | `errorCode` | `errorCodigo` | `TEXT` | **Absorbido de `BookingsServiceSyncQueue`** |
+| `result` | > | `result` | `resultado` | `OBJECT` | Sin cambio de clave |
+| `error` | > | `error` | `error` | `TEXT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+### 7. `COMPENSACIONES_PENDIENTES — PendingCompensations`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `bookingId` | > | `bookingId` | `reservaId` | `TEXT` | Sin cambio de clave |
+| `bookingIds` | > | `bookingIds` | `reservaIds` | `TEXT` | Sin cambio de clave |
+| `orderId` | > | `orderId` | `pedidoId` | `TEXT` | Sin cambio de clave |
+| `refundId` | > | `refundId` | `devolucionId` | `TEXT` | Sin cambio de clave |
+| `transactionId` | > | `transactionId` | `transaccionId` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `amount` | > | `amount` | `monto` | `NUMBER` | Sin cambio de clave |
+| `concept` | > | `concept` | `concepto` | `TEXT` | Sin cambio de clave |
+| `paymentMethod` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Sin cambio de clave |
+| `tipoMovimiento` | > | `movementType` | `movimientoTipo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `kind` | > | `kind` | `clase` | `TEXT` | Sin cambio de clave |
+| `phase` | > | `phase` | `fase` | `TEXT` | Sin cambio de clave |
+| `origin` | > | `origin` | `origen` | `TEXT` | Sin cambio de clave |
+| `alertRequired` | > | `alertRequired` | `alertaRequerida` | `BOOLEAN` | Sin cambio de clave |
+| `attempts` | > | `attempts` | `intentos` | `NUMBER` | Sin cambio de clave |
+| `lastError` | > | `lastError` | `ultimoError` | `TEXT` | Sin cambio de clave |
+| `error` | > | `error` | `error` | `TEXT` | Sin cambio de clave |
+| `failedAt` / `fechaFallo` | > | `failedAt` | `fallidoFecha` | `DATETIME` | Desduplicado en `failedAt` |
+| `completedAt` / `fechaProcesado` | > | `completedAt` | `completadoFecha` | `DATETIME` | Desduplicado en `completedAt` |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+### 8. `M365_GRAPH_SYNC_QUEUE — M365GraphSyncQueue`
+*(Incluye absorción completa de campos de la eliminada `SYNC_M365`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `externalRecordId` | > | `externalRecordId` | `externoRegistroId` | `TEXT` | Sin cambio de clave |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `tipo` | > | `type` | `tipo` | `TEXT` | **Absorbido de `SyncM365`** |
+| `origen` | > | `source` | `origen` | `TEXT` | **Absorbido de `SyncM365`** |
+| `destino` | > | `destination` | `destino` | `TEXT` | **Absorbido de `SyncM365`** |
+| `payload` | > | `payload` | `carga` | `OBJECT` | Sin cambio de clave |
+| `payloadHash` | > | `payloadHash` | `cargaHash` | `TEXT` | Sin cambio de clave |
+| `attempts` | > | `attempts` | `intentos` | `NUMBER` | Sin cambio de clave |
+| `nextAttemptAt` | > | `nextAttemptAt` | `siguienteIntentoFecha`| `DATETIME` | Sin cambio de clave |
+| `completedAt` | > | `completedAt` | `completadoFecha` | `DATETIME` | Sin cambio de clave |
+| `failedAt` | > | `failedAt` | `fallidoFecha` | `DATETIME` | Sin cambio de clave |
+| `blockedAt` | > | `blockedAt` | `bloqueadoFecha` | `DATETIME` | Sin cambio de clave |
+| `fechaSync` | > | `syncDate` | `sincronizacionFecha` | `DATETIME` | **Absorbido de `SyncM365`** |
+| `cantidadRegistros` | > | `recordCount` | `registrosCantidad` | `NUMBER` | **Absorbido de `SyncM365`** |
+| `errorCode` | > | `errorCode` | `errorCodigo` | `TEXT` | Sin cambio de clave |
+| `mensaje` | > | `message` | `mensaje` | `TEXT` | **Absorbido de `SyncM365`** |
+| `meta` | > | `meta` | `meta` | `OBJECT` | **Absorbido de `SyncM365`** |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+## MISIÓN 4: Gestión de Inventario, Catálogo de Venta y Proveedores (Stores & Inventory)
+
+### 9. `INVENTARIO_STOCK_VENTA — InventarioStockVenta`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `sku` | > | `sku` | `articuloSku` | `TEXT` | Sin cambio de clave |
+| `productName` | > | `productName` | `productoNombre` | `TEXT` | Sin cambio de clave |
+| `wixProductId` | > | `wixProductId` | `wixProductoId` | `TEXT` | Sin cambio de clave |
+| `wixVariantId` | > | `wixVariantId` | `wixVarianteId` | `TEXT` | Sin cambio de clave |
+| `stockExpected` | > | `stockExpected` | `stockEsperado` | `NUMBER` | Sin cambio de clave |
+| `stockMinimo` | > | `minStock` | `minimoStock` | `NUMBER` | Renombrado a Wix Inventory |
+| `lowStockAlert` | > | `lowStockAlert` | `bajoStockAlerta` | `NUMBER` | Sin cambio de clave |
+| `reorderPoint` | > | `reorderPoint` | `reordenPunto` | `NUMBER` | Sin cambio de clave |
+| `salePriceTaxIncluded` | > | `salePriceTaxIncluded` | `ventaPrecioImpuestoIncluido` | `NUMBER` | Sin cambio de clave |
+| `costExTax` | > | `costExTax` | `costoSinImpuesto` | `NUMBER` | Sin cambio de clave |
+| `location` | > | `location` | `ubicacion` | `TEXT` | Sin cambio de clave |
+| `active` | > | `active` | `activo` | `BOOLEAN` | Sin cambio de clave |
+| `needsWixReconciliation`| > | `needsWixReconciliation`| `necesitaWixConciliacion`| `BOOLEAN`| Sin cambio de clave |
+| `supplier` | > | `supplier` | `proveedor` | `TEXT` | Sin cambio de clave |
+| `supplierReference` | > | `supplierReference` | `proveedorReferencia` | `TEXT` | Sin cambio de clave |
+| `unitsPerCase` | > | `unitsPerCase` | `unidadesPorCaja` | `NUMBER` | Sin cambio de clave |
+| `category` | > | `category` | `categoria` | `TEXT` | Sin cambio de clave |
+| `collectionName` | > | `collectionName` | `coleccionNombre` | `TEXT` | Sin cambio de clave |
+| `description` | > | `description` | `descripcion` | `TEXT` | Sin cambio de clave |
+| `lastInventoryMovementId`| > | `lastInventoryMovementId`| `ultimoInventarioMovimientoId`| `TEXT` | Sin cambio de clave |
+| `lastInventoryMovementAt`| > | `lastInventoryMovementAt`| `ultimoInventarioMovimientoFecha`| `DATETIME` | Sin cambio de clave |
+
+---
+
+### 10. `MOVIMIENTOS_INVENTARIO — MovimientoInventario`
+*(Incluye absorción completa de campos de la eliminada `CONCILIACION_STOCK_WIX`)*
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Origen / Acción |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `movementToken` | > | `movementToken` | `movimientoToken` | `TEXT` | Sin cambio de clave |
+| `movementId` | > | `movementId` | `movimientoId` | `TEXT` | **Absorbido de `ConciliacionStockWix`** |
+| `sku` | > | `sku` | `articuloSku` | `TEXT` | Sin cambio de clave |
+| `productId` | > | `productId` | `productoId` | `TEXT` | Sin cambio de clave |
+| `variantId` | > | `variantId` | `varianteId` | `TEXT` | Sin cambio de clave |
+| `wixProductId` | > | `wixProductId` | `wixProductoId` | `TEXT` | Sin cambio de clave |
+| `wixVariantId` | > | `wixVariantId` | `wixVarianteId` | `TEXT` | Sin cambio de clave |
+| `movementType` | > | `movementType` | `movimientoTipo` | `TEXT` | Sin cambio de clave |
+| `quantity` | > | `quantity` | `cantidad` | `NUMBER` | Sin cambio de clave |
+| `quantityDelta` | > | `quantityDelta` | `cantidadDelta` | `NUMBER` | Sin cambio de clave |
+| `stockBefore` | > | `stockBefore` | `stockPrevio` | `NUMBER` | Sin cambio de clave |
+| `stockAfter` | > | `stockAfter` | `stockPosterior` | `NUMBER` | Sin cambio de clave |
+| `stockExpected` | > | `stockExpected` | `stockEsperado` | `NUMBER` | Sin cambio de clave |
+| `locationCode` | > | `locationCode` | `ubicacionCodigo` | `TEXT` | **Absorbido de `ConciliacionStockWix`** |
+| `status` | > | `status` | `estado` | `TEXT` | Sin cambio de clave |
+| `appliedAt` | > | `appliedAt` | `aplicadoFecha` | `DATETIME` | Sin cambio de clave |
+| `appliedByNote` | > | `appliedByNote` | `aplicadoPorNota` | `TEXT` | **Absorbido de `ConciliacionStockWix`** |
+| `requiresWixReconciliation`| > | `requiresWixReconciliation`| `requiereWixConciliacion`| `BOOLEAN` | Sin cambio de clave |
+| `nativeCommercialMovement`| > | `nativeCommercialMovement`| `nativoComercialMovimiento`| `BOOLEAN` | Sin cambio de clave |
+| `orderId` | > | `orderId` | `pedidoId` | `TEXT` | Sin cambio de clave |
+| `refundId` | > | `refundId` | `devolucionId` | `TEXT` | Sin cambio de clave |
+| `referenceId` | > | `referenceId` | `referenciaId` | `TEXT` | Sin cambio de clave |
+| `reason` | > | `reason` | `motivo` | `TEXT` | Sin cambio de clave |
+| `note` | > | `note` | `nota` | `TEXT` | Sin cambio de clave |
+| `source` | > | `source` | `origen` | `TEXT` | Sin cambio de clave |
+| `productName` | > | `productName` | `productoNombre` | `TEXT` | Sin cambio de clave |
+| `actorEmail` | > | `actorEmail` | `actorCorreo` | `TEXT` | Sin cambio de clave |
+| `actorMemberId` | > | `actorMemberId` | `actorMiembroId` | `TEXT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+
+---
+
+### 11. `INVENTARIO_STOCK_VENTA_CIERRE — InventarioStockVentaCierre`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idCierreInventario` | > | `inventoryClosingId` | `inventarioCierreId` | `TEXT` | Renombrado a camelCase inglés |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `fechaCierre` | > | `closingDate` | `cierreFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `tipoCierre` | > | `closingType` | `cierreTipo` | `TEXT` | Renombrado a camelCase inglés |
+| `sku` | > | `sku` | `articuloSku` | `TEXT` | Sin cambio de clave |
+| `idProducto` | > | `productId` | `productoId` | `TEXT` | Renombrado a Wix V2 |
+| `descripcionProducto` | > | `productDescription` | `productoDescripcion` | `TEXT` | Renombrado a Wix V2 |
+| `cantidadExistencias` | > | `stockQuantity` | `existenciasCantidad` | `NUMBER` | Renombrado a Wix Inventory |
+| `costeUnitario` | > | `unitCost` | `unitarioCosto` | `NUMBER` | Renombrado a Wix Inventory |
+| `valorExistencias` | > | `stockValue` | `existenciasValor` | `NUMBER` | Renombrado a camelCase inglés |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `saldoDebe` | > | `debitBalance` | `debeSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `saldoHaber` | > | `creditBalance` | `haberSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `hashCierre` | > | `closingHash` | `cierreHash` | `TEXT` | Renombrado a camelCase inglés |
+| `firmaCierre` | > | `closingSignature` | `cierreFirma` | `TEXT` | Renombrado a camelCase inglés |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+
+---
+
+### 12. `PROVEEDORES_LISTA — ProveedoresLista`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `supplierName` | > | `supplierName` | `proveedorNombre` | `TEXT` | Sin cambio de clave |
+| `commercialTermsSource`| > | `commercialTermsSource`| `comercialesTerminosOrigen`| `TEXT` | Sin cambio de clave |
+| `minimumOrderExTax` | > | `minimumOrderExTax` | `minimoPedidoSinImpuesto`| `NUMBER` | Sin cambio de clave |
+| `freeShippingThresholdExTax`| >| `freeShippingThresholdExTax`| `gratisEnvioUmbralSinImpuesto`| `NUMBER` | Sin cambio de clave |
+| `leadTime` | > | `leadTime` | `plazoEntregaTiempo` | `TEXT` | Sin cambio de clave |
+| `advantages` | > | `advantages` | `ventajas` | `TEXT` | Sin cambio de clave |
+| `notes` | > | `notes` | `notas` | `TEXT` | Sin cambio de clave |
+| `active` | > | `active` | `activo` | `BOOLEAN` | Sin cambio de clave |
+
+---
+
+## MISIÓN 5: TPV, Control de Caja Diaria, Arqueos y Secuencia Fiscal (POS & Cash Management)
+
+### 13. `CAJA_ACTUAL — CajaActual`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `estadoCaja` | > | `cashRegisterStatus` | `cajaRegistroEstado` | `TEXT` | Renombrado a Wix POS |
+| `saldoTotal` | > | `totalBalance` | `totalSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoEfectivo` | > | `cashBalance` | `efectivoSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoTarjeta` | > | `cardBalance` | `tarjetaSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoBizum` | > | `bizumBalance` | `bizumSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `saldoOnline` | > | `onlineBalance` | `onlineSaldo` | `NUMBER` | Renombrado a Wix POS/Payments |
+| `totalOperaciones` | > | `totalOperations` | `totalOperaciones` | `NUMBER` | Renombrado a Wix POS |
+| `fechaHoraApertura` | > | `openedAt` | `aperturaFecha` | `DATETIME` | Renombrado a Wix POS |
+| `fechaHoraCierre` | > | `closedAt` | `cierreFecha` | `DATETIME` | Renombrado a Wix POS |
+| `fechaHoraUltimoMovimiento`| > | `lastActivityAt` | `ultimaActividadFecha` | `DATETIME` | Renombrado a Wix POS |
+| `fechaHoraActualizacion`| > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 14. `MOVIMIENTOS_CAJA — MovimientosCaja`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `secuenciaGlobal` | > | `sequenceNumber` | `secuenciaNumero` | `NUMBER` | Renombrado a Wix Invoicing/POS |
+| `numeroTicketFactura` | > | `invoiceNumber` | `facturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a Wix Invoicing |
+| `tipoMovimiento` | > | `movementType` | `movimientoTipo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `naturalezaOperacion` | > | `operationNature` | `operacionNaturaleza` | `TEXT` | Renombrado a estándar fiscal |
+| `medioPago` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `importeTotal` | > | `totalAmount` | `totalMonto` | `NUMBER` | Renombrado a Wix eCom/Payments |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `cuotaIva` | > | `taxAmount` | `impuestoMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tipoImpositivo` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tratamientoIva` | > | `taxTreatment` | `impuestoTratamiento` | `TEXT` | Renombrado a estándar fiscal |
+| `signoContable` | > | `accountingSign` | `contableSigno` | `NUMBER` | Renombrado a estándar contable |
+| `importeContable` | > | `accountingAmount` | `contableMonto` | `NUMBER` | Renombrado a estándar contable |
+| `descripcionOperacion` | > | `description` | `descripcion` | `TEXT` | Renombrado a Wix V2 |
+| `detalleLineas` | > | `lineItems` | `lineaArticulos` | `ARRAY` | Renombrado a Wix eCom V2 |
+| `referenciaFacturaRectificada`| > | `rectifiedInvoiceReference`| `rectificadaFacturaReferencia`| `TEXT` | Renombrado a Wix Invoicing |
+| `hashRegistroAnterior` | > | `previousRecordHash` | `previoRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashRegistroActual` | > | `currentRecordHash` | `actualRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaDigital` | > | `digitalSignature` | `digitalFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `nifEmisor` | > | `businessTaxId` | `negocioTributariaId` | `TEXT` | Renombrado a Wix Settings |
+| `versionEsquemaIntegridad`| > | `schemaIntegrityVersion`| `esquemaIntegridadVersion`| `TEXT` | Renombrado a estándar técnico |
+| `origenRegistro` | > | `recordSource` | `registroOrigen` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 15. `CONTROL_PARCIAL_X — ControlParcialX`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `efectivoContado` | > | `countedCash` | `contadoEfectivo` | `NUMBER` | Renombrado a Wix POS |
+| `efectivoTeorico` | > | `expectedCash` | `esperadoEfectivo` | `NUMBER` | Renombrado a Wix POS |
+| `importeDescuadre` | > | `discrepancyAmount` | `descuadreMonto` | `NUMBER` | Renombrado a Wix POS |
+| `estadoCuadre` | > | `reconciliationStatus` | `cuadreEstado` | `TEXT` | Renombrado a Wix POS |
+| `fechaHoraConteo` | > | `countedAt` | `contadoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaHoraArqueo` | > | `reconciledAt` | `arqueadoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+
+---
+
+### 16. `CIERRES_Z — HistoricoCierresZ`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `TEXT` | Renombrado a Wix POS |
+| `estadoCierre` | > | `closingStatus` | `cierreEstado` | `TEXT` | Renombrado a camelCase inglés |
+| `importeTotalConsolidado`| > | `consolidatedTotalAmount`| `consolidadoTotalMonto`| `NUMBER` | Renombrado a camelCase inglés |
+| `totalVentasBrutas` | > | `grossSalesTotal` | `brutasVentasTotal` | `NUMBER` | Renombrado a Wix eCom |
+| `baseImponibleNeta` | > | `netTaxableAmount` | `netaGravableMonto` | `NUMBER` | Renombrado a Wix eCom |
+| `cuotaIvaNeta` | > | `netTaxAmount` | `netaImpuestoMonto` | `NUMBER` | Renombrado a Wix eCom |
+| `totalEfectivo` | > | `totalCash` | `totalEfectivo` | `NUMBER` | Renombrado a Wix POS |
+| `totalTarjeta` | > | `totalCard` | `totalTarjeta` | `NUMBER` | Renombrado a Wix POS |
+| `totalBizum` | > | `totalBizum` | `totalBizum` | `NUMBER` | Renombrado a Wix Payments |
+| `totalOnline` | > | `totalOnline` | `totalOnline` | `NUMBER` | Renombrado a Wix Payments |
+| `totalDevoluciones` | > | `totalRefunds` | `totalDevoluciones` | `NUMBER` | Renombrado a Wix eCom/Payments |
+| `totalPropinas` | > | `totalTips` | `totalPropinas` | `NUMBER` | Renombrado a Wix eCom |
+| `totalAjustes` | > | `totalAdjustments` | `totalAjustes` | `NUMBER` | Renombrado a camelCase inglés |
+| `totalOperaciones` | > | `totalOperations` | `totalOperaciones` | `NUMBER` | Renombrado a Wix POS |
+| `secuenciaInicio` | > | `startSequence` | `inicioSecuencia` | `NUMBER` | Renombrado a camelCase inglés |
+| `secuenciaFin` | > | `endSequence` | `finSecuencia` | `NUMBER` | Renombrado a camelCase inglés |
+| `numeroTicketInicio` | > | `startTicketNumber` | `inicioTicketNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `numeroTicketFin` | > | `endTicketNumber` | `finTicketNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `hashRegistroInicio` | > | `startRecordHash` | `inicioRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashRegistroFin` | > | `endRecordHash` | `finRegistroHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `desgloseTipoMovimiento` | > | `movementTypeBreakdown` | `movimientoTipoDesglose`| `OBJECT` | Renombrado a camelCase inglés |
+| `desgloseTipoIva` | > | `taxTypeBreakdown` | `impuestoTipoDesglose` | `OBJECT` | Renombrado a Wix eCom |
+| `integridadVerificada` | > | `isIntegrityVerified` | `esIntegridadVerificada`| `BOOLEAN`| Renombrado a estándar técnico |
+| `totalRegistrosAuditados`| > | `auditedRecordsCount` | `auditadosRegistrosCantidad`| `NUMBER` | Renombrado a estándar técnico |
+| `hashCierre` | > | `closingHash` | `cierreHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaCierre` | > | `closingSignature` | `cierreFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `origenCierre` | > | `closingSource` | `cierreOrigen` | `TEXT` | Renombrado a camelCase inglés |
+| `versionEsquemaCierre` | > | `closingSchemaVersion` | `cierreEsquemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `zonaHoraria` | > | `timeZone` | `horariaZona` | `TEXT` | Renombrado a Wix Settings |
+| `fechaHoraCierre` | > | `closedAt` | `cierreFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaHoraVerificacion`| > | `verifiedAt` | `verificadoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+
+---
+
+### 17. `SECUENCIA_TICKETS — SecuenciaTickets`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `contadoresSecuencia` | > | `sequenceCounters` | `secuenciaContadores` | `OBJECT` | Renombrado a Wix POS/Invoicing |
+
+---
+
+## MISIÓN 6: Fiscalidad, Libros de IVA y Contabilidad General (Fiscal, Accounting & Tax)
+
+### 18. `CONFIGURACION_FISCAL — ConfiguracionFiscal`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `nifEmisor` | > | `taxId` | `tributariaId` | `TEXT` | Renombrado a Wix Business Settings |
+| `nombreRazonSocial` | > | `businessName` | `negocioNombre` | `TEXT` | Renombrado a Wix Business Settings |
+| `direccionFiscal` | > | `streetAddress` | `calleDireccion` | `TEXT` | Renombrado a Wix Business Settings |
+| `codigoPostalFiscal` | > | `postalCode` | `postalCodigo` | `TEXT` | Renombrado a Wix Business Settings |
+| `municipioFiscal` | > | `city` | `ciudad` | `TEXT` | Renombrado a Wix Business Settings |
+| `provinciaFiscal` | > | `subdivision` | `subdivisionProvincia` | `TEXT` | Renombrado a Wix Business Settings |
+| `paisFiscal` | > | `country` | `pais` | `TEXT` | Renombrado a Wix Business Settings |
+| `moneda` | > | `currency` | `moneda` | `TEXT` | Renombrado a Wix Business Settings |
+| `zonaHoraria` | > | `timeZone` | `horariaZona` | `TEXT` | Renombrado a Wix Business Settings |
+| `regimenIva` | > | `taxRegime` | `tributarioRegimen` | `TEXT` | Renombrado a estándar fiscal |
+| `sujetoSii` | > | `isSiiSubject` | `esSiiSujeto` | `BOOLEAN` | Renombrado a estándar técnico |
+| `serieFacturaPredeterminada`| > | `defaultInvoiceSeries` | `predeterminadaFacturaSerie`| `TEXT` | Renombrado a Wix Invoicing |
+| `versionConfiguracion` | > | `configVersion` | `configuracionVersion` | `TEXT` | Renombrado a estándar técnico |
+| `activo` | > | `active` | `activo` | `BOOLEAN` | Renombrado a Wix V2 |
+| `fechaActualizacion` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 19. `LIBRO_IVA_FACTURAS_EXPEDIDAS — LibroIvaFacturasExpedidas`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idRegistroIva` | > | `taxRecordId` | `tributarioRegistroId` | `TEXT` | Renombrado a camelCase inglés |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroFactura` | > | `invoiceNumber` | `facturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `serieFactura` | > | `invoiceSeries` | `facturaSerie` | `TEXT` | Renombrado a Wix Invoicing |
+| `numeroFacturaFinal` | > | `finalInvoiceNumber` | `finalFacturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `fechaExpedicion` | > | `issueDate` | `expedicionFecha` | `DATETIME` | Renombrado a Wix Invoicing |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a Wix Invoicing |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoFactura` | > | `invoiceType` | `facturaTipo` | `TEXT` | Renombrado a Wix Invoicing |
+| `importeTotalFactura` | > | `totalInvoiceAmount` | `totalFacturaMonto` | `NUMBER` | Renombrado a Wix Invoicing |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tipoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `cuotaIvaRepercutida` | > | `outputTaxAmount` | `repercutidoImpuestoMonto`| `NUMBER` | Renombrado a estándar contable |
+| `tipoRecargoEquivalencia`| > | `equivalenceSurchargeRate`| `equivalenciaRecargoTasa`| `NUMBER` | Renombrado a estándar fiscal |
+| `cuotaRecargoEquivalencia`| >| `equivalenceSurchargeAmount`| `equivalenciaRecargoMonto`| `NUMBER`| Renombrado a estándar fiscal |
+| `conceptoIngreso` | > | `incomeConcept` | `ingresoConcepto` | `TEXT` | Renombrado a estándar fiscal |
+| `importeIngresoComputable`| >| `computableIncomeAmount`| `computableIngresoMonto`| `NUMBER` | Renombrado a estándar fiscal |
+| `nifDestinatario` | > | `recipientTaxId` | `destinatarioTributariaId`| `TEXT` | Renombrado a Wix Invoicing |
+| `nombreDestinatario` | > | `recipientName` | `destinatarioNombre` | `TEXT` | Renombrado a Wix Invoicing |
+| `tipoIdentificacionDestinatario`| > | `recipientIdType` | `destinatarioIdentificacionTipo`| `TEXT` | Renombrado a Wix Invoicing |
+| `codigoPaisDestinatario`| > | `recipientCountryCode` | `destinatarioPaisCodigo` | `TEXT` | Renombrado a Wix Invoicing |
+| `claveOperacion` | > | `operationKey` | `operacionClave` | `TEXT` | Renombrado a estándar AEAT |
+| `calificacionOperacion` | > | `operationQualification` | `operacionCalificacion`| `TEXT` | Renombrado a estándar AEAT |
+| `operacionExenta` | > | `exemptOperation` | `exentaOperacion` | `TEXT` | Renombrado a estándar AEAT |
+| `codigoActividad` | > | `activityCode` | `actividadCodigo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoActividad` | > | `activityType` | `actividadTipo` | `TEXT` | Renombrado a estándar fiscal |
+| `epigrafeIae` | > | `iaeHeading` | `iaeEpigrafe` | `TEXT` | Renombrado a estándar fiscal |
+| `fechaCobro` | > | `paymentDate` | `pagoFecha` | `DATETIME` | Renombrado a Wix Payments |
+| `importeCobrado` | > | `collectedAmount` | `cobradoMonto` | `NUMBER` | Renombrado a Wix Payments |
+| `medioCobro` | > | `collectionMethod` | `cobroMedio` | `TEXT` | Renombrado a Wix Payments |
+| `identificacionMedioCobro`| >| `collectionMethodIdentifier`| `cobroMedioIdentificacion`| `TEXT` | Renombrado a Wix Payments |
+| `tipoRetencionIrpf` | > | `withholdingTaxRate` | `retencionTasa` | `NUMBER` | Renombrado a estándar fiscal |
+| `importeRetenidoIrpf` | > | `withholdingTaxAmount` | `retencionMonto` | `NUMBER` | Renombrado a estándar fiscal |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `idFacturaRectificada` | > | `rectifiedInvoiceId` | `rectificadaFacturaId` | `TEXT` | Renombrado a Wix Invoicing |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 20. `LIBRO_IVA_FACTURAS_RECIBIDAS — LibroIvaFacturasRecibidas`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idRegistroIva` | > | `taxRecordId` | `tributarioRegistroId` | `TEXT` | Renombrado a camelCase inglés |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroRecepcion` | > | `receptionNumber` | `recepcionNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `serieNumeroFacturaProveedor`| > | `supplierInvoiceSeriesNumber`| `proveedorFacturaSerieNumero`| `TEXT` | Renombrado a camelCase inglés |
+| `numeroFacturaFinal` | > | `finalInvoiceNumber` | `finalFacturaNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `numeroRecepcionFinal` | > | `finalReceptionNumber` | `finalRecepcionNumero` | `TEXT` | Renombrado a camelCase inglés |
+| `fechaExpedicion` | > | `issueDate` | `expedicionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaRecepcion` | > | `receptionDate` | `recepcionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoFactura` | > | `invoiceType` | `facturaTipo` | `TEXT` | Renombrado a camelCase inglés |
+| `importeTotalFactura` | > | `totalInvoiceAmount` | `totalFacturaMonto` | `NUMBER` | Renombrado a camelCase inglés |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom |
+| `tipoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom |
+| `cuotaIvaSoportado` | > | `inputTaxAmount` | `soportadoImpuestoMonto`| `NUMBER` | Renombrado a estándar contable |
+| `cuotaIvaDeducible` | > | `deductibleTaxAmount` | `deducibleImpuestoMonto`| `NUMBER` | Renombrado a estándar contable |
+| `tipoRecargoEquivalencia`| > | `equivalenceSurchargeRate`| `equivalenciaRecargoTasa`| `NUMBER` | Renombrado a estándar fiscal |
+| `cuotaRecargoEquivalencia`| >| `equivalenceSurchargeAmount`| `equivalenciaRecargoMonto`| `NUMBER`| Renombrado a estándar fiscal |
+| `conceptoGasto` | > | `expenseConcept` | `gastoConcepto` | `TEXT` | Renombrado a estándar contable |
+| `importeGastoDeducible` | > | `deductibleExpenseAmount`| `deducibleGastoMonto` | `NUMBER` | Renombrado a estándar fiscal |
+| `nifProveedor` | > | `supplierTaxId` | `proveedorTributariaId` | `TEXT` | Renombrado a camelCase inglés |
+| `nombreProveedor` | > | `supplierName` | `proveedorNombre` | `TEXT` | Renombrado a camelCase inglés |
+| `tipoIdentificacionProveedor`| > | `supplierIdType` | `proveedorIdentificacionTipo`| `TEXT` | Renombrado a camelCase inglés |
+| `codigoPaisProveedor` | > | `supplierCountryCode` | `proveedorPaisCodigo` | `TEXT` | Renombrado a camelCase inglés |
+| `claveOperacion` | > | `operationKey` | `operacionClave` | `TEXT` | Renombrado a estándar AEAT |
+| `bienInversion` | > | `isInvestmentAsset` | `esInversionBien` | `BOOLEAN` | Renombrado a estándar técnico |
+| `inversionSujetoPasivo`| > | `isReverseCharge` | `esInversionSujetoPasivo`| `BOOLEAN`| Renombrado a estándar técnico |
+| `deduciblePeriodoPosterior`| > | `deductibleLaterPeriod` | `deduciblePosteriorPeriodo`| `BOOLEAN`| Renombrado a estándar técnico |
+| `ejercicioDeduccion` | > | `deductionYear` | `deduccionEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoDeduccion` | > | `deductionPeriod` | `deduccionPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `codigoActividad` | > | `activityCode` | `actividadCodigo` | `TEXT` | Renombrado a estándar fiscal |
+| `tipoActividad` | > | `activityType` | `actividadTipo` | `TEXT` | Renombrado a estándar fiscal |
+| `epigrafeIae` | > | `iaeHeading` | `iaeEpigrafe` | `TEXT` | Renombrado a estándar fiscal |
+| `fechaPago` | > | `paymentDate` | `pagoFecha` | `DATETIME` | Renombrado a Wix Payments |
+| `importePagado` | > | `paidAmount` | `pagadoMonto` | `NUMBER` | Renombrado a Wix Payments |
+| `medioPago` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Renombrado a Wix Payments |
+| `identificacionMedioPago`| > | `paymentMethodIdentifier`| `pagoMetodoIdentificacion`| `TEXT` | Renombrado a Wix Payments |
+| `tipoRetencionIrpf` | > | `withholdingTaxRate` | `retencionTasa` | `NUMBER` | Renombrado a estándar fiscal |
+| `importeRetenidoIrpf` | > | `withholdingTaxAmount` | `retencionMonto` | `NUMBER` | Renombrado a estándar fiscal |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 21. `PLAN_CUENTAS_CONTABLES — PlanCuentasContables`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaContable` | > | `accountName` | `cuentaNombre` | `TEXT` | Renombrado a estándar contable |
+| `grupoCuentaContable` | > | `accountGroup` | `cuentaGrupo` | `TEXT` | Renombrado a estándar contable |
+| `subgrupoCuentaContable`| > | `accountSubgroup` | `cuentaSubgrupo` | `TEXT` | Renombrado a estándar contable |
+| `naturalezaCuenta` | > | `accountNature` | `cuentaNaturaleza` | `TEXT` | Renombrado a estándar contable |
+| `categoriaOperacion` | > | `operationCategory` | `operacionCategoria` | `TEXT` | Renombrado a estándar contable |
+| `subcategoriaOperacion`| > | `operationSubcategory`| `operacionSubcategoria`| `TEXT` | Renombrado a estándar contable |
+| `tipoIvaPredeterminado`| > | `defaultTaxRate` | `predeterminadaImpuestoTasa`| `NUMBER` | Renombrado a Wix eCom |
+| `codigoCuentaIvaRepercutido`| >| `outputTaxAccountCode`| `repercutidoImpuestoCuentaCodigo`| `TEXT`| Renombrado a estándar contable |
+| `nombreCuentaIvaRepercutido`| >| `outputTaxAccountName`| `repercutidoImpuestoCuentaNombre`| `TEXT`| Renombrado a estándar contable |
+| `codigoCuentaIvaSoportado`| > | `inputTaxAccountCode` | `soportadoImpuestoCuentaCodigo`| `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaIvaSoportado`| > | `inputTaxAccountName` | `soportadoImpuestoCuentaNombre`| `TEXT` | Renombrado a estándar contable |
+| `codigoCuentaDebePredeterminada`| >| `defaultDebitAccountCode`| `predeterminadaDebeCuentaCodigo`| `TEXT`| Renombrado a estándar contable |
+| `nombreCuentaDebePredeterminada`| >| `defaultDebitAccountName`| `predeterminadaDebeCuentaNombre`| `TEXT`| Renombrado a estándar contable |
+| `codigoCuentaHaberPredeterminada`|>| `defaultCreditAccountCode`| `predeterminadaHaberCuentaCodigo`| `TEXT`| Renombrado a estándar contable |
+| `nombreCuentaHaberPredeterminada`|>| `defaultCreditAccountName`| `predeterminadaHaberCuentaNombre`| `TEXT`| Renombrado a estándar contable |
+| `centroCostePredeterminado`| > | `defaultCostCenter` | `predeterminadoCosteCentro`| `TEXT` | Renombrado a estándar contable |
+| `activa` | > | `active` | `activo` | `BOOLEAN` | Renombrado a Wix V2 |
+| `validadaPorGestoria` | > | `validatedByAgency` | `validadaPorGestoria` | `BOOLEAN` | Renombrado a camelCase inglés |
+| `fechaValidacion` | > | `validationDate` | `validacionFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `fechaActualizacion` | > | `_updatedDate` | `fechaActualizacion` | `DATETIME` | Consolidado en campo de sistema |
+
+---
+
+### 22. `ASIENTOS_CONTABLES — AsientosContables`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroAsiento` | > | `entryNumber` | `asientoNumero` | `NUMBER` | Renombrado a estándar contable |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a estándar contable |
+| `fechaOperacionFiscal` | > | `fiscalOperationDate` | `fiscalOperacionFecha` | `DATETIME` | Renombrado a estándar fiscal |
+| `conceptoAsiento` | > | `entryConcept` | `asientoConcepto` | `TEXT` | Renombrado a estándar contable |
+| `totalDebe` | > | `totalDebit` | `totalDebe` | `NUMBER` | Renombrado a estándar contable |
+| `totalHaber` | > | `totalCredit` | `totalHaber` | `NUMBER` | Renombrado a estándar contable |
+| `importeTotalDocumento`| > | `totalDocumentAmount` | `totalDocumentoMonto` | `NUMBER` | Renombrado a camelCase inglés |
+| `tipoAsiento` | > | `entryType` | `asientoTipo` | `TEXT` | Renombrado a estándar contable |
+| `estadoAsiento` | > | `entryStatus` | `asientoEstado` | `TEXT` | Renombrado a estándar contable |
+| `categoriaOperacion` | > | `operationCategory` | `operacionCategoria` | `TEXT` | Renombrado a estándar contable |
+| `subcategoriaOperacion`| > | `operationSubcategory`| `operacionSubcategoria`| `TEXT` | Renombrado a estándar contable |
+| `moneda` | > | `currency` | `moneda` | `TEXT` | Renombrado a Wix V2 |
+| `medioPago` | > | `paymentMethod` | `pagoMetodo` | `TEXT` | Renombrado a Wix Payments V2 |
+| `idPedidoWix` | > | `wixOrderId` | `wixPedidoId` | `TEXT` | Renombrado a Wix eCom V2 |
+| `idDevolucionWix` | > | `wixRefundId` | `wixDevolucionId` | `TEXT` | Renombrado a Wix eCom V2 |
+| `idReservaWix` | > | `wixBookingId` | `wixReservaId` | `TEXT` | Renombrado a Wix Bookings V2 |
+| `idTransaccion` | > | `transactionId` | `transaccionId` | `TEXT` | Renombrado a Wix Payments V2 |
+| `serieFactura` | > | `invoiceSeries` | `facturaSerie` | `TEXT` | Renombrado a Wix Invoicing |
+| `numeroFactura` | > | `invoiceNumber` | `facturaNumero` | `TEXT` | Renombrado a Wix Invoicing |
+| `fechaExpedicionFactura`| > | `invoiceIssueDate` | `facturaExpedicionFecha`| `DATETIME` | Renombrado a Wix Invoicing |
+| `tipoFactura` | > | `invoiceType` | `facturaTipo` | `TEXT` | Renombrado a Wix Invoicing |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `idAsientoRectificado` | > | `rectifiedEntryId` | `rectificadoAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `motivoRectificacion` | > | `rectificationReason` | `rectificacionMotivo` | `TEXT` | Renombrado a estándar contable |
+| `idResponsableOperativo`| > | `operationalManagerId` | `operativoResponsableId`| `TEXT` | Renombrado a camelCase inglés |
+| `idMiembroRegistrador` | > | `recordingMemberId` | `registradorMiembroId` | `TEXT` | Renombrado a Wix Members |
+| `nombreRegistrador` | > | `recordingName` | `registradorNombre` | `TEXT` | Renombrado a camelCase inglés |
+| `idCentroCoste` | > | `costCenterId` | `costeCentroId` | `TEXT` | Renombrado a estándar contable |
+| `codigoActividadIae` | > | `iaeActivityCode` | `iaeActividadCodigo` | `TEXT` | Renombrado a estándar fiscal |
+| `origenRegistro` | > | `recordSource` | `registroOrigen` | `TEXT` | Renombrado a estándar técnico |
+| `idOrigen` | > | `sourceId` | `origenId` | `TEXT` | Renombrado a estándar técnico |
+| `versionEsquema` | > | `schemaVersion` | `esquemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `versionAlgoritmoIntegridad`| >| `integrityAlgorithmVersion`| `integridadAlgoritmoVersion`| `TEXT`| Renombrado a estándar Veri*factu |
+| `hashAnterior` | > | `previousHash` | `previoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashAsiento` | > | `entryHash` | `asientoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaAsiento` | > | `entrySignature` | `asientoFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+| `zonaHorariaOperacion` | > | `operationTimeZone` | `operacionHorariaZona` | `TEXT` | Renombrado a Wix Settings |
+
+---
+
+### 23. `LINEAS_ASIENTO_CONTABLE — LineasAsientoContable`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idLineaAsiento` | > | `entryLineId` | `asientoLineaId` | `TEXT` | Renombrado a estándar contable |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `numeroLinea` | > | `lineNumber` | `lineaNumero` | `NUMBER` | Renombrado a estándar contable |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaContable` | > | `accountName` | `cuentaNombre` | `TEXT` | Renombrado a estándar contable |
+| `grupoCuentaContable` | > | `accountGroup` | `cuentaGrupo` | `TEXT` | Renombrado a estándar contable |
+| `importeDebe` | > | `debitAmount` | `debeMonto` | `NUMBER` | Renombrado a estándar contable |
+| `importeHaber` | > | `creditAmount` | `haberMonto` | `NUMBER` | Renombrado a estándar contable |
+| `importeNeto` | > | `netAmount` | `netoMonto` | `NUMBER` | Renombrado a estándar contable |
+| `descripcionLinea` | > | `lineDescription` | `lineaDescripcion` | `TEXT` | Renombrado a estándar contable |
+| `baseImponible` | > | `taxableAmount` | `gravableMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `tipoIva` | > | `taxRate` | `impuestoTasa` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `cuotaIva` | > | `taxAmount` | `impuestoMonto` | `NUMBER` | Renombrado a Wix eCom `taxSummary` |
+| `claveOperacionIva` | > | `vatOperationKey` | `ivaOperacionClave` | `TEXT` | Renombrado a estándar fiscal |
+| `nifContraparte` | > | `counterpartyTaxId` | `contraparteTributariaId`| `TEXT` | Renombrado a estándar fiscal |
+| `nombreContraparte` | > | `counterpartyName` | `contraparteNombre` | `TEXT` | Renombrado a estándar fiscal |
+| `categoriaOperacion` | > | `operationCategory` | `operacionCategoria` | `TEXT` | Renombrado a estándar contable |
+| `codigoProductoServicio`| > | `productServiceCode` | `productoServicioCodigo`| `TEXT` | Renombrado a estándar contable |
+| `idCentroCoste` | > | `costCenterId` | `costeCentroId` | `TEXT` | Renombrado a estándar contable |
+| `idResponsableOperativo`| > | `operationalManagerId` | `operativoResponsableId`| `TEXT` | Renombrado a camelCase inglés |
+| `referenciaExterna` | > | `externalReference` | `externaReferencia` | `TEXT` | Renombrado a Wix eCom |
+| `hashLinea` | > | `lineHash` | `lineaHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+| `fechaOperacion` | > | `operationDate` | `operacionFecha` | `DATETIME` | Renombrado a estándar contable |
+| `fechaHoraRegistro` | > | `registeredAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+
+---
+
+### 24. `MAYOR_CONTABLE_SALDOS — MayorContableSaldos`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idMayor` | > | `generalLedgerId` | `generalMayorId` | `TEXT` | Renombrado a estándar contable |
+| `codigoCuentaContable` | > | `accountCode` | `cuentaCodigo` | `TEXT` | Renombrado a estándar contable |
+| `nombreCuentaContable` | > | `accountName` | `cuentaNombre` | `TEXT` | Renombrado a estándar contable |
+| `ejercicioFiscal` | > | `fiscalYear` | `fiscalEjercicio` | `NUMBER` | Renombrado a estándar fiscal |
+| `periodoFiscal` | > | `fiscalPeriod` | `fiscalPeriodo` | `TEXT` | Renombrado a estándar fiscal |
+| `saldoInicialDebe` | > | `initialDebitBalance` | `inicialDebeSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `saldoInicialHaber` | > | `initialCreditBalance` | `inicialHaberSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `movimientosDebe` | > | `debitMovements` | `debeMovimientos` | `NUMBER` | Renombrado a estándar contable |
+| `movimientosHaber` | > | `creditMovements` | `haberMovimientos` | `NUMBER` | Renombrado a estándar contable |
+| `saldoFinalDebe` | > | `finalDebitBalance` | `finalDebeSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `saldoFinalHaber` | > | `finalCreditBalance` | `finalHaberSaldo` | `NUMBER` | Renombrado a estándar contable |
+| `fechaCalculo` | > | `calculationDate` | `calculoFecha` | `DATETIME` | Renombrado a camelCase inglés |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+
+---
+
+## MISIÓN 7: Auditoría, Seguridad y Control Horario de Personal (Audit, Security & HR)
+
+### 25. `EVENTOS_SISTEMA_FACTURACION — EventosSistemaFacturacion`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `idEventoSistema` | > | `systemEventId` | `sistemaEventoId` | `TEXT` | Renombrado a estándar Veri*factu |
+| `fechaHoraEvento` | > | `eventDateTime` | `eventoFechaHora` | `DATETIME` | Renombrado a estándar técnico |
+| `tipoEvento` | > | `eventType` | `eventoTipo` | `TEXT` | Renombrado a estándar técnico |
+| `severidad` | > | `severity` | `severidad` | `TEXT` | Renombrado a estándar técnico |
+| `resultado` | > | `result` | `resultado` | `TEXT` | Renombrado a estándar técnico |
+| `origenEvento` | > | `eventSource` | `eventoOrigen` | `TEXT` | Renombrado a estándar técnico |
+| `idUsuarioResponsable` | > | `responsibleUserId` | `responsableUsuarioId` | `TEXT` | Renombrado a camelCase inglés |
+| `idMiembroResponsable` | > | `responsibleMemberId` | `responsableMiembroId` | `TEXT` | Renombrado a Wix Members |
+| `idAsiento` | > | `journalEntryId` | `diarioAsientoId` | `TEXT` | Renombrado a estándar contable |
+| `idTransaccion` | > | `transactionId` | `transaccionId` | `TEXT` | Renombrado a Wix Payments V2 |
+| `idReferencia` | > | `referenceId` | `referenciaId` | `TEXT` | Renombrado a estándar técnico |
+| `detalleSeguro` | > | `secureDetail` | `seguroDetalle` | `OBJECT` | Renombrado a estándar Veri*factu |
+| `hashEventoAnterior` | > | `previousEventHash` | `previoEventoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `hashEvento` | > | `eventHash` | `eventoHash` | `TEXT` | Renombrado a estándar Veri*factu |
+| `firmaEvento` | > | `eventSignature` | `eventoFirma` | `TEXT` | Renombrado a estándar Veri*factu |
+| `versionSistema` | > | `systemVersion` | `sistemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `versionEsquema` | > | `schemaVersion` | `esquemaVersion` | `TEXT` | Renombrado a estándar técnico |
+| `idTraza` | > | `traceId` | `trazabilidadId` | `TEXT` | Renombrado a estándar técnico |
+
+---
+
+### 26. `AUDITORIA — MmAuditLog`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `tipoEvento` | > | `eventType` | `eventoTipo` | `TEXT` | Renombrado a estándar técnico |
+| `level` | > | `level` | `nivel` | `TEXT` | Sin cambio de clave |
+| `message` | > | `message` | `mensaje` | `TEXT` | Sin cambio de clave |
+| `source` | > | `source` | `origen` | `TEXT` | Sin cambio de clave |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+| `fechaLog` | > | `loggedAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+| `data` | > | `data` | `datos` | `OBJECT` | Sin cambio de clave |
+| `Owner` | > | `_owner` | `propietario` | `TEXT` | Consolidado en campo de sistema |
+
+---
+
+### 27. `REGISTROS_HORARIOS_STAFF — RegistrosHorariosStaff`
+| ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
+| :--- | :-: | :--- | :--- | :--- | :--- |
+| `resourceId` | > | `resourceId` | `recursoId` | `TEXT` | Sin cambio de clave |
+| `resourceName` | > | `resourceName` | `recursoNombre` | `TEXT` | Sin cambio de clave |
+| `fechaHora` | > | `recordedAt` | `registradoFecha` | `DATETIME` | Renombrado a estándar técnico |
+| `hora` | > | `recordedTime` | `registradaHora` | `TEXT` | Renombrado a camelCase inglés |
+| `diaKey` | > | `dayKey` | `diaClave` | `TEXT` | Renombrado a camelCase inglés |
+| `mesKey` | > | `monthKey` | `mesClave` | `TEXT` | Renombrado a camelCase inglés |
+| `tipoFichaje` | > | `clockEventType` | `fichajeEventoTipo` | `TEXT` | Renombrado a estándar HR |
+| `tipo` | > | `type` | `tipo` | `TEXT` | Renombrado a camelCase inglés |
+| `empleada` | > | `employeeIdentifier` | `empleadaIdentificador` | `TEXT` | Renombrado a estándar HR |
+| `empleadaNombre` | > | `employeeName` | `empleadaNombre` | `TEXT` | Renombrado a estándar HR |
+| `registradoPor` | > | `registeredBy` | `registradoPor` | `TEXT` | Renombrado a camelCase inglés |
+| `registradoPorMemberId` | > | `registeredByMemberId` | `registradoPorMiembroId` | `TEXT` | Renombrado a Wix Members |
+| `motivoAjuste` | > | `adjustmentReason` | `ajusteMotivo` | `TEXT` | Renombrado a estándar HR |
+| `ip` | > | `deviceIp` | `dispositivoIp` | `TEXT` | Renombrado a estándar técnico |
+| `ipDispositivo` | > | `deviceIpAddress` | `dispositivoIpDireccion`| `TEXT` | Renombrado a estándar técnico |
+| `firma` | > | `signature` | `firma` | `TEXT` | Renombrado a estándar técnico |
+| `meta` | > | `meta` | `meta` | `OBJECT` | Sin cambio de clave |
+| `traceId` | > | `traceId` | `trazabilidadId` | `TEXT` | Sin cambio de clave |
+| `fechaCreacion` | > | `_createdDate` | `fechaCreacion` | `DATETIME` | Consolidado en campo de sistema |
+| `Owner` | > | `_owner` | `propietario` | `TEXT` | Consolidado en campo de sistema |
+
+---
+
+## 2. Correspondencia de Colecciones Eliminadas y Prescindibles
+
+| Colección Eliminada / Prescindible | Destino Arquitectónico | Instrucción para Refactorización de Código |
+| :--- | :--- | :--- |
+| **`CONCILIACION_STOCK_WIX`** | Colección **`MOVIMIENTOS_INVENTARIO`** | Sustituir consultas a `ConciliacionStockWix` por consultas a `MovimientosInventario` filtrando por `.eq("requiresWixReconciliation", true)`. |
+| **`SYNC_M365`** | Colección **`M365_GRAPH_SYNC_QUEUE`** | Redirigir lecturas de logs históricos a `M365GraphSyncQueue` consultando registros con `.hasSome("status", ["COMPLETED", "FAILED"])`. |
+| **`AVAILABILITY_SLOTS_CACHE`**| Colección **`DUAL_SLOT_CACHE`** | Redirigir lecturas de franjas cacheadas a `DualSlotCache` o consultar la disponibilidad en memoria edge mediante `wix-web-module` (`cache: { tags, ttl }`). |
+| **`BOOKINGS_SERVICE_SYNC_QUEUE`**| Colección **`BOOKING_TRANSACTIONS`** | Encaminar las tareas asíncronas de sincronización a `BookingTransactions` utilizando `serviceId` y `desiredHash`. |
+| **`MUTEXES`** | **Motor de reservas nativo V2** | Eliminar inserciones y lecturas en `MmLocks`. Capturar el rechazo transaccional de Wix Bookings V2 cuando devuelva el error nativo `SLOT_NOT_AVAILABLE`. |
+| **`COMPLEMENTOS_CATALOGO`** | **Wix Bookings V2 Add-ons API** | Sustituir consultas CMS a `ComplementosCatalogo` por llamadas al SDK `@wix/bookings` mediante `services.getService()` inspeccionando `service.addOnGroups` y `service.addOns`. |
+
+
