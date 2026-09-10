@@ -4,7 +4,7 @@
  * Validates immutability hooks in backend/data.js against Dossier Caja Fisica
  */
 
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -25,10 +25,6 @@ const hookRequirements = {
   'CajaActual': { beforeRemove: 'singletonProtected' }
 };
 
-// ServicesCatalogo and MapaStaff validation requirements
-const serviceValidationRequired = true;
-const staffUnicityRequired = true;
-
 console.log('═══════════════════════════════════════════════════════════');
 console.log('AUDIT HOOKS - SSOT v5002.4');
 console.log('═══════════════════════════════════════════════════════════\n');
@@ -36,6 +32,8 @@ console.log('══════════════════════�
 // Find data.js file
 let dataJsPath = null;
 const possiblePaths = [
+  join(ROOT_DIR, 'src', 'backend', 'data.js'),
+  join(ROOT_DIR, 'src', 'backend', 'data.mjs'),
   join(ROOT_DIR, 'backend', 'data.js'),
   join(ROOT_DIR, 'backend', 'data.mjs'),
   join(ROOT_DIR, 'data.js'),
@@ -54,7 +52,6 @@ for (const p of possiblePaths) {
 
 if (!dataJsPath) {
   console.log('⚠️ WARNING: backend/data.js not found. Skipping hook audit.');
-  console.log('Creating placeholder structure...');
   process.exit(0);
 }
 
@@ -64,25 +61,22 @@ const relativePath = dataJsPath.replace(ROOT_DIR + '/', '');
 const violations = [];
 let exitCode = 0;
 
-// Check for each required hook
+// Check for each required hook - simplified pattern matching
 for (const [collection, hooks] of Object.entries(hookRequirements)) {
   for (const [hookType, violationType] of Object.entries(hooks)) {
-    // Look for hook pattern: beforeUpdate/beforeRemove with collection check and throw
-    const hookPattern = new RegExp(`${hookType}\\s*\\([^)]*\\)\\s*\\{[^}]*(${collection}|COLLECTIONS\\.${collection.toUpperCase()})[^}]*throw\\s+new\\s+Error\\s*\\([^)]*${violationType}`, 's');
+    // Simple check: look for function name and throw statement with violation type prefix
+    const hasHookFunction = new RegExp(`function\\s+${collection}_${hookType}|export\\s+function\\s+${collection}_${hookType}`, 'i').test(content);
+    const hasThrowViolation = new RegExp(`throw\\s+new\\s+Error\\s*\\([^)]*${violationType.split('_')[0]}`, 'i').test(content);
     
-    if (!hookPattern.test(content)) {
-      // More lenient check - just look for the hook and collection together
-      const simplePattern = new RegExp(`${hookType}.*?(${collection}|COLLECTIONS\\.${collection.toUpperCase()}).*?throw`, 's');
-      if (!simplePattern.test(content)) {
-        violations.push({
-          collection: collection,
-          hook: hookType,
-          expected: `throw new Error("${violationType}")`,
-          rule: 'Dossier Caja Fisica - Inmutabilidad',
-          severity: 'CRITICAL'
-        });
-        exitCode = 1;
-      }
+    if (!hasHookFunction || !hasThrowViolation) {
+      violations.push({
+        collection: collection,
+        hook: hookType,
+        expected: `throw new Error("${violationType}")`,
+        rule: 'Dossier Caja Fisica - Inmutabilidad',
+        severity: 'CRITICAL'
+      });
+      exitCode = 1;
     }
   }
 }
@@ -90,7 +84,6 @@ for (const [collection, hooks] of Object.entries(hookRequirements)) {
 // Check ServiciosCatalogo phase validation
 const phaseValidationPattern = /beforeInsert.*?(ServiciosCatalogo|COLLECTIONS\.SERVICIOS_CATALOGO).*?(phase1|exposure|phase2).*?(totalDuration|duracionTotal)/s;
 if (!phaseValidationPattern.test(content)) {
-  // Check for alternative pattern with validatePhaseSum
   const validatePhaseSumPattern = /validatePhaseSum|phase1.*\+.*exposure.*\+.*phase2/s;
   if (!validatePhaseSumPattern.test(content)) {
     violations.push({
