@@ -27,8 +27,8 @@
 | 18 | HISTORICO_CIERRES_Z | HistoricoCierresZ | HISTORICO_CIERRES_Z | operationDate | Vigente |
 | 19 | SECUENCIA_TICKETS | SecuenciaTickets | SECUENCIA_TICKETS | _id | Vigente |
 | 20 | CONFIGURACION_FISCAL | ConfiguracionFiscal | CONFIGURACION_FISCAL | businessName | Vigente |
-| 21 | LIBRO_IVA_FACTURAS_EXPEDIDAS | LibroIvaFacturasExpedidas | LIBRO_IVA_FACTURAS_EXPEDIDAS | invoiceNumber | Vigente |
-| 22 | LIBRO_IVA_FACTURAS_RECIBIDAS | LibroIvaFacturasRecibidas | LIBRO_IVA_FACTURAS_RECIBIDAS | receptionNumber | Vigente |
+| 21 | LIBRO_IVA_FACTURAS_EXPEDIDAS | LibroIVAFacturasExpedidas | LIBRO_IVA_FACTURAS_EXPEDIDAS | invoiceNumber | Vigente |
+| 22 | LIBRO_IVA_FACTURAS_RECIBIDAS | LibroIVAFacturasRecibidas | LIBRO_IVA_FACTURAS_RECIBIDAS | receptionNumber | Vigente |
 | 23 | PLAN_CUENTAS_CONTABLES | PlanCuentasContables | PLAN_CUENTAS_CONTABLES | accountName | Vigente |
 | 24 | ASIENTOS_CONTABLES | AsientosContables | ASIENTOS_CONTABLES | entryNumber | Vigente |
 | 25 | LINEAS_ASIENTO_CONTABLE | LineasAsientoContable | LINEAS_ASIENTO_CONTABLE | entryLineId | Vigente |

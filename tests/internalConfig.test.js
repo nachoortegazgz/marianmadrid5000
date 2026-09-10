@@ -28,8 +28,8 @@ describe('SSOT de colecciones CMS (arquitectura canonical)', () => {
     expect(COLLECTIONS.HISTORICO_CIERRES_Z).toBe('HistoricoCierresZ');
     expect(COLLECTIONS.SECUENCIA_TICKETS).toBe('SecuenciaTickets');
     expect(COLLECTIONS.CONFIGURACION_FISCAL).toBe('ConfiguracionFiscal');
-    expect(COLLECTIONS.LIBRO_IVA_FACTURAS_EXPEDIDAS).toBe('LibroIvaFacturasExpedidas');
-    expect(COLLECTIONS.LIBRO_IVA_FACTURAS_RECIBIDAS).toBe('LibroIvaFacturasRecibidas');
+    expect(COLLECTIONS.LIBRO_IVA_FACTURAS_EXPEDIDAS).toBe('LibroIVAFacturasExpedidas');
+    expect(COLLECTIONS.LIBRO_IVA_FACTURAS_RECIBIDAS).toBe('LibroIVAFacturasRecibidas');
     expect(COLLECTIONS.PLAN_CUENTAS_CONTABLES).toBe('PlanCuentasContables');
     expect(COLLECTIONS.ASIENTOS_CONTABLES).toBe('AsientosContables');
     expect(COLLECTIONS.LINEAS_ASIENTO_CONTABLE).toBe('LineasAsientoContable');

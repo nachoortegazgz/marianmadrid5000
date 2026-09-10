@@ -94,7 +94,7 @@ COLLECTIONS es el que se expone en internalConfig.js:
 | 18 | M5     | `HISTORICO_CIERRES_Z`           | `HistoricoCierresZ`          | `HISTORICO_CIERRES_Z`           | `operationDate`               |
 | 19 | M5     | `SECUENCIA_TICKETS`             | `SecuenciaTickets`           | `SECUENCIA_TICKETS`             | `_id`                         |
 | 20 | M6     | `CONFIGURACION_FISCAL`          | `ConfiguracionFiscal`        | `CONFIGURACION_FISCAL`          | `businessName`                |
-| 21 | M6     | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `LibroIvaFacturasExpedidas`  | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `invoiceNumber`               |
+| 21 | M6     | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `LibroIVAFacturasExpedidas`  | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `invoiceNumber`               |
 | 22 | M6     | `LIBRO_IVA_FACTURAS_RECIBIDAS`  | `LibroIVAFacturasRecibidas`  | `LIBRO_IVA_FACTURAS_RECIBIDAS`  | `receptionNumber`             |
 | 23 | M6     | `PLAN_CUENTAS_CONTABLES`        | `PlanCuentasContables`       | `PLAN_CUENTAS_CONTABLES`        | `accountName`                 |
 | 24 | M6     | `ASIENTOS_CONTABLES`            | `AsientosContables`          | `ASIENTOS_CONTABLES`            | `entryNumber`                 |

@@ -149,8 +149,8 @@ F1 (Aplicación) → Gap/Exposición (profesional LIBRE) → F2 (Aclarado/Matiza
 | 18 | M5 | `CIERRES_Z` | `CierresZ` | `CIERRES_Z` | `operationDate` |
 | 19 | M5 | `SECUENCIA_TICKETS` | `SecuenciaTickets` | `SECUENCIA_TICKETS` | `_id` |
 | 20 | M6 | `CONFIGURACION_FISCAL` | `ConfiguracionFiscal` | `CONFIGURACION_FISCAL` | `businessName` |
-| 21 | M6 | `LIBRO_IVA_FACTURAS_EXPEDIDAS` | `LibroIvaFacturasExpedidas` | `LIBRO_IVA_FACTURAS_EXPEDIDAS` | `invoiceNumber` |
-| 22 | M6 | `LIBRO_IVA_FACTURAS_RECIBIDAS` | `LibroIvaFacturasRecibidas` | `LIBRO_IVA_FACTURAS_RECIBIDAS` | `receptionNumber` |
+| 21 | M6 | `LIBRO_IVA_FACTURAS_EXPEDIDAS` | `LibroIVAFacturasExpedidas` | `LIBRO_IVA_FACTURAS_EXPEDIDAS` | `invoiceNumber` |
+| 22 | M6 | `LIBRO_IVA_FACTURAS_RECIBIDAS` | `LibroIVAFacturasRecibidas` | `LIBRO_IVA_FACTURAS_RECIBIDAS` | `receptionNumber` |
 | 23 | M6 | `PLAN_CUENTAS_CONTABLES` | `PlanCuentasContables` | `PLAN_CUENTAS_CONTABLES` | `accountName` |
 | 24 | M6 | `ASIENTOS_CONTABLES` | `AsientosContables` | `ASIENTOS_CONTABLES` | `entryNumber` |
 | 25 | M6 | `LINEAS_ASIENTO_CONTABLE` | `LineasAsientoContable` | `LINEAS_ASIENTO_CONTABLE` | `entryLineId` |
@@ -665,7 +665,7 @@ F1 (Aplicación) → Gap/Exposición (profesional LIBRE) → F2 (Aclarado/Matiza
 
 ### 5.21–5.26 Colecciones Fiscales/Contables (Misión 6)
 
-*(LibroIvaFacturasExpedidas, LibroIvaFacturasRecibidas, PlanCuentasContables, AsientosContables, LineasAsientoContable, LibroMayorContableSaldos — ver sección 5 de la MATRIZ CORRESPONDENCIA para el detalle campo a campo completo)*
+*(LibroIVAFacturasExpedidas, LibroIVAFacturasRecibidas, PlanCuentasContables, AsientosContables, LineasAsientoContable, LibroMayorContableSaldos — ver sección 5 de la MATRIZ CORRESPONDENCIA para el detalle campo a campo completo)*
 
 ### 5.27 `EventosSistemaFacturacion` (Misión 7)
 
@@ -1390,8 +1390,8 @@ F1 (Aplicación) → Gap/Exposición (profesional LIBRE) → F2 (Aclarado/Matiza
 | `CIERRES_Z` | `CierresZ` | ✅ | ✅ |
 | `SECUENCIA_TICKETS` | `SecuenciaTickets` | ✅ | ✅ |
 | `CONFIGURACION_FISCAL` | `ConfiguracionFiscal` | ✅ | ✅ |
-| `LIBRO_IVA_FACTURAS_EXPEDIDAS` | `LibroIvaFacturasExpedidas` | ✅ | ✅ |
-| `LIBRO_IVA_FACTURAS_RECIBIDAS` | `LibroIvaFacturasRecibidas` | ✅ | ✅ |
+| `LIBRO_IVA_FACTURAS_EXPEDIDAS` | `LibroIVAFacturasExpedidas` | ✅ | ✅ |
+| `LIBRO_IVA_FACTURAS_RECIBIDAS` | `LibroIVAFacturasRecibidas` | ✅ | ✅ |
 | `PLAN_CUENTAS_CONTABLES` | `PlanCuentasContables` | ✅ | ✅ |
 | `ASIENTOS_CONTABLES` | `AsientosContables` | ✅ | ✅ |
 | `LINEAS_ASIENTO_CONTABLE` | `LineasAsientoContable` | ✅ | ✅ |

@@ -455,7 +455,7 @@ wixData.query("ServiciosCatalogo").eq("serviceType", "APPOINTMENT").find();
 
 ---
 
-### 19. `LIBRO_IVA_FACTURAS_EXPEDIDAS — LibroIvaFacturasExpedidas`
+### 19. `LIBRO_IVA_FACTURAS_EXPEDIDAS — LibroIVAFacturasExpedidas`
 | ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
 | :--- | :-: | :--- | :--- | :--- | :--- |
 | `idRegistroIva` | > | `taxRecordId` | `tributarioRegistroId` | `TEXT` | Renombrado a camelCase inglés |
@@ -499,7 +499,7 @@ wixData.query("ServiciosCatalogo").eq("serviceType", "APPOINTMENT").find();
 
 ---
 
-### 20. `LIBRO_IVA_FACTURAS_RECIBIDAS — LibroIvaFacturasRecibidas`
+### 20. `LIBRO_IVA_FACTURAS_RECIBIDAS — LibroIVAFacturasRecibidas`
 | ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
 | :--- | :-: | :--- | :--- | :--- | :--- |
 | `idRegistroIva` | > | `taxRecordId` | `tributarioRegistroId` | `TEXT` | Renombrado a camelCase inglés |

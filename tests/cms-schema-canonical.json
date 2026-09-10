@@ -1375,7 +1375,7 @@
       ]
     },
     {
-      "id": "LibroIvaFacturasExpedidas",
+      "id": "LibroIVAFacturasExpedidas",
       "key": "LIBRO_IVA_FACTURAS_EXPEDIDAS",
       "fields": [
         [
@@ -1533,7 +1533,7 @@
       ]
     },
     {
-      "id": "LibroIvaFacturasRecibidas",
+      "id": "LibroIVAFacturasRecibidas",
       "key": "LIBRO_IVA_FACTURAS_RECIBIDAS",
       "fields": [
         [
