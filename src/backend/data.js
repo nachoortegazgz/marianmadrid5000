@@ -1,6 +1,6 @@
 /**
 MODULE: backend/data.js
-VERSION: v5003.0-canonical-clean
+VERSION: v5003.4-ssot-final
 FIXES APPLIED:
   [D-01] item.estado -> item.status
   [D-02] Eliminados alias legacy MOVIMIENTOS_CAJA_*, REGISTROS_HORARIOS_STAFF_*,
@@ -36,7 +36,7 @@ function _normalizeDateField(item, field, fallback) {
 const SERVICE_STATES = new Set(SERVICE_CATALOG?.STATES || ["ACTIVO", "INACTIVO", "BORRADOR"]);
 
 function _normalizeCatalogReference(value) {
-  const candidate = value && typeof value === "object" ? (value.nombreCategoria || value._id || value.id) : value;
+  const candidate = value && typeof value === "object" ? (value.categoryName || value._id || value.id) : value;
   return String(candidate || "").trim().toUpperCase();
 }
 
@@ -72,12 +72,11 @@ function _validateServiciosCatalogo(item, context) {
     }
     item.status = estado;
   }
-  const categoria = _normalizeCatalogReference(item.categoryName || item.nombreCategoria || item.categoria);
+  const categoria = _normalizeCatalogReference(item.categoryName);
   if (categoria) {
     item.categoryName = categoria;
-    item.nombreCategoria = categoria;
   }
-  const currency = _normalizeCatalogReference(item.currency || item.moneda);
+  const currency = _normalizeCatalogReference(item.currency);
   if (currency && currency !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
     throw new Error("SERVICE_VALIDATION: only EUR is supported by this catalog.");
   }
@@ -117,14 +116,13 @@ function _validateMapaStaff(item, context) {
   if (!GUID_RE.test(resourceId)) throw new Error("STAFF_VALIDATION: resourceId must be a valid Bookings resource GUID.");
   item.resourceId = resourceId;
   _normalizeBoundedText(item, "displayName", 80);
-  _normalizeBoundedText(item, "nombreVisible", 80);
-  if (!item.displayName && !item.nombreVisible) throw new Error("STAFF_VALIDATION: displayName is required.");
-  _normalizeBoundedText(item, "idMiembroStaff", 120);
+  if (!item.displayName) throw new Error("STAFF_VALIDATION: displayName is required.");
+  _normalizeBoundedText(item, "staffMemberId", 120);
   _normalizeBoundedText(item, "email", 254);
   _normalizeBoundedText(item, "scheduleId", 120);
   _normalizeBoundedText(item, "rol", 60);
   if (item.email) item.email = item.email.toLowerCase();
-  if (!item.staffMemberId && !item.email) throw new Error("STAFF_VALIDATION: idMiembroStaff or email is required.");
+  if (!item.staffMemberId && !item.email) throw new Error("STAFF_VALIDATION: staffMemberId or email is required.");
   item.active = item.active !== false;
   item.updatedAt = new Date();
   return item;
@@ -146,8 +144,8 @@ export function CitasF2_beforeInsert(item, context) {
   const now = new Date();
   _normalizeDateField(item, "startDate", null);
   _normalizeDateField(item, "endDate", null);
-  _normalizeDateField(item, "fechaCreacion", now);
-  _normalizeDateField(item, "fechaActualizacion", now);
+  _normalizeDateField(item, "registeredAt", now);
+  _normalizeDateField(item, "updatedAt", now);
   if (!item.dateYmd && item.startDate) {
     item.dateYmd = getMadridLocalStringNoZ(item.startDate).slice(0, 10);
   }
@@ -166,7 +164,7 @@ export function CitasF2_beforeUpdate(item, context) {
   const now = new Date();
   _normalizeDateField(item, "startDate", null);
   _normalizeDateField(item, "endDate", null);
-  _normalizeDateField(item, "fechaActualizacion", now);
+  _normalizeDateField(item, "updatedAt", now);
   if (!item.dateYmd && item.startDate) {
     item.dateYmd = getMadridLocalStringNoZ(item.startDate).slice(0, 10);
   }
@@ -194,10 +192,10 @@ export function MovimientosCaja_beforeInsert(item, context) {
   if (signatureParts.length !== 2 || !SHA256_HEX_RE.test(signatureParts[0]) || !SHA256_HEX_RE.test(signatureParts[1])) {
     throw new Error("FISCAL_VIOLATION: Invalid firmaDigital format.");
   }
-  if (!String(item.invoiceNumber || item.numeroTicket || "").trim()) {
-    throw new Error("FISCAL_VIOLATION: Missing numTicketFactura.");
+  if (!String(item.invoiceNumber || "").trim()) {
+    throw new Error("FISCAL_VIOLATION: Missing invoiceNumber.");
   }
-  _normalizeDateField(item, "fechaCreacion", new Date());
+  _normalizeDateField(item, "registeredAt", new Date());
   return item;
 }
 
@@ -215,31 +213,26 @@ export async function RegistrosHorariosStaff_beforeInsert(item, context) {
   if (!staff) {
     throw new Error("INVALID_EMPLOYEE: Employee resourceId is not registered in MAPA_STAFF.");
   }
-  const tipoFichaje = String(item.clockEventType || "").toUpperCase();
-  if (!Object.values(TIPO_FICHAJE).includes(tipoFichaje)) {
-    throw new Error(`INVALID_CLOCK_TYPE: Tipo de fichaje invalido "${tipoFichaje}".`);
+  const clockEventType = String(item.clockEventType || "").toUpperCase();
+  if (!Object.values(TIPO_FICHAJE).includes(clockEventType)) {
+    throw new Error(`INVALID_CLOCK_TYPE: Tipo de fichaje invalido "${clockEventType}".`);
   }
-  if (tipoFichaje === TIPO_FICHAJE.AJUSTE && !String(item.adjustmentReason || "").trim()) {
-    throw new Error("INVALID_CLOCK_ADJUSTMENT: motivoAjuste is required for manual adjustments.");
+  if (clockEventType === TIPO_FICHAJE.AJUSTE && !String(item.adjustmentReason || "").trim()) {
+    throw new Error("INVALID_CLOCK_ADJUSTMENT: adjustmentReason is required for manual adjustments.");
   }
   const now = new Date();
-  const recordedAt = _toDate(item.recordedAt || item.fechaHora) || now;
+  const recordedAt = _toDate(item.recordedAt) || now;
   if (recordedAt.getTime() > now.getTime() + 60000) {
     throw new Error("INVALID_TIMESTAMP: Future timestamps are forbidden.");
   }
   const madrid = getMadridLocalStringNoZ(recordedAt);
   item.resourceId = staff.resourceId;
-  item.displayName = staff.displayName || staff.nombreVisible;
-  item.clockEventType = tipoFichaje;
+  item.displayName = staff.displayName;
+  item.clockEventType = clockEventType;
   item.recordedAt = recordedAt;
   item.recordedTime = madrid.slice(11, 19);
   item.dayKey = madrid.slice(0, 10);
   item.monthKey = madrid.slice(0, 7);
-  item.fechaHora = recordedAt;
-  item.fechaCreacion = now;
-  item.diaKey = item.dayKey;
-  item.mesKey = item.monthKey;
-  item.hora = item.recordedTime;
   return item;
 }
 

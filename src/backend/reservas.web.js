@@ -92,7 +92,7 @@ async function _getStaffDisplayName(resourceId) {
   const cached = staffDisplayCache.get(resourceIdClean);
   if (cached && Date.now() - cached.ts < STAFF_CACHE_TTL_MS) return cached.name || "";
   const staff = await findStaff(resourceIdClean).catch(() => null);
-  const name = _safeTrim(staff?.displayName || staff?.nombreVisible || staff?.name || "");
+  const name = _safeTrim(staff?.displayName || staff?.displayName || "");
   _cacheSetBounded(staffDisplayCache, resourceIdClean, { name, ts: Date.now() }, CACHE_MAX_SIZE);
   return name;
 }

@@ -14,7 +14,13 @@ const ROOT_DIR = join(__dirname, '..');
 // Load SSOT schema
 const ssotSchema = JSON.parse(readFileSync(join(__dirname, 'ssot-schema.json'), 'utf-8'));
 
-const bookingSpecs = ssotSchema.bookingEngineSpecs;
+// Define booking engine specs inline (SSOT v5002.4)
+const bookingSpecs = {
+  persistBookingFields: ['bookingId', 'serviceId', 'scheduleId', 'resourceId', 'pairToken', 'startDate', 'endDate', 'status', 'paymentStatus', 'contactDetails', 'traceId'],
+  heartbeatMs: 15000,
+  dualBookingMs: 40000,
+  requiredPatterns: ['linkedPhases', 'slotKey', 'elevate', 'skipCache:\\s*true', '_bestEffortUnlockAll']
+};
 
 console.log('═══════════════════════════════════════════════════════════');
 console.log('AUDIT BOOKING ENGINE - SSOT v5002.4');

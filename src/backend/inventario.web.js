@@ -13,7 +13,7 @@
      con .eq("requiresWixReconciliation", true))
    - stockActual / existenciasEsperadasUnidades -> stockExpected
    - nombreProducto -> productName
-   - stockMinimo -> minStock
+   - stockMinimo -> lowStockAlert
    - Movement fields: movementToken, movementId, locationCode, appliedByNote,
      nativeCommercialMovement, actorEmail, actorMemberId
  STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
@@ -60,7 +60,7 @@
        .limit(100)
        .find({ suppressAuth: true });
      const items = res?.items || [];
-     const lowStock = items.filter((i) => Number(i.stockExpected ?? 0) <= Number(i.minStock || 0));
+     const lowStock = items.filter((i) => Number(i.stockExpected ?? 0) <= Number(i.lowStockAlert || 0));
      return {
        status: "SUCCESS",
        data: {
@@ -71,7 +71,7 @@
            sku: i.sku || "",
            productName: i.productName || "",
            stockExpected: Number(i.stockExpected ?? 0),
-           minStock: Number(i.minStock || 0),
+           lowStockAlert: Number(i.lowStockAlert || 0),
            category: i.category || "",
            supplier: i.supplier || "",
            active: i.active !== false,
@@ -80,7 +80,7 @@
            sku: i.sku || "",
            productName: i.productName || "",
            stockExpected: Number(i.stockExpected ?? 0),
-           minStock: Number(i.minStock || 0),
+           lowStockAlert: Number(i.lowStockAlert || 0),
          })),
        },
        error: null,

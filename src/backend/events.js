@@ -420,7 +420,7 @@ API_TIMEOUT_MS,
 "queryRefundsForOrder"
 );
 const refundedTotal = (refundsRes?.items || []).reduce(
-(sum, movement) => sum + Math.abs(Number(movement?.importeContable || movement?.importeTotal || 0)),
+(sum, movement) => sum + Math.abs(Number(movement?.accountingAmount || movement?.totalAmount || 0)),
 0
 );
 const fullyRefunded = originalAmount > 0 && refundedTotal >= originalAmount;

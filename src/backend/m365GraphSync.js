@@ -100,9 +100,9 @@ export async function enqueueM365LedgerRecord(movement, traceId) {
         correlationId: traceId || movement?.traceId,
         transactionId: movement?.transactionId,
         bookingReference: movement?.reservaIdVinculada || movement?._id,
-        amount: movement?.importeContable,
+        amount: movement?.accountingAmount,
         currency: "EUR",
-        occurredAt: movement?.fechaCreacion || new Date(),
+        occurredAt: movement?.registeredAt || new Date(),
     };
     payload.title = `LEDGER_MOVEMENT ${payload.transactionId || payload.bookingReference}`;
     payload.integrityHash = hashSHA256(_stableSerialize(payload));

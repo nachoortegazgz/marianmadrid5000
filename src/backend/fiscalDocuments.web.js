@@ -42,7 +42,7 @@
      `"${_safeTrim(inv.movementType || inv.tipoMovimiento)}";` +
      `${_roundMoney(inv.taxableAmount || inv.baseImponible || 0)};` +
      `${_roundMoney(inv.taxAmount || inv.cuotaIva || 0)};` +
-     `${_roundMoney(inv.totalAmount || inv.importeTotal || 0)};` +
+     `${_roundMoney(inv.totalAmount || inv.totalAmount || 0)};` +
      `"${_safeTrim(inv.paymentMethod || inv.formaPago)}";` +
      `"${_safeTrim(inv.currentRecordHash || inv.hashCadena)}"`
    ).join("\n");

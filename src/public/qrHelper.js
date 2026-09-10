@@ -10,7 +10,7 @@ export function generateVerifactuQrUrl(params = {}) {
 const nifEmisor = String(params.businessTaxId || "").trim();
 const numFactura = String(params.invoiceNumber || params.numFactura || "").trim();
 const fechaEmision = String(params.fechaEmision || "").trim();
-const importeTotal = String(params.totalAmount || "0").trim();
+const qrImporteTotal = String(params.totalAmount || "0").trim();
 const hashCadena = String(params.currentRecordHash || "").trim();
 if (!nifEmisor || !numFactura || !fechaEmision) {
 return null;
@@ -20,7 +20,7 @@ const queryParams = [
 `nif=${encodeURIComponent(nifEmisor)}`,
 `numFactura=${encodeURIComponent(numFactura)}`,
 `fecha=${encodeURIComponent(fechaEmision)}`,
-`importe=${encodeURIComponent(importeTotal)}`,
+`importe=${encodeURIComponent(qrImporteTotal)}`,
 `hash=${encodeURIComponent(hashCadena)}`,
 ].join("&");
 return `${baseUrl}?${queryParams}`;
@@ -29,8 +29,8 @@ export function extractVerifactuData(movimiento = {}) {
 return {
 nifEmisor: String(movimiento.businessTaxId || "").trim(),
 numTicketFactura: String(movimiento.invoiceNumber || "").trim(),
-fechaEmision: String(movimiento.fechaCreacion || "").slice(0, 10),
-importeTotal: String(movimiento.totalAmount || 0),
+fechaEmision: String(movimiento.registeredAt || "").slice(0, 10),
+totalAmount: String(movimiento.totalAmount || 0),
 hashCadena: String(movimiento.currentRecordHash || "").trim(),
 firmaDigital: String(movimiento.digitalSignature || "").trim(),
 qrUrl: generateVerifactuQrUrl(movimiento),

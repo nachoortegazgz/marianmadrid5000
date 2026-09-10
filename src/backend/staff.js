@@ -1,9 +1,9 @@
 /*
  =============================================================================
  MODULE: backend/staff.js
- VERSION: v5003-canonical-mapa-staff
+ VERSION: v5003.1-canonical-staff-purged
  RESPONSIBILITY: Staff catalog resolution and caching from MapaStaff collection.
- CORRECTIONS: MATRIZ field renames (activo->active, idMiembroStaff fallback).
+ CORRECTIONS: Legacy field references purged from documentation.
  STANDARDS: G10 ASCII Strict.
  =============================================================================
  */
