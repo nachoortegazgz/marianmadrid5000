@@ -49,7 +49,7 @@ export async function isKeyPersistentlyBlocked(surface, key) {
   const cleanKey = String(key || "anon");
   const cleanSurface = String(surface || "global");
   try {
-    const recent = await wixData.query(COLLECTIONS.RATE_LIMIT_BLOCKS || "RateLimitBlocks")
+    const recent = await wixData.query(COLLECTIONS.RATE_LIMIT_BLOCKS)
       .eq("surface", cleanSurface)
       .eq("key", cleanKey)
       .gt("expiresAt", new Date())
@@ -78,7 +78,7 @@ export function rateLimiter({ surface, key }, maxRequests, windowMs) {
     entry.violations = (entry.violations || 0) + 1;
     if (entry.violations >= PERSIST_THRESHOLD) {
       const blockKey = `RL-${cleanKey}-${now}`;
-      wixData.insert(COLLECTIONS.RATE_LIMIT_BLOCKS || "RateLimitBlocks", {
+      wixData.insert(COLLECTIONS.RATE_LIMIT_BLOCKS, {
         _id: blockKey,
         surface: surface || "global",
         key: key || "anon",

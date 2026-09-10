@@ -16,7 +16,7 @@
     "CAJA_ACTUAL": "CajaActual",
     "MOVIMIENTOS_CAJA": "MovimientosCaja",
     "CONTROL_PARCIAL_X": "ControlParcialX",
-    "CIERRES_Z": "HistoricoCierresZ",
+    "HISTORICO_CIERRES_Z": "HistoricoCierresZ",
     "SECUENCIA_TICKETS": "SecuenciaTickets",
     "CONFIGURACION_FISCAL": "ConfiguracionFiscal",
     "LIBRO_IVA_FACTURAS_EXPEDIDAS": "LibroIvaFacturasExpedidas",

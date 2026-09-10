@@ -1170,7 +1170,7 @@
     },
     {
       "id": "HistoricoCierresZ",
-      "key": "CIERRES_Z",
+      "key": "HISTORICO_CIERRES_Z",
       "fields": [
         [
           "operationDate",

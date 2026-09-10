@@ -13,7 +13,7 @@ import { _safeTrim, _looksLikeGuid, _safeEmail } from "public/mmUtils";
 import { logger } from "backend/booking/bookingCore";
 
 const log = logger;
-const MAPA_STAFF_COL = COLLECTIONS.MAPA_STAFF || "MapaStaff";
+const MAPA_STAFF_COL = COLLECTIONS.MAPA_STAFF;
 const STAFF_CACHE_TTL_MS = 300000;
 let staffCache = null;
 let staffCacheTime = 0;

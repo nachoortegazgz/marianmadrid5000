@@ -7,7 +7,7 @@ FIXES APPLIED:
   [C-03] _generateSlotKey: acepta firma dual (slot object y lock key)
   [C-04] _projectWriterSlotFromAvailability: usa _safeTrim correctamente
   [C-05] rescheduleBookingElevated: valida bookingId y schedule
-  [C-06] COLLECTIONS.LOCKS -> COLLECTIONS.SLOT_LOCKS
+
   [C-07] Eliminado _buildLockKeys_DEPRECATED, reemplazado por _buildLockKeys
   [C-08] bookingRecord: eliminado alias legacy statusPago (canonical: paymentStatus)
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).

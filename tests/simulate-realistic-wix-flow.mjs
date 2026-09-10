@@ -61,7 +61,7 @@ class RealisticWixFlowSimulator {
       resourceId,
       serviceId,
       status: 'CONFIRMED',
-      statusPago: 'UNPAID',
+      paymentStatus: 'UNPAID',
       traceId: `trace_${reservationToken}`,
     });
     return entry;
@@ -115,7 +115,7 @@ class RealisticWixFlowSimulator {
       for (const bookingId of bookingIds) {
         const cita = this.citas.get(bookingId);
         if (!cita) throw new Error('BOOKING_NOT_FOUND');
-        cita.statusPago = 'PENDING_PAYMENT';
+        cita.paymentStatus = 'PENDING_PAYMENT';
       }
       const checkoutId = `checkout_${String(++this.sequence).padStart(4, '0')}`;
       const checkout = { checkoutId, bookingIds: [...bookingIds], productLines: [...productLines], amount, status: 'PENDING' };
@@ -139,7 +139,7 @@ class RealisticWixFlowSimulator {
       if (!checkout) throw new Error('CHECKOUT_NOT_FOUND');
       if (checkout.status !== 'PENDING') throw new Error('CHECKOUT_NOT_PAYABLE');
       checkout.status = 'PAID';
-      for (const bookingId of checkout.bookingIds) this.citas.get(bookingId).statusPago = 'PAID';
+      for (const bookingId of checkout.bookingIds) this.citas.get(bookingId).paymentStatus = 'PAID';
       for (const line of checkout.productLines) {
         const stock = this.inventory.get(line.sku);
         if (!Number.isFinite(stock)) throw new Error('PRODUCT_NOT_FOUND');
@@ -175,7 +175,7 @@ class RealisticWixFlowSimulator {
         bookingIds: original.bookingIds,
         refundId,
       });
-      for (const bookingId of original.bookingIds) this.citas.get(bookingId).statusPago = 'REFUNDED';
+      for (const bookingId of original.bookingIds) this.citas.get(bookingId).paymentStatus = 'REFUNDED';
       return { refundId, movementId: movement.transactionId, status: 'REFUNDED' };
     });
   }

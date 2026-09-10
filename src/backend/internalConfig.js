@@ -33,7 +33,7 @@ PROVEEDORES_LISTA: "ProveedoresLista",
 CAJA_ACTUAL: "CajaActual",
 MOVIMIENTOS_CAJA: "MovimientosCaja",
 CONTROL_PARCIAL_X: "ControlParcialX",
-CIERRES_Z: "HistoricoCierresZ",
+HISTORICO_CIERRES_Z: "HistoricoCierresZ",
 SECUENCIA_TICKETS: "SecuenciaTickets",
 // Mision 6: Fiscalidad, Libros de IVA y Contabilidad General (PGC)
 CONFIGURACION_FISCAL: "ConfiguracionFiscal",

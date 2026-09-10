@@ -25,7 +25,7 @@ describe('SSOT de colecciones CMS (arquitectura canonical)', () => {
     expect(COLLECTIONS.CAJA_ACTUAL).toBe('CajaActual');
     expect(COLLECTIONS.MOVIMIENTOS_CAJA).toBe('MovimientosCaja');
     expect(COLLECTIONS.CONTROL_PARCIAL_X).toBe('ControlParcialX');
-    expect(COLLECTIONS.CIERRES_Z).toBe('HistoricoCierresZ');
+    expect(COLLECTIONS.HISTORICO_CIERRES_Z).toBe('HistoricoCierresZ');
     expect(COLLECTIONS.SECUENCIA_TICKETS).toBe('SecuenciaTickets');
     expect(COLLECTIONS.CONFIGURACION_FISCAL).toBe('ConfiguracionFiscal');
     expect(COLLECTIONS.LIBRO_IVA_FACTURAS_EXPEDIDAS).toBe('LibroIvaFacturasExpedidas');

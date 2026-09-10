@@ -8,7 +8,8 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: false,
   retries: 1,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [
+    ['json'],['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: BASE_URL,
     trace: 'retain-on-failure',

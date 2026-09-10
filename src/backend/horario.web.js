@@ -34,7 +34,7 @@
  import { logger, normalizeError } from "backend/booking/bookingCore";
  import { makeTraceId, _safeTrim, getMadridLocalStringNoZ } from "public/mmUtils";
  const log = logger;
- const REGISTRO_COL = COLLECTIONS.REGISTROS_HORARIOS_STAFF || "RegistrosHorariosStaff";
+ const REGISTRO_COL = COLLECTIONS.REGISTROS_HORARIOS_STAFF;
  function _rateLimitOrThrow(surface, key, traceId) {
    const rl = rateLimiter({ surface, key });
    if (!rl.allowed) {

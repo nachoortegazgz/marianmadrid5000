@@ -1,0 +1,30 @@
+BIBLIA DEFINITIVA v5002.4 - INDICE
+==================================
+
+Este archivo es un indice de referencia (puntero). No duplica el contenido
+canonico; el SSOT completo vive en la documentacion del repositorio:
+
+1. .agents/skills/wix/BIBLIA DEFINITIVA.md
+   Documento maestro canonico v5002.4. Bloque 1: contexto de negocio,
+   Wix App IDs, APIs y SDKs criticos, tabla maestra de colecciones,
+   internalConfig.js y mmUtils.js. Bloques 2 y 3: esquema tecnico de
+   campos (colecciones).
+
+2. .wix/BIBLIA FINAL.txt
+   Version previa en texto plano (v5002.3-canonical-full-stack).
+
+3. tests/BIBLIA DEFINITIVA.txt
+   Copia de la BIBLIA usada como referencia por los tests.
+
+Fuente normativa de codigo:
+- src/backend/internalConfig.js  (SSOT de configuracion)
+- tests/cms-contract.json        (contrato verificado por tests/verify-core.mjs)
+- tests/verify-core.mjs          (verificacion de concordancia SSOT)
+
+REGLAS CLAVE
+- Plataforma: Wix Editor Clasico (NO migrar a Wix Studio).
+- Runtime: Wix Velo V2, backend serverless.
+- Zona horaria: Europe/Madrid. Moneda: EUR. Pais: ES. Idioma: es.
+- Standard de codigo: G10 ASCII Strict (0 caracteres no-ASCII en fuentes JS).
+- Cero codigo deprecated. Cero aliases legacy.
+- 31 colecciones vigentes en COLLECTIONS (ver .clinerules/collections-schema.md).

@@ -28,8 +28,8 @@
  import { logger } from "backend/booking/bookingCore";
 
  const log = logger;
- const INVENTARIO_COL = COLLECTIONS.INVENTARIO_STOCK_VENTA || "InventarioStockVenta";
- const MOVIMIENTOS_COL = COLLECTIONS.MOVIMIENTOS_INVENTARIO || "MovimientosInventario";
+ const INVENTARIO_COL = COLLECTIONS.INVENTARIO_STOCK_VENTA;
+ const MOVIMIENTOS_COL = COLLECTIONS.MOVIMIENTOS_INVENTARIO;
  const API_TIMEOUT_MS = SDK_CONFIG?.TIMEOUTS?.API_MS || 15000;
 
  function _rateLimitOrThrow(surface, key, traceId) {
@@ -373,7 +373,7 @@
      _rateLimitOrThrow("inventario.getPreparedManagerPackages", "staff", traceId);
      await requireCajero(traceId);
      const res = await wixData
-       .query(COLLECTIONS.INVENTARIO_STOCK_VENTA_CIERRE || "InventarioStockVentaCierre")
+       .query(COLLECTIONS.INVENTARIO_STOCK_VENTA_CIERRE)
        .descending("_createdDate")
        .limit(20)
        .find({ suppressAuth: true });

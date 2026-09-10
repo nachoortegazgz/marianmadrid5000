@@ -125,7 +125,7 @@
  // SEQUENCE COUNTER (ATOMIC)
  // ============================================================================
  async function _getNextSequence(traceId) {
-   const seqCol = COLLECTIONS.SECUENCIA_TICKETS || "SecuenciaTickets";
+   const seqCol = COLLECTIONS.SECUENCIA_TICKETS;
    return await executeLedgerWithBackoff(async () => {
      let seqDoc = await wixData.get(seqCol, "GLOBAL", { suppressAuth: true }).catch(() => null);
      if (!seqDoc) {
@@ -267,7 +267,7 @@
  // ============================================================================
  async function _updateCajaActual(movimiento, traceId) {
    try {
-     const cajaCol = COLLECTIONS.CAJA_ACTUAL || "CajaActual";
+     const cajaCol = COLLECTIONS.CAJA_ACTUAL;
      let caja = await wixData.get(cajaCol, CAJA_ACTUAL_ID, { suppressAuth: true }).catch(() => null);
      if (!caja) {
        caja = {
@@ -307,7 +307,7 @@
  // ============================================================================
  async function _registerSystemEvent(movimiento, traceId) {
    try {
-     const eventCol = COLLECTIONS.EVENTOS_SISTEMA_FACTURACION || "EventosSistemaFacturacion";
+     const eventCol = COLLECTIONS.EVENTOS_SISTEMA_FACTURACION;
      const eventRecord = {
        _id: `EV_${movimiento.invoiceNumber}_${Date.now()}`,
        systemEventId: `EV_${movimiento.invoiceNumber}`,
@@ -345,9 +345,9 @@
  // ============================================================================
  async function _projectToAccounting(movimiento, traceId) {
    try {
-     const asientosCol = COLLECTIONS.ASIENTOS_CONTABLES || "AsientosContables";
-     const lineasCol = COLLECTIONS.LINEAS_ASIENTO_CONTABLE || "LineasAsientoContable";
-     const planCol = COLLECTIONS.PLAN_CUENTAS_CONTABLES || "PlanCuentasContables";
+     const asientosCol = COLLECTIONS.ASIENTOS_CONTABLES;
+     const lineasCol = COLLECTIONS.LINEAS_ASIENTO_CONTABLE;
+     const planCol = COLLECTIONS.PLAN_CUENTAS_CONTABLES;
      // Find account map for this movement type
      const mapRes = await wixData.query(planCol)
        .eq("operationCategory", movimiento.movementType)
@@ -611,7 +611,7 @@
  // ============================================================================
  async function _enqueueM365Sync(movimiento, traceId) {
    try {
-     const queueCol = COLLECTIONS.M365_GRAPH_SYNC_QUEUE || "M365GraphSyncQueue";
+     const queueCol = COLLECTIONS.M365_GRAPH_SYNC_QUEUE;
      const payload = {
        eventType: "LEDGER_MOVEMENT",
        correlationId: traceId,
@@ -663,7 +663,7 @@
  export async function queueFiscalRecovery(recoveryData) {
    const traceId = recoveryData.traceId || makeTraceId("fiscal-rec");
    try {
-     const compCol = COLLECTIONS.COMPENSACIONES_PENDIENTES || "CompensacionesPendientes";
+     const compCol = COLLECTIONS.COMPENSACIONES_PENDIENTES;
      await wixData.insert(compCol, {
        _id: `REC_${recoveryData.transactionId || Date.now()}`,
        bookingIds: recoveryData.bookingIds || null,
@@ -695,7 +695,7 @@
  export const getCashierState = webMethod(Permissions.SiteMember, async ({ traceId, diaKey }) => {
    try {
      await requireCajero(traceId);
-     const cajaCol = COLLECTIONS.CAJA_ACTUAL || "CajaActual";
+     const cajaCol = COLLECTIONS.CAJA_ACTUAL;
      const caja = await wixData.get(cajaCol, CAJA_ACTUAL_ID, { suppressAuth: true }).catch(() => null);
      return {
        status: "SUCCESS",
@@ -730,7 +730,7 @@
        return { status: "ERROR", data: null, error: { code: "INVALID_AMOUNT", message: "Importe de efectivo contado invalido" } };
      }
      // Get theoretical cash from ledger
-     const cajaCol = COLLECTIONS.CAJA_ACTUAL || "CajaActual";
+     const cajaCol = COLLECTIONS.CAJA_ACTUAL;
      const caja = await wixData.get(cajaCol, CAJA_ACTUAL_ID, { suppressAuth: true }).catch(() => null);
      const expectedCash = _roundMoney(caja?.cashBalance || 0);
      const discrepancyAmount = _roundMoney(countedCash - expectedCash);
@@ -879,9 +879,9 @@
        traceId,
        _createdDate: new Date(),
      };
-     const saved = await wixData.insert(COLLECTIONS.CIERRES_Z, zRecord, { suppressAuth: true });
+     const saved = await wixData.insert(COLLECTIONS.HISTORICO_CIERRES_Z, zRecord, { suppressAuth: true });
      // Update CajaActual to closed
-     const cajaCol = COLLECTIONS.CAJA_ACTUAL || "CajaActual";
+     const cajaCol = COLLECTIONS.CAJA_ACTUAL;
      const caja = await wixData.get(cajaCol, CAJA_ACTUAL_ID, { suppressAuth: true }).catch(() => null);
      if (caja) {
        caja.cashRegisterStatus = CAJA_STATUS.CLOSED;

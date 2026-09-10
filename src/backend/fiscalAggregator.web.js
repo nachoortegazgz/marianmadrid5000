@@ -122,7 +122,7 @@
  async function _fetchQuarterMovements(months, options = {}) {
    const { traceId = makeTraceId("fiscal-fetch"), limit = MAX_PAGES, pageSize = CHUNK_PAGE_SIZE } = options;
    let allItems = [];
-   let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA || "MovimientosCaja")
+   let query = wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
      .hasSome("fiscalPeriod", months)
      .ascending("sequenceNumber")
      .limit(pageSize);
@@ -286,7 +286,7 @@
  async function _getBusinessTaxId(traceId) {
    try {
      const config = await withTimeout(
-       wixData.query(COLLECTIONS.CONFIGURACION_FISCAL || "ConfiguracionFiscal")
+       wixData.query(COLLECTIONS.CONFIGURACION_FISCAL)
          .eq("active", true)
          .limit(1)
          .find({ suppressAuth: true }),
