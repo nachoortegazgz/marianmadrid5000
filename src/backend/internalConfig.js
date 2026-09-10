@@ -14,6 +14,7 @@ RESOURCE_TO_DISPLAY: Object.freeze({}),
 export const COLLECTIONS = Object.freeze({
 // Mision 1: Catalogo, Servicios y Recursos de Reserva
 SERVICIOS_CATALOGO: "ServiciosCatalogo",
+COMPLEMENTOS_CATALOGO: "ComplementosCatalogo",
 MAPA_STAFF: "MapaStaff",
 CITAS_F2: "CitasF2",
 // Mision 2: Motor de Disponibilidad y Cache

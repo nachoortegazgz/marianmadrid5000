@@ -1,30 +1,12 @@
 /**
 MODULE: public/mmUtils.js
-VERSION: v5005-2
-VERSION: v5002.4-corrections-applied
+VERSION: v5005-3
 RESPONSIBILITY: SSOT constants, timezones, validators, PII masking,
 and retry logic (PUBLIC SAFE).
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
-CORRECTIONS APPLIED:
-[FIX-1]  getUtcDateFromMadridLocal: removed double space in "const roundTripParts = dtf"
-[FIX-2]  getUtcDateFromMadridLocal: fixed "const roundTrip = (type) =>"
-[FIX-3]  getUtcDateFromMadridLocal: fixed "roundTripParts.find((p) =>"
-[FIX-4]  getUtcDateFromMadridLocal: fixed roundTrip("year")
-[FIX-5]  getUtcDateFromMadridLocal: fixed roundTrip("month")
-[FIX-6]  getUtcDateFromMadridLocal: fixed roundTrip("day")
-[FIX-7]  getUtcDateFromMadridLocal: fixed roundTrip("hour")
-[FIX-8]  getUtcDateFromMadridLocal: fixed roundTrip("minute")
-[FIX-9]  getUtcDateFromMadridLocal: fixed roundTrip("second")
-[FIX-10] _maskEmail: fixed String(email || "")
-[FIX-11] _maskEmail: fixed !raw.includes("@")
-[FIX-12] _maskIp: fixed typeof ip !== "string"
-[FIX-13] _maskIp: fixed parts = trimmed.split(".")
-[FIX-14] _isValidEmail: fixed regex "." -> "\."
-[FIX-15] _toDateSafe: fixed infinite recursion toDateSafe -> _toDateSafe
-[FIX-16] withTimeout: added optional chaining SDK_CONFIG?.TIMEOUTS?.API_MS
 =============================================================================*/
 export const VERSION = Object.freeze({
-CORE: "v5005-2",
+CORE: "v5005-3",
 API_V2: true,
 COMPLIANCE_ES: "2026",
 });
@@ -363,6 +345,23 @@ export function _maskName(name) {
   if (raw.length <= 2) return raw[0] + "";
   return raw[0] + "*" + raw.slice(-1);
 }
+
+export function _sanitizeForLog(obj, sensitiveKeys = ["email", "phone", "nombre", "apellidos", "address", "token", "password"]) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(item => _sanitizeForLog(item, sensitiveKeys));
+  const sanitized = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk.toLowerCase()))) {
+      sanitized[key] = "***REDACTED***";
+    } else if (typeof value === "object") {
+      sanitized[key] = _sanitizeForLog(value, sensitiveKeys);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
 export function _roundMoney(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -383,4 +382,197 @@ export function _normalizeIdPart(value, maxLen) {
     return str.slice(0, maxLen);
   }
   return str;
+}
+
+// ============================================================================
+// ACCESSIBILITY HELPERS
+// ============================================================================
+
+export const ARIA = Object.freeze({
+  ROLE: {
+    BUTTON: "button",
+    DIALOG: "dialog",
+    ALERT: "alert",
+    STATUS: "status",
+    NAVIGATION: "navigation",
+    MAIN: "main",
+    FORM: "form",
+    LIST: "list",
+    LISTITEM: "listitem",
+  },
+  LIVE: {
+    POLITE: "polite",
+    ASSERTIVE: "assertive",
+  },
+});
+
+export function _createAriaLabel(text, context) {
+  const clean = String(text || "").trim();
+  if (!clean) return "";
+  return context ? `${clean}, ${context}` : clean;
+}
+
+export function _announceToScreenReader(message, priority) {
+  const livePriority = priority || "polite";
+  let announcer = document.getElementById("sr-announcer");
+  if (!announcer) {
+    announcer = document.createElement("div");
+    announcer.id = "sr-announcer";
+    announcer.setAttribute("aria-atomic", "true");
+    announcer.style.cssText = "position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;";
+    document.body.appendChild(announcer);
+  }
+  announcer.setAttribute("aria-live", livePriority);
+  announcer.textContent = "";
+  setTimeout(function() {
+    announcer.textContent = String(message || "");
+  }, 100);
+}
+
+// ============================================================================
+// LOADING STATE HELPERS
+// ============================================================================
+
+export const LOADING_STATES = Object.freeze({
+  IDLE: "idle",
+  LOADING: "loading",
+  SUCCESS: "success",
+  ERROR: "error",
+});
+
+export function _createLoadingState(container, options) {
+  var opts = options || {};
+  var state = {
+    container: container,
+    current: LOADING_STATES.IDLE,
+  };
+
+  state.showLoading = function(message) {
+    var msg = message || "Cargando...";
+    state.current = LOADING_STATES.LOADING;
+    container.innerHTML = "";
+    var spinner = document.createElement("div");
+    spinner.className = "loading-spinner";
+    spinner.setAttribute("role", "status");
+    spinner.setAttribute("aria-label", msg);
+    var msgEl = document.createElement("span");
+    msgEl.className = "loading-message";
+    msgEl.textContent = msg;
+    container.appendChild(spinner);
+    container.appendChild(msgEl);
+    _announceToScreenReader(msg, "polite");
+  };
+
+  state.showSuccess = function(message) {
+    var msg = message || "Completado";
+    state.current = LOADING_STATES.SUCCESS;
+    container.innerHTML = "";
+    var successEl = document.createElement("div");
+    successEl.className = "loading-success";
+    successEl.setAttribute("role", "status");
+    successEl.textContent = msg;
+    container.appendChild(successEl);
+    _announceToScreenReader(msg, "polite");
+  };
+
+  state.showError = function(message) {
+    var msg = message || "Error";
+    state.current = LOADING_STATES.ERROR;
+    container.innerHTML = "";
+    var errorEl = document.createElement("div");
+    errorEl.className = "loading-error";
+    errorEl.setAttribute("role", "alert");
+    errorEl.textContent = msg;
+    container.appendChild(errorEl);
+    _announceToScreenReader(msg, "assertive");
+  };
+
+  state.reset = function() {
+    state.current = LOADING_STATES.IDLE;
+    container.innerHTML = "";
+  };
+
+  return state;
+}
+
+// ============================================================================
+// FORM VALIDATION HELPERS
+// ============================================================================
+
+export const VALIDATION_RULES = Object.freeze({
+  REQUIRED: "required",
+  EMAIL: "email",
+  PHONE: "phone",
+  MIN_LENGTH: "minLength",
+  MAX_LENGTH: "maxLength",
+  PATTERN: "pattern",
+});
+
+export function _validateField(value, rules) {
+  var ruleList = rules || [];
+  var errors = [];
+  var str = String(value || "").trim();
+  var i;
+  var rule;
+
+  for (i = 0; i < ruleList.length; i++) {
+    rule = ruleList[i];
+    switch (rule.type) {
+      case VALIDATION_RULES.REQUIRED:
+        if (!str) errors.push(rule.message || "Este campo es obligatorio");
+        break;
+      case VALIDATION_RULES.EMAIL:
+        if (str && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) {
+          errors.push(rule.message || "Email invalido");
+        }
+        break;
+      case VALIDATION_RULES.PHONE:
+        if (str && !/^[+]?[\d\s()-]{9,15}$/.test(str)) {
+          errors.push(rule.message || "Telefono invalido");
+        }
+        break;
+      case VALIDATION_RULES.MIN_LENGTH:
+        if (str && str.length < rule.value) {
+          errors.push(rule.message || "Minimo " + rule.value + " caracteres");
+        }
+        break;
+      case VALIDATION_RULES.MAX_LENGTH:
+        if (str && str.length > rule.value) {
+          errors.push(rule.message || "Maximo " + rule.value + " caracteres");
+        }
+        break;
+      case VALIDATION_RULES.PATTERN:
+        if (str && rule.value && !rule.value.test(str)) {
+          errors.push(rule.message || "Formato invalido");
+        }
+        break;
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors: errors,
+  };
+}
+
+export function _serializeForm(formElement) {
+  if (!formElement || !formElement.elements) return {};
+  var data = {};
+  var elements = formElement.elements;
+  var el;
+  var i;
+
+  for (i = 0; i < elements.length; i++) {
+    el = elements[i];
+    if (el.name && !el.disabled) {
+      if (el.type === "checkbox") {
+        data[el.name] = el.checked;
+      } else if (el.type === "radio") {
+        if (el.checked) data[el.name] = el.value;
+      } else {
+        data[el.name] = el.value;
+      }
+    }
+  }
+  return data;
 }

@@ -1,6 +1,7 @@
 {
   "collections": {
     "SERVICIOS_CATALOGO": "ServiciosCatalogo",
+    "COMPLEMENTOS_CATALOGO": "ComplementosCatalogo",
     "MAPA_STAFF": "MapaStaff",
     "CITAS_F2": "CitasF2",
     "AVAILABILITY_DAYS_CACHE": "AvailabilityDaysCache",
