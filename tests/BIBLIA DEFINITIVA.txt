@@ -336,7 +336,7 @@ colecciones del ecosistema.
 | ID Visible             | ID Técnica  | Tipo       |
 | ---------------------- | ----------- | ---------- |
 | `idCerrojo`            | `_id`       | `TEXT`     |
-| `slotClave`            | `slotKey`   | `TEXT`     |
+| `cerrojoClave`         | `lockKey`   | `TEXT`     |
 | `cerrojoPropietarioId` | `traceId`   | `TEXT`     |
 | `expiraFecha`          | `expiresAt` | `DATETIME` |
 

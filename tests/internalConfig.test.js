@@ -33,7 +33,7 @@ describe('SSOT de colecciones CMS (arquitectura canonical)', () => {
     expect(COLLECTIONS.PLAN_CUENTAS_CONTABLES).toBe('PlanCuentasContables');
     expect(COLLECTIONS.ASIENTOS_CONTABLES).toBe('AsientosContables');
     expect(COLLECTIONS.LINEAS_ASIENTO_CONTABLE).toBe('LineasAsientoContable');
-    expect(COLLECTIONS.LIBRO_MAYOR_CONTABLE_SALDOS).toBe('MayorContableSaldos');
+    expect(COLLECTIONS.LIBRO_MAYOR_CONTABLE_SALDOS).toBe('LibroMayorContableSaldos');
     expect(COLLECTIONS.EVENTOS_SISTEMA_FACTURACION).toBe('EventosSistemaFacturacion');
     expect(COLLECTIONS.MM_AUDIT_LOG).toBe('MmAuditLog');
     expect(COLLECTIONS.REGISTROS_HORARIOS_STAFF).toBe('RegistrosHorariosStaff');

@@ -129,7 +129,7 @@ const COLLECTION_LITERALS_MATRIX = [
   { from: /["']PLANCUENTASCONTABLES["']/g, to: '"PlanCuentasContables"' },
   { from: /["']ASIENTOSCONTABLES["']/g, to: '"AsientosContables"' },
   { from: /["']LINEASASIENTOCONTABLE["']/g, to: '"LineasAsientoContable"' },
-  { from: /["']MAYORCONTABLESALDOS["']/g, to: '"MayorContableSaldos"' },
+  { from: /["']MAYORCONTABLESALDOS["']/g, to: '"LibroMayorContableSaldos"' },
   { from: /["']EVENTOSSISTEMAFACTURACION["']/g, to: '"EventosSistemaFacturacion"' },
   { from: /["']MMAUDIT_LOG["']/g, to: '"MmAuditLog"' },
   { from: /["']MM_LOCKS["']/g, to: '"SlotLocks"' }

@@ -42,7 +42,7 @@ LIBRO_IVA_FACTURAS_RECIBIDAS: "LibroIvaFacturasRecibidas",
 PLAN_CUENTAS_CONTABLES: "PlanCuentasContables",
 ASIENTOS_CONTABLES: "AsientosContables",
 LINEAS_ASIENTO_CONTABLE: "LineasAsientoContable",
-LIBRO_MAYOR_CONTABLE_SALDOS: "MayorContableSaldos",
+LIBRO_MAYOR_CONTABLE_SALDOS: "LibroMayorContableSaldos",
 // Mision 7: Auditoria, Seguridad y Control Laboral
 EVENTOS_SISTEMA_FACTURACION: "EventosSistemaFacturacion",
 MM_AUDIT_LOG: "MmAuditLog",

@@ -24,7 +24,7 @@
     "PLAN_CUENTAS_CONTABLES": "PlanCuentasContables",
     "ASIENTOS_CONTABLES": "AsientosContables",
     "LINEAS_ASIENTO_CONTABLE": "LineasAsientoContable",
-    "LIBRO_MAYOR_CONTABLE_SALDOS": "MayorContableSaldos",
+    "LIBRO_MAYOR_CONTABLE_SALDOS": "LibroMayorContableSaldos",
     "EVENTOS_SISTEMA_FACTURACION": "EventosSistemaFacturacion",
     "MM_AUDIT_LOG": "MmAuditLog",
     "REGISTROS_HORARIOS_STAFF": "RegistrosHorariosStaff",

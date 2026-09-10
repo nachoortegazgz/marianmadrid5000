@@ -32,7 +32,7 @@
 | 23 | PLAN_CUENTAS_CONTABLES | PlanCuentasContables | PLAN_CUENTAS_CONTABLES | accountName | Vigente |
 | 24 | ASIENTOS_CONTABLES | AsientosContables | ASIENTOS_CONTABLES | entryNumber | Vigente |
 | 25 | LINEAS_ASIENTO_CONTABLE | LineasAsientoContable | LINEAS_ASIENTO_CONTABLE | entryLineId | Vigente |
-| 26 | LIBRO_MAYOR_CONTABLE_SALDOS | MayorContableSaldos | LIBRO_MAYOR_CONTABLE_SALDOS | accountCode | Vigente |
+| 26 | LIBRO_MAYOR_CONTABLE_SALDOS | LibroMayorContableSaldos | LIBRO_MAYOR_CONTABLE_SALDOS | accountCode | Vigente |
 | 27 | EVENTOS_SISTEMA_FACTURACION | EventosSistemaFacturacion | EVENTOS_SISTEMA_FACTURACION | systemEventId | Vigente |
 | 28 | MM_AUDIT_LOG | MmAuditLog | MM_AUDIT_LOG | eventType | Vigente |
 | 29 | REGISTROS_HORARIOS_STAFF | RegistrosHorariosStaff | REGISTROS_HORARIOS_STAFF | recordedAt | Vigente |

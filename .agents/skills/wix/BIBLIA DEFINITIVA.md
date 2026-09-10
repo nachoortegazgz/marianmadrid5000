@@ -30,7 +30,7 @@ preposiciones, artículos, tildes, espacios ni caracteres especiales.
 | **Location ID (Wix)**  | `7a12abfd-bf30-4847-bcdf-00dc573d4802`                                                 |
 | **Huso horario**       | `Europe/Madrid` · **Moneda:** `EUR` · **País:** `ES` · **Idioma:** `es`                |
 | **Personal activo**    | PROPIETARIA/GERENTE/ADMINISTRACIÓN/JEFA DE ESTILISTAS; MARIAN MADRID; PERSONAL CONTRATADO ESTILISTAS:ANDREA STAFF, ALBA STAFF                                                |
-| **Canales operativos** | Reservas online (Wix Bookings v2 custom), TPV salón (propietario), Pasarela Pagos: WIX PAYMENTS V2; Tienda online (Wix Stores- migracion a version mas actual)) |
+| **Canales operativos** | Reservas online (Wix Bookings v2 custom), TPV salón (propietario), Pasarela Pagos: WIX PAYMENTS V2; Tienda online (Wix Stores - migración a versión más actual) |
 | **Marco normativo**     | SIF / Veri\*factu (RD 1007/2023, Orden HAC/1177/2024), Registro Horario (Art. 34.9 ET) |
 
 ---
@@ -75,7 +75,7 @@ COLLECTIONS es el que se expone en internalConfig.js:
 | \# | Misión | ID Visible (Nombre CMS)         | ID Nativa (collectionId)     | Alias en `COLLECTIONS`          | Campo de Exposición (Display) |
 | -- | ------ | ------------------------------- | ---------------------------- | ------------------------------- | ----------------------------- |
 | 1  | M1     | `SERVICIOS_CATALOGO`            | `ServiciosCatalogo`          | `SERVICIOS_CATALOGO`            | `title`                       |
-| 2  | M1     | `COMPLEMENTOS_CATALOGO`         | `ComplementosCatalogo`       | `COMPLEMENTOS_CATALOGO`         | `title`                       |
+| 2  | M1 (LEGACY) | `COMPLEMENTOS_CATALOGO`         | `ComplementosCatalogo`       | `COMPLEMENTOS_CATALOGO`         | `title`                       |
 | 3  | M1     | `MAPA_STAFF`                    | `MapaStaff`                  | `MAPA_STAFF`                    | `displayName`                 |
 | 4  | M1     | `CITAS_F2`                      | `CitasF2`                    | `CITAS_F2`                      | `bookingId`                   |
 | 5  | M2     | `AVAILABILITY_DAYS_CACHE`       | `AvailabilityDaysCache`      | `AVAILABILITY_DAYS_CACHE`       | `_id`                         |
@@ -94,7 +94,7 @@ COLLECTIONS es el que se expone en internalConfig.js:
 | 18 | M5     | `HISTORICO_CIERRES_Z`           | `HistoricoCierresZ`          | `HISTORICO_CIERRES_Z`           | `operationDate`               |
 | 19 | M5     | `SECUENCIA_TICKETS`             | `SecuenciaTickets`           | `SECUENCIA_TICKETS`             | `_id`                         |
 | 20 | M6     | `CONFIGURACION_FISCAL`          | `ConfiguracionFiscal`        | `CONFIGURACION_FISCAL`          | `businessName`                |
-| 21 | M6     | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `LibroIVAFacturasExpedidas`  | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `invoiceNumber`               |
+| 21 | M6     | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `LibroIvaFacturasExpedidas`  | `LIBRO_IVA_FACTURAS_EXPEDIDAS`  | `invoiceNumber`               |
 | 22 | M6     | `LIBRO_IVA_FACTURAS_RECIBIDAS`  | `LibroIVAFacturasRecibidas`  | `LIBRO_IVA_FACTURAS_RECIBIDAS`  | `receptionNumber`             |
 | 23 | M6     | `PLAN_CUENTAS_CONTABLES`        | `PlanCuentasContables`       | `PLAN_CUENTAS_CONTABLES`        | `accountName`                 |
 | 24 | M6     | `ASIENTOS_CONTABLES`            | `AsientosContables`          | `ASIENTOS_CONTABLES`            | `entryNumber`                 |
@@ -275,12 +275,12 @@ colecciones del ecosistema.
 | `expiraFecha`         | `expiresAt`            | `DATETIME`     |
 | `estado`              | `status`               | `CHOICES`      |
 
-10. SLOT_LOCKS (SlotLocks)
+10. SLOT_LOCKS (SlotLocks) — LEGADO: ver SLOT_LOCKS en infraestructura (Bloque 3, esquema #30)
 
 | ID Visible             | ID Técnica  | Tipo       |
 | ---------------------- | ----------- | ---------- |
 | `idCerrojo`            | `_id`       | `TEXT`     |
-| `slotClave`            | `slotKey`   | `TEXT`     |
+| `cerrojoClave`         | `lockKey`   | `TEXT`     |
 | `cerrojoPropietarioId` | `traceId`   | `TEXT`     |
 | `expiraFecha`          | `expiresAt` | `DATETIME` |
 
@@ -866,7 +866,7 @@ mantenerse íntegra en los hooks de escritura.
 │  LIBRO_MAYOR_CONTABLE_SALDOS│
 └─────────────────────────────┘
 
-1. REGLAS DE INMUTABILIDAD Y PROTECCIÓN (BACKEND HOOKS)
+2. REGLAS DE INMUTABILIDAD Y PROTECCIÓN (BACKEND HOOKS)
 
 Para cumplir con la normativa SIF / Veri*factu y el registro laboral
 obligatorio, se implementan las siguientes restricciones en backend/data.js:
@@ -881,7 +881,7 @@ obligatorio, se implementan las siguientes restricciones en backend/data.js:
 | `ServiciosCatalogo`           | `beforeInsert` / `beforeUpdate` | Validar esquema: `phase1Duration + exposureDuration + phase2Duration === totalDuration`. |
 | `MapaStaff`                   | `beforeInsert` / `beforeUpdate` | Validar unicidad de `resourceId` y `staffMemberId`.                                      |
 
-1. GUÍA DE DESPLIEGUE EN WIX DATA CMS
+3. GUÍA DE DESPLIEGUE EN WIX DATA CMS
 
 Siga estrictamente este orden para asegurar que las referencias (References) y
 Multi-References se resuelvan correctamente.

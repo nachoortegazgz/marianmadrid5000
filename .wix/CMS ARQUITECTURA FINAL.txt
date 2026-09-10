@@ -1591,7 +1591,7 @@ wixData.query("ServiciosCatalogo").eq("serviceType", "APPOINTMENT").find();
 
 ---
 
-### 24. `MAYOR_CONTABLE_SALDOS — MayorContableSaldos`
+### 24. `MAYOR_CONTABLE_SALDOS — LibroMayorContableSaldos`
 | ID Oculto Anterior | > | ID Primario Actual (Wix V2) | ID Secundario (Traducido) | Tipo de Dato | Acción de Refactorización |
 | :--- | :-: | :--- | :--- | :--- | :--- |
 | `idMayor` | > | `generalLedgerId` | `generalMayorId` | `TEXT` | Renombrado a estándar contable |

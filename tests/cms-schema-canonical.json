@@ -2081,7 +2081,7 @@
       ]
     },
     {
-      "id": "MayorContableSaldos",
+      "id": "LibroMayorContableSaldos",
       "key": "MAYOR_CONTABLE_SALDOS",
       "fields": [
         [
