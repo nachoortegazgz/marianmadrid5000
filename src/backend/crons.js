@@ -89,7 +89,7 @@ const retentionDays = SDK_CONFIG?.JOBS?.AUDIT_RETENTION_DAYS || 90;
 const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 const res = await wixData
 .query(COLLECTIONS.MM_AUDIT_LOG)
-.lt("fechaLog", cutoff)
+.lt("loggedAt", cutoff)
 .limit(100)
 .find({ suppressAuth: true });
 let removed = 0;

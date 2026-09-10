@@ -123,7 +123,7 @@ check('Reserva transaccional conserva Saga, locks, idempotencia y compensacion',
   const saga = read('src/backend/booking/bookingSaga.js');
   const core = read('src/backend/booking/bookingCore.js');
   for (const token of ['BookingSagaOrchestrator', 'executeBookingSaga', '_rollback']) assert.ok(saga.includes(token), token);
-  for (const token of ['_initTransaction', '_lockSlotKeyOrFail', '_unlockSlotKey', 'pairToken', '_buildLockKeys', 'lockKey']) assert.ok(core.includes(token), token);
+  for (const token of ['_initTransaction', '_lockSlotKeyOrFail', '_unlockSlotKey', 'pairToken', '_buildLockKeys', 'slotKey']) assert.ok(core.includes(token), token);
   assert.equal(/\.forEach\(\s*async\b/.test(saga), false, 'forEach async prohibido en la Saga');
 });
 

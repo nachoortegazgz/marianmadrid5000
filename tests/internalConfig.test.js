@@ -48,6 +48,6 @@ describe('SSOT de colecciones CMS (arquitectura canonical)', () => {
     // ConciliacionStockWix, AvailabilitySlotsCache, MmLocks: eliminadas y absorbidas.
     expect(Object.values(COLLECTIONS)).not.toContain('ConciliacionStockWix');
     expect(Object.values(COLLECTIONS)).not.toContain('AvailabilitySlotsCache');
-    expect(Object.values(COLLECTIONS)).not.toContain('MmLocks');
+    expect(Object.values(COLLECTIONS)).not.toContain('SlotLocks');
   });
 });

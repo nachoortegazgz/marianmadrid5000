@@ -27,47 +27,47 @@ periodoFiscal: local.slice(5, 7),
 }
 function _linePayload(line) {
 return [
-line.entryLineId,
+line.lineHash,
 line.journalEntryId,
-line.numeroLinea,
+line.lineNumber,
 line.accountCode,
 line.debitAmount,
 line.creditAmount,
 line.taxableAmount,
-line.tipoIva,
+line.taxRate,
 line.taxAmount,
-line.idTraza,
+line.traceId,
 ].join("|");
 }
 function _asAccountingLine(base, number, accountCode, accountName, debit, credit, tax) {
 const line = {
 _id: `${base.journalEntryId}_L${String(number).padStart(3, "0")}`,
-idLineaAsiento: `${base.journalEntryId}_L${String(number).padStart(3, "0")}`,
-idAsiento: base.journalEntryId,
-numeroLinea: number,
-fechaOperacion: base.operationDate,
-codigoCuentaContable: accountCode,
-nombreCuentaContable: accountName,
-grupoCuentaContable: "",
-importeDebe: _roundMoney(debit),
-importeHaber: _roundMoney(credit),
-importeNeto: _roundMoney(debit - credit),
-categoriaOperacion: base.categoriaOperacion,
-idCentroCoste: base.idCentroCoste || null,
-idResponsableOperativo: base.idResponsableOperativo || null,
-codigoProductoServicio: null,
-descripcionLinea: base.conceptoAsiento,
-baseImponible: tax?.baseImponible ?? null,
-tipoIva: tax?.tipoIva ?? null,
-cuotaIva: tax?.cuotaIva ?? null,
-claveOperacionIva: null,
-nifContraparte: null,
-nombreContraparte: null,
-referenciaExterna: base.referenciaExterna || null,
-idTraza: base.idTraza,
-fechaHoraRegistro: base.fechaHoraRegistro,
+lineHash: `${base.journalEntryId}_L${String(number).padStart(3, "0")}`,
+journalEntryId: base.journalEntryId,
+lineNumber: number,
+operationDate: base.operationDate,
+accountCode: accountCode,
+accountName: accountName,
+accountGroup: "",
+debitAmount: _roundMoney(debit),
+creditAmount: _roundMoney(credit),
+netAmount: _roundMoney(debit - credit),
+operationCategory: base.operationCategory,
+costCenterId: base.costCenterId || null,
+operationalResponsibleId: base.operationalResponsibleId || null,
+productServiceCode: null,
+lineDescription: base.conceptoAsiento,
+taxableAmount: tax?.taxableAmount ?? null,
+taxRate: tax?.taxRate ?? null,
+taxAmount: tax?.taxAmount ?? null,
+vatOperationKey: null,
+counterpartNif: null,
+counterpartName: null,
+externalReference: base.externalReference || null,
+traceId: base.traceId,
+registeredAt: base.registeredAt,
 };
-line.hashLinea = hashChain(base.hashOrigen, _linePayload(line));
+line.lineHash = hashChain(base.hashOrigen, _linePayload(line));
 return line;
 }
 function _isApprovedMap(map) {
@@ -96,53 +96,53 @@ await wixData.insert(COLLECTIONS.LINEAS_ASIENTO_CONTABLE, line, { suppressAuth: 
 return { idempotent: false };
 }
 function _buildBase(movimiento) {
-const fechaOperacion = _normalizeDate(movimiento?.fechaCreacion);
-const keys = _toFiscalKeys(fechaOperacion);
-const idAsiento = `ASIENTO_${_cleanText(movimiento?._id, 120)}`;
+const operationDate = _normalizeDate(movimiento?.registeredAt);
+const keys = _toFiscalKeys(operationDate);
+const journalEntryId = `ASIENTO_${_cleanText(movimiento?._id, 120)}`;
 return {
-idAsiento,
-numeroAsiento: Number(movimiento?.seqGlobal || 0),
-ejercicioFiscal: keys.fiscalYear,
-periodoFiscal: keys.fiscalPeriod,
-fechaOperacion,
-fechaHoraRegistro: new Date(),
-zonaHorariaOperacion: SDK_CONFIG?.TZ || "Europe/Madrid",
-tipoAsiento: String(movimiento?.tipoMovimiento || "AJUSTE").toUpperCase(),
-categoriaOperacion: String(movimiento?.tipoMovimiento || "AJUSTE").toUpperCase(),
-subcategoriaOperacion: null,
-conceptoAsiento: _cleanText(movimiento?.concepto || movimiento?.tipoMovimiento || "Movimiento de caja"),
-origenRegistro: _cleanText(movimiento?.origen || "MOVIMIENTO_CAJA", 80),
-idOrigen: _cleanText(movimiento?._id, 120),
-idTransaccion: _cleanText(movimiento?.transactionId, 120),
-idPedidoWix: _cleanText(movimiento?.orderId, 120) || null,
-idDevolucionWix: _cleanText(movimiento?.refundId, 120) || null,
-idReservaWix: _cleanText(movimiento?.reservaIdVinculada, 120) || null,
-referenciaExterna: _cleanText(movimiento?.numTicketFactura, 120) || null,
-serieFactura: null,
-numeroFactura: _cleanText(movimiento?.numTicketFactura, 120) || null,
-fechaExpedicionFactura: fechaOperacion,
-fechaOperacionFiscal: fechaOperacion,
-tipoFactura: null,
-idAsientoRectificado: null,
-motivoRectificacion: null,
-moneda: "EUR",
-importeTotalDocumento: Math.abs(Number(movimiento?.importeContable) || 0),
-medioPago: _cleanText(movimiento?.formaPago, 40) || null,
-estadoAsiento: "CONFIRMADO",
-idResponsableOperativo: _cleanText(movimiento?.resourceId, 120) || null,
-idMiembroRegistrador: "SYSTEM_FISCAL_LEDGER",
-nombreRegistrador: "SISTEMA_FISCAL",
-idCentroCoste: null,
-codigoActividadIae: null,
-versionEsquema: "ASIENTO_V1",
-versionAlgoritmoIntegridad: "HMAC_SHA256_V1",
-hashAnterior: _cleanText(movimiento?.hashCadena, 64),
-hashOrigen: _cleanText(movimiento?.hashCadena, 64),
-idTraza: _cleanText(movimiento?.traceId, 120),
+journalEntryId,
+sequenceNumber: Number(movimiento?.seqGlobal || 0),
+fiscalYear: keys.fiscalYear,
+fiscalPeriod: keys.fiscalPeriod,
+operationDate,
+registeredAt: new Date(),
+timezone: SDK_CONFIG?.TZ || "Europe/Madrid",
+entryType: String(movimiento?.tipoMovimiento || "AJUSTE").toUpperCase(),
+operationCategory: String(movimiento?.tipoMovimiento || "AJUSTE").toUpperCase(),
+operationSubcategory: null,
+description: _cleanText(movimiento?.concepto || movimiento?.tipoMovimiento || "Movimiento de caja"),
+recordSource: _cleanText(movimiento?.origen || "MOVIMIENTO_CAJA", 80),
+sourceId: _cleanText(movimiento?._id, 120),
+transactionId: _cleanText(movimiento?.transactionId, 120),
+wixOrderId: _cleanText(movimiento?.orderId, 120) || null,
+wixRefundId: _cleanText(movimiento?.refundId, 120) || null,
+wixReservationId: _cleanText(movimiento?.reservaIdVinculada, 120) || null,
+externalReference: _cleanText(movimiento?.numTicketFactura, 120) || null,
+invoiceSeries: null,
+invoiceNumber: _cleanText(movimiento?.numTicketFactura, 120) || null,
+invoiceIssueDate: operationDate,
+fiscalOperationDate: operationDate,
+invoiceType: null,
+rectifiedEntryId: null,
+rectificationReason: null,
+currency: "EUR",
+totalDocumentAmount: Math.abs(Number(movimiento?.accountingAmount) || 0),
+paymentMethod: _cleanText(movimiento?.formaPago, 40) || null,
+entryStatus: "CONFIRMADO",
+operationalResponsibleId: _cleanText(movimiento?.resourceId, 120) || null,
+recordingMemberId: "SYSTEM_FISCAL_LEDGER",
+recorderName: "SISTEMA_FISCAL",
+costCenterId: null,
+iaeActivityCode: null,
+schemaVersion: "ASIENTO_V1",
+integrityAlgorithmVersion: "HMAC_SHA256_V1",
+previousHash: _cleanText(movimiento?.hashCadena, 64),
+sourceHash: _cleanText(movimiento?.hashCadena, 64),
+traceId: _cleanText(movimiento?.traceId, 120),
 };
 }
 function _buildLines(base, movimiento, map) {
-const signedTotal = Number(movimiento?.importeContable) || 0;
+const signedTotal = Number(movimiento?.accountingAmount) || 0;
 const total = Math.abs(signedTotal);
 const vat = Math.abs(Number(movimiento?.cuotaIva) || 0);
 const net = _roundMoney(total - vat);
@@ -178,7 +178,7 @@ const sourceId = _cleanText(movimiento?._id, 120);
 if (!sourceId || !movimiento?.hashCadena || !movimiento?.transactionId) {
 return { status: "SKIPPED", reason: "INVALID_SOURCE_LEDGER" };
 }
-if (movimiento?.tipoMovimiento === TIPO_MOVIMIENTO.PROPINA || movimiento?.tratamientoIva === "PROPINA_PENDIENTE_GESTORIA") {
+if (movimiento?.tipoMovimiento === TIPO_MOVIMIENTO.PROPINA || movimiento?.taxTreatment === "PROPINA_PENDIENTE_GESTORIA") {
 return { status: "SKIPPED", reason: "TIP_TREATMENT_PENDING_PROFESSIONAL_REVIEW" };
 }
 if (SDK_CONFIG?.ACCOUNTING?.ENABLED !== true) {
@@ -195,12 +195,12 @@ const fiscalKey = await getSecret(SECRETS.FISCAL_KEY);
 if (!fiscalKey) throw new Error("ACCOUNTING_PROJECTION_SIGNING_KEY_MISSING");
 const headerPayload = [
 base.journalEntryId,
-base.entryNumber,
-base.idOrigen,
-base.idTransaccion,
-projected.totalDebit,
-projected.totalCredit,
-...projected.lines.map((line) => line.hashLinea),
+base.sequenceNumber,
+base.sourceId,
+base.transactionId,
+projected.totalDebe,
+projected.totalHaber,
+...projected.lines.map((line) => line.lineHash),
 ].join("|");
 const hashAsiento = hashChain(base.hashOrigen, headerPayload);
 const firmaAsiento = `${hmacSha256Hex(fiscalKey, headerPayload)}|${hashAsiento}`;

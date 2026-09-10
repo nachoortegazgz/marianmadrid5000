@@ -223,10 +223,10 @@ export function _buildLockKeys(phases, lockResourceKey) {
   return keys;
 }
 
-export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) {
+export async function _lockSlotKeyOrFail(slotKey, ownerId, ttlMs = LOCK_TTL_MS) {
   try {
     const existingLock = await withTimeout(
-      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).ne("status", "RELEASED").find(),
+      wixData.query(LOCKS_COLLECTION).eq("slotKey", slotKey).ne("status", "RELEASED").find(),
       API_TIMEOUT_MS
     );
     if (existingLock.items && existingLock.items.length > 0) {
@@ -245,7 +245,7 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
         staleLocks.push(lock);
       }
       if (hasActiveLock) {
-        log.warn("[bookingCore] Lock already held", { lockKey, currentOwner: existingLock.items[0].ownerId });
+        log.warn("[bookingCore] Lock already held", { slotKey, currentOwner: existingLock.items[0].ownerId });
         return { ok: false, code: ERROR_CODES.TOKEN_BUSY, message: "Slot already locked" };
       }
       for (const staleLock of staleLocks) {
@@ -256,7 +256,7 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
       }
     }
     const lockRecord = {
-      lockKey,
+      slotKey,
       ownerId,
       status: "ACQUIRED",
       _createdDate: new Date(),
@@ -264,18 +264,18 @@ export async function _lockSlotKeyOrFail(lockKey, ownerId, ttlMs = LOCK_TTL_MS) 
       ttlMs,
     };
     await withTimeout(wixData.insert(LOCKS_COLLECTION, lockRecord, { suppressAuth: true }), API_TIMEOUT_MS);
-    log.info("[bookingCore] Lock acquired", { lockKey, ownerId });
-    return { ok: true, lockKey, ownerId };
+    log.info("[bookingCore] Lock acquired", { slotKey, ownerId });
+    return { ok: true, slotKey, ownerId };
   } catch (error) {
-    log.error("[bookingCore] Failed to acquire lock", { error: error.message, lockKey });
+    log.error("[bookingCore] Failed to acquire lock", { error: error.message, slotKey });
     return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.message };
   }
 }
 
-export async function _unlockSlotKey(lockKey, ownerId) {
+export async function _unlockSlotKey(slotKey, ownerId) {
   try {
     const existingLocks = await withTimeout(
-      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find(),
+      wixData.query(LOCKS_COLLECTION).eq("slotKey", slotKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find(),
       API_TIMEOUT_MS
     );
     if (existingLocks.items && existingLocks.items.length > 0) {
@@ -284,20 +284,20 @@ export async function _unlockSlotKey(lockKey, ownerId) {
         wixData.update(LOCKS_COLLECTION, { _id: lock._id, status: "RELEASED", releasedAt: new Date() }, { suppressAuth: true }),
         API_TIMEOUT_MS
       );
-      log.info("[bookingCore] Lock released", { lockKey, ownerId });
+      log.info("[bookingCore] Lock released", { slotKey, ownerId });
       return { ok: true };
     }
     return { ok: true, message: "Lock not found or already released" };
   } catch (error) {
-    log.error("[bookingCore] Failed to release lock", { error: error.message, lockKey });
+    log.error("[bookingCore] Failed to release lock", { error: error.message, slotKey });
     return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.message };
   }
 }
 
-export async function _renewLock(lockKey, ownerId, ttlMs = LOCK_TTL_MS) {
+export async function _renewLock(slotKey, ownerId, ttlMs = LOCK_TTL_MS) {
   try {
     const existingLocks = await withTimeout(
-      wixData.query(LOCKS_COLLECTION).eq("lockKey", lockKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find(),
+      wixData.query(LOCKS_COLLECTION).eq("slotKey", slotKey).eq("ownerId", ownerId).eq("status", "ACQUIRED").find(),
       API_TIMEOUT_MS
     );
     if (existingLocks.items && existingLocks.items.length > 0) {
@@ -306,12 +306,12 @@ export async function _renewLock(lockKey, ownerId, ttlMs = LOCK_TTL_MS) {
         wixData.update(LOCKS_COLLECTION, { _id: lock._id, expiresAt: new Date(Date.now() + ttlMs) }, { suppressAuth: true }),
         API_TIMEOUT_MS
       );
-      log.info("[bookingCore] Lock renewed", { lockKey, ownerId });
+      log.info("[bookingCore] Lock renewed", { slotKey, ownerId });
       return { ok: true };
     }
     return { ok: false, code: ERROR_CODES.TOKEN_BUSY, message: "Lock not found" };
   } catch (error) {
-    log.error("[bookingCore] Failed to renew lock", { error: error.message, lockKey });
+    log.error("[bookingCore] Failed to renew lock", { error: error.message, slotKey });
     return { ok: false, code: ERROR_CODES.LOCK_ACQUISITION_FAILED, message: error.message };
   }
 }
@@ -344,13 +344,13 @@ export async function _persistBooking(params, traceId = "no-trace") {
     throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid booking type: ${params.tipo}`, { traceId, tipo: params.tipo });
   }
   const meta = (params.meta && typeof params.meta === "object") ? params.meta : (typeof params.meta === "string" ? (() => { try { return JSON.parse(params.meta); } catch (_) { return null; } })() : null);
-  const paymentStatus = meta?.paymentStatus || meta?.estadoPago;
+  const paymentStatus = meta?.paymentStatus;
   if (!meta || typeof meta !== "object" || !paymentStatus) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking meta is required and must include estadoPago (paymentStatus)", { traceId, meta: params.meta });
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, "Booking meta is required and must include paymentStatus", { traceId, meta: params.meta });
   }
   const validPaymentStates = ["UNPAID", "PENDING_PAYMENT", "CONFIRMED_UNPAID", "PAID"];
   if (!validPaymentStates.includes(paymentStatus)) {
-    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state (estadoPago): ${paymentStatus}`, { traceId, paymentStatus });
+    throw createBookingError(ERROR_CODES.INVALID_PAYLOAD, `Invalid payment state: ${paymentStatus}`, { traceId, paymentStatus });
   }
   const startDateLocal = getMadridLocalStringNoZ(params.startDate) || "";
   const endDateLocal = getMadridLocalStringNoZ(params.endDate) || "";
@@ -793,7 +793,7 @@ export function _projectCertifiedSlot(slot, resourceId) {
     resourceId: targetResourceId,
     resource: {
       id: targetResourceId,
-      name: slot.resourceName || undefined,
+      name: slot.displayName || undefined,
     },
     localStartDate: slot.localStartDate,
     localEndDate: slot.localEndDate,

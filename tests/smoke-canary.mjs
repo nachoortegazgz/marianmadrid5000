@@ -30,7 +30,7 @@ async function run() {
   // Simular booking con datos placeholder válidos
   const body = JSON.stringify({
     servicioId: '00000000-0000-0000-0000-000000000000',
-    staffId: '00000000-0000-0000-0000-000000000000',
+    employeeIdentifier: '00000000-0000-0000-0000-000000000000',
     dateYmd: '2026-07-15T11:00:00',
     cliente: { email: 'test-smoke-marian@test.com' }
   });

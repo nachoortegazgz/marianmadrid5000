@@ -59,7 +59,7 @@ message,
 data,
 resourceId: "SYSTEM",
 source: "backend/events.js",
-fechaLog: new Date(),
+loggedAt: new Date(),
 traceId,
 }, { suppressAuth: true }
 ).catch(() => null),

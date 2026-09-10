@@ -108,7 +108,7 @@ async function _logAuditEvent(tipoEvento, level, message, data = {}, traceId) {
           data,
           resourceId: "SYSTEM",
           source: "backend/citasManager.web.js",
-          fechaLog: new Date(),
+          loggedAt: new Date(),
           traceId,
         }, { suppressAuth: true }
       ),

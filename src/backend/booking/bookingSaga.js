@@ -1,12 +1,13 @@
 /**
 MODULE: backend/booking/bookingSaga.js
-VERSION: v5003.0-canonical-clean
+VERSION: v5003.1-ssot-aligned
 FIXES APPLIED:
-  [S-01] serviceData.secondaryServiceGuid -> serviceData.linkedPhases
-  [S-02] metaCita.secondaryServiceId -> resuelve desde linkedPhases
+  [S-01] serviceData.linkedPhases
+  [S-02] metaCita.secondaryServiceId resuelve desde linkedPhases
   [S-03] _resolvePrimaryServiceIdInternal -> _resolveServiceIdInternal
   [S-04] _forceStaffInPristineSlot: firma de 4 args con serviceId
   [S-05] _buildLockKeys_DEPRECATED -> _buildLockKeys
+  [R7-01] Eliminado comentario legacy
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 */
 import wixData from "wix-data";
@@ -278,15 +279,13 @@ export async function executeBookingSaga(unsafePayload) {
     const isDual = !!(
       isDualRequested &&
       serviceData.allowCombine &&
-      serviceData.linkedPhases // [S-01] linkedPhases en lugar de secondaryServiceGuid
+      serviceData.linkedPhases
     );
     let phaseTwoServiceId = null;
     let f2LocalStart = null;
     let f2LocalEnd = null;
     if (isDual) {
-      // [S-01] [S-02] Resuelve desde linkedPhases
       const secondaryCandidate = serviceData.linkedPhases || metaCita?.secondaryServiceId || null;
-      // [S-03] Usa _resolveServiceIdInternal
       phaseTwoServiceId = await _resolveServiceIdInternal(secondaryCandidate);
       if (!phaseTwoServiceId || STAFF?.IDS?.includes(phaseTwoServiceId)) {
         return { status: "ERROR", error: { code: "SERVICE_NOT_FOUND", message: "Identificador de la segunda fase no valido." } };
@@ -329,7 +328,7 @@ export async function executeBookingSaga(unsafePayload) {
     const finalResourceName =
       resourceObj?.displayName ||
       resourceObj?.name ||
-      resourceValidation?.data?.resourceName ||
+      resourceValidation?.data?.displayName ||
       STAFF?.RESOURCE_TO_DISPLAY?.[finalResourceId] ||
       STAFF_DEFAULT_NAME;
     if (isDual && !resourceValidation?.data?.slotF2) {
@@ -460,7 +459,7 @@ export async function executeBookingSaga(unsafePayload) {
       }
       await _bestEffortUnlockAll(lockKeys, lockOwnerId);
       const meta = _normalizePersistedMeta(existingCita.meta);
-      if (meta.estadoPago === "PENDING_PAYMENT" && meta.checkoutId) {
+      if (meta.paymentStatus === "PENDING_PAYMENT" && meta.checkoutId) {
         const urlRes = await _executeWithRetry(
           () => withTimeout(getCheckoutUrlElevated(meta.checkoutId), API_TIMEOUT_MS, "getCheckoutUrl"),
           3,
@@ -602,7 +601,7 @@ export async function executeBookingSaga(unsafePayload) {
         }
       )
     );
-    const isOnlinePayment = metaCita?.metodoPago === "ONLINE";
+    const isOnlinePayment = metaCita?.paymentMethod === "ONLINE";
     const needsCheckout = !!isOnlinePayment;
     const f1Booking = createdBookings.find((b) => b.phase?.key === "F1");
     if (!f1Booking && createdBookings.length > 0) {
@@ -654,8 +653,8 @@ export async function executeBookingSaga(unsafePayload) {
     sagaCompleted = true;
     const paymentPlan = {
       isOnline: needsCheckout,
-      metodoPago: needsCheckout ? "ONLINE" : "PRESENCIAL",
-      estadoPago: needsCheckout ? "PENDING_PAYMENT" : "CONFIRMED_UNPAID",
+      paymentMethod: needsCheckout ? "ONLINE" : "PRESENCIAL",
+      paymentStatus: needsCheckout ? "PENDING_PAYMENT" : "CONFIRMED_UNPAID",
       checkoutId: _extractCheckoutId(checkoutSession),
     };
     const baseMeta = {
@@ -693,8 +692,8 @@ export async function executeBookingSaga(unsafePayload) {
         tipo: phase.tipo,
         meta: {
           ...baseMeta,
-          paymentStatus: paymentPlan.estadoPago,
-          paymentMethod: paymentPlan.metodoPago,
+          paymentStatus: paymentPlan.paymentStatus,
+          paymentMethod: paymentPlan.paymentMethod,
           auditedPrice: totalBilled,
         },
       }, traceId);

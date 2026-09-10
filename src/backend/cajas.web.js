@@ -366,12 +366,12 @@
      const asiento = {
        _id: journalEntryId,
        journalEntryId,
-       entryNumber: Number(movimiento.sequenceNumber) || 0,
+       sequenceNumber: Number(movimiento.sequenceNumber) || 0,
        fiscalYear: Number(movimiento.fiscalPeriod?.slice(0, 4)) || new Date().getFullYear(),
        fiscalPeriod: movimiento.fiscalPeriod || "",
        operationDate: new Date(movimiento.operationDate),
        fiscalOperationDate: new Date(movimiento.operationDate),
-       entryConcept: movimiento.description || "",
+       description: movimiento.description || "",
        totalDebit: _roundMoney(totalDebit),
        totalCredit: _roundMoney(totalCredit),
        totalDocumentAmount: _roundMoney(Number(movimiento.totalAmount) || 0),
@@ -418,7 +418,7 @@
        // Debit: Treasury/Client
        lines.push({
          _id: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
-         entryLineId: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
+         lineHash: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
          journalEntryId,
          lineNumber: lineNum++,
          accountCode: map.defaultDebitAccountCode || map.codigoCuentaDebePredeterminada || "570000",
@@ -439,7 +439,6 @@
          costCenterId: null,
          operationalManagerId: movimiento.resourceId || null,
          externalReference: null,
-         lineHash: hashSHA256(`${journalEntryId}|L1|${totalDebit}`),
          traceId,
          operationDate: new Date(movimiento.operationDate),
          registeredAt: new Date(),
@@ -448,7 +447,7 @@
        // Credit: Sales
        lines.push({
          _id: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
-         entryLineId: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
+         lineHash: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
          journalEntryId,
          lineNumber: lineNum++,
          accountCode: map.defaultCreditAccountCode || map.codigoCuentaHaberPredeterminada || "705000",
@@ -469,7 +468,7 @@
          costCenterId: null,
          operationalManagerId: movimiento.resourceId || null,
          externalReference: null,
-         lineHash: hashSHA256(`${journalEntryId}|L2|${movimiento.taxableAmount}`),
+         lineHash: `${journalEntryId}_L${String(lineNum - 1).padStart(3, "0")}`,
          traceId,
          operationDate: new Date(movimiento.operationDate),
          registeredAt: new Date(),
@@ -479,7 +478,7 @@
        if (Number(movimiento.taxAmount) > 0) {
          lines.push({
            _id: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
-           entryLineId: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
+           lineHash: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
            journalEntryId,
            lineNumber: lineNum++,
            accountCode: map.outputTaxAccountCode || map.codigoCuentaIvaRepercutido || "477000",
@@ -500,7 +499,6 @@
            costCenterId: null,
            operationalManagerId: movimiento.resourceId || null,
            externalReference: null,
-           lineHash: hashSHA256(`${journalEntryId}|L3|${movimiento.taxAmount}`),
            traceId,
            operationDate: new Date(movimiento.operationDate),
            registeredAt: new Date(),
@@ -511,7 +509,7 @@
        // Refund: reverse entries
        lines.push({
          _id: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
-         entryLineId: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
+         lineHash: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
          journalEntryId,
          lineNumber: lineNum++,
          accountCode: map.defaultCreditAccountCode || map.codigoCuentaHaberPredeterminada || "705000",
@@ -532,7 +530,6 @@
          costCenterId: null,
          operationalManagerId: movimiento.resourceId || null,
          externalReference: null,
-         lineHash: hashSHA256(`${journalEntryId}|L1|${movimiento.taxableAmount}`),
          traceId,
          operationDate: new Date(movimiento.operationDate),
          registeredAt: new Date(),
@@ -541,7 +538,7 @@
        if (Number(movimiento.taxAmount) > 0) {
          lines.push({
            _id: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
-           entryLineId: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
+           lineHash: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
            journalEntryId,
            lineNumber: lineNum++,
            accountCode: map.outputTaxAccountCode || map.codigoCuentaIvaRepercutido || "477000",
@@ -562,7 +559,6 @@
            costCenterId: null,
            operationalManagerId: movimiento.resourceId || null,
            externalReference: null,
-           lineHash: hashSHA256(`${journalEntryId}|L2|${movimiento.taxAmount}`),
            traceId,
            operationDate: new Date(movimiento.operationDate),
            registeredAt: new Date(),
@@ -571,7 +567,7 @@
        }
        lines.push({
          _id: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
-         entryLineId: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
+         lineHash: `${journalEntryId}_L${String(lineNum).padStart(3, "0")}`,
          journalEntryId,
          lineNumber: lineNum++,
          accountCode: map.defaultDebitAccountCode || map.codigoCuentaDebePredeterminada || "570000",
@@ -592,7 +588,6 @@
          costCenterId: null,
          operationalManagerId: movimiento.resourceId || null,
          externalReference: null,
-         lineHash: hashSHA256(`${journalEntryId}|L3|${totalCredit}`),
          traceId,
          operationDate: new Date(movimiento.operationDate),
          registeredAt: new Date(),

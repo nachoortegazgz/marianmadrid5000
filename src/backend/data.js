@@ -88,9 +88,9 @@ function _validateServiciosCatalogo(item, context) {
     }
     item.price = price;
   }
-  const f1 = _readDuration(item, "phase1Duration") || _readDuration(item, "tiempoFase1");
-  const gap = _readDuration(item, "exposureDuration") || _readDuration(item, "tiempoExposicion");
-  const f2 = _readDuration(item, "phase2Duration") || _readDuration(item, "tiempoFase2");
+  const f1 = _readDuration(item, "phase1Duration");
+  const gap = _readDuration(item, "exposureDuration");
+  const f2 = _readDuration(item, "phase2Duration");
   item.phase1Duration = f1;
   item.exposureDuration = gap;
   item.phase2Duration = f2;
@@ -229,7 +229,7 @@ export async function RegistrosHorariosStaff_beforeInsert(item, context) {
   }
   const madrid = getMadridLocalStringNoZ(recordedAt);
   item.resourceId = staff.resourceId;
-  item.resourceName = staff.displayName || staff.nombreVisible;
+  item.displayName = staff.displayName || staff.nombreVisible;
   item.clockEventType = tipoFichaje;
   item.recordedAt = recordedAt;
   item.recordedTime = madrid.slice(11, 19);

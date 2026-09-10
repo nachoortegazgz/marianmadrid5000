@@ -247,7 +247,7 @@
      libroFilas.push({
        orden: orderIndex++,
        invoiceNumber: _safeTrim(m.invoiceNumber || m.numTicketFactura),
-       fechaExpedicion: _safeTrim(m.operationDate || m.fechaOperacion || m.diaKey),
+       fechaExpedicion: _safeTrim(m.operationDate || m.operationDate || m.diaKey),
        tipoFactura: isRefund ? "R1" : (isTip || isAdjustment ? "BORRADOR_INTERNO" : "BORRADOR_INTERNO"),
        movementType: _safeTrim(m.movementType || m.tipoMovimiento),
        operationNature: operationNature || "VENTA",

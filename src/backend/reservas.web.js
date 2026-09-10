@@ -896,7 +896,7 @@ export const resolveStaffForSlot = webMethod(Permissions.Anyone, async (serviceI
         slotF1: { ...slotF1, serviceId: canonicalServiceId },
         slotF2: slotF2 ? { ...slotF2, serviceId: serviceCfg.linkedPhases } : null,
         resourceId: finalResourceId,
-        resourceName: finalResourceName,
+        displayName: finalResourceName,
         dayYMD: dateYMD,
       },
       error: null,

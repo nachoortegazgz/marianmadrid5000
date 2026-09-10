@@ -51,7 +51,7 @@
    const madridLocal = getMadridLocalStringNoZ(dateObj);
    return {
      resourceId: staff.resourceId,
-     resourceName: staff.displayName || staff.nombreVisible || "Unknown",
+     displayName: staff.displayName || staff.nombreVisible || "Unknown",
      employeeIdentifier: staff.staffMemberId || staff.idMiembroStaff || registeredByMemberId || null,
      employeeName: staff.displayName || staff.nombreVisible || "Unknown",
      clockEventType: tipo,
