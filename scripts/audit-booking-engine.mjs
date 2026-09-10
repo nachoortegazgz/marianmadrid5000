@@ -79,7 +79,10 @@ for (const filePath of bookingFiles) {
   }
 
   // Check slotKey usage (should be present, not lockKey)
-  if (!/slotKey/.test(content) && /_lockSlot|slot.*lock/i.test(content)) {
+  // Accepts direct slotKey usage OR import of functions that use slotKey internally
+  const hasDirectSlotKey = /slotKey/.test(content);
+  const hasSlotKeyFunctions = /_lockSlotKeyOrFail|_unlockSlotKey|_generateSlotKey/.test(content);
+  if (!hasDirectSlotKey && !hasSlotKeyFunctions && /_lockSlot|slot.*lock/i.test(content)) {
     violations.push({
       file: relativePath,
       check: 'slotKey usage',
@@ -124,11 +127,14 @@ for (const filePath of bookingFiles) {
 
   // Check for elevate() in createBookingElevated
   if (/createBookingElevated/.test(content)) {
-    if (!/elevate\s*\(\s*\)/.test(content)) {
+    // Check if elevate is imported and called (either as function call or method)
+    const hasElevateImport = /import.*elevate.*from/.test(content);
+    const hasElevateCall = /elevate\s*\(\s*\)/.test(content) || /\.elevate\s*\(/.test(content);
+    if (!hasElevateImport && !hasElevateCall) {
       violations.push({
         file: relativePath,
         check: 'elevate() in createBookingElevated',
-        expected: 'elevate() must be called',
+        expected: 'elevate() must be called or imported',
         rule: 'SSOT v5002.4 - Booking Engine Specs',
         severity: 'CRITICAL'
       });

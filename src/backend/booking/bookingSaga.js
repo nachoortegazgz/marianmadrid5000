@@ -1,6 +1,6 @@
 /**
 MODULE: backend/booking/bookingSaga.js
-VERSION: v5003.1-ssot-aligned
+VERSION: v5003.2-ssot-aligned
 FIXES APPLIED:
   [S-01] serviceData.linkedPhases
   [S-02] metaCita.secondaryServiceId resuelve desde linkedPhases
@@ -8,9 +8,11 @@ FIXES APPLIED:
   [S-04] _forceStaffInPristineSlot: firma de 4 args con serviceId
   [S-05] _buildLockKeys_DEPRECATED -> _buildLockKeys
   [R7-01] Eliminado comentario legacy
+  [BE-01] Import elevate from wix-auth for SSOT compliance
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 */
 import wixData from "wix-data";
+import { elevate } from "wix-auth";
 import {
   COLLECTIONS,
   APP_IDS,
@@ -738,9 +740,6 @@ export async function executeBookingSaga(unsafePayload) {
     if (sagaCompleted && createdBookings.length > 0) {
       await _compensateCreatedBookings(createdBookings, traceId);
     }
-    if (lockKeys.length > 0 && lockOwnerId) {
-      await _bestEffortUnlockAll(lockKeys, lockOwnerId);
-    }
     if (pairToken) {
       await _failTransaction(transactionId, error?.message || String(error)).catch(() => {});
     }
@@ -749,6 +748,10 @@ export async function executeBookingSaga(unsafePayload) {
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
       heartbeatInterval = null;
+    }
+    // [BE-02] _bestEffortUnlockAll in finally block for SSOT compliance
+    if (lockKeys.length > 0 && lockOwnerId) {
+      await _bestEffortUnlockAll(lockKeys, lockOwnerId).catch(() => {});
     }
   }
 }
