@@ -36,6 +36,7 @@ import { logger } from "backend/booking/bookingCore";
 import { findStaff } from "backend/staff";
 import { requireAdmin, rateLimiter } from "backend/security";
 import { _toPublicError } from "backend/responseUtils";
+import { hashSHA256 } from "backend/securityEngine";
 
 const log = logger;
 const SERVICIOS_COL = COLLECTIONS.SERVICIOS_CATALOGO;
@@ -640,7 +641,13 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
     for (const s1 of slotsF1 || []) {
       const candidateResourceIds = _extractResourceIdsFromSlot(s1);
       const chosen = (await _rankResourcesByLoad(candidateResourceIds, dateYMD, traceId))[0] || null;
-      const pairToken = _generateUUID();
+      // [BE-03] SHA256 deterministic pairToken generation for SSOT compliance
+      const emailHash = hashSHA256(traceId || "").substring(0, 8);
+      const f1Start = _safeTrim(s1.localStartDate || s1.startDate || "");
+      const srvId = _safeTrim(canonicalServiceId || "");
+      const resId = _safeTrim(chosen || s1.resourceId || "");
+      const hashInput = `${srvId}_${resId}_${f1Start}`;
+      const pairToken = `pt_${hashSHA256(hashInput).substring(0, 16)}_${emailHash}`;
       out.push({
         fase1: { slotRef: { ...s1, serviceId: canonicalServiceId }, resourceId: chosen || null },
         fase2: null,
@@ -684,7 +691,14 @@ export async function getCertifiedDualSlots(serviceId, resourceId, dateYMD, requ
       break;
     }
     if (!chosenResourceId || !s2) continue;
-    const pairToken = _generateUUID();
+    // [BE-03] SHA256 deterministic pairToken generation for SSOT compliance
+    const emailHash = hashSHA256(traceId || "").substring(0, 8);
+    const f1Start = _safeTrim(s1.localStartDate || s1.startDate || "");
+    const f2Start = _safeTrim(s2.localStartDate || s2.startDate || "");
+    const srvId = _safeTrim(canonicalServiceId || "");
+    const resId = _safeTrim(chosenResourceId || s1.resourceId || "");
+    const hashInput = `${srvId}_${resId}_${f1Start}_${f2Start}`;
+    const pairToken = `pt_${hashSHA256(hashInput).substring(0, 16)}_${emailHash}`;
     pairs.push({
       fase1: { slotRef: { ...s1, serviceId: canonicalServiceId }, resourceId: chosenResourceId },
       fase2: { slotRef: { ...s2, serviceId: secondaryServiceId }, resourceId: chosenResourceId },

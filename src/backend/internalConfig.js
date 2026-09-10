@@ -8,13 +8,20 @@ STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
 ZERO deprecated keys. ZERO legacy aliases. ZERO trailing spaces.
 */
 export const STAFF = Object.freeze({
-IDS: [],
-RESOURCE_TO_DISPLAY: Object.freeze({}),
+  IDS: [
+    "e556070a-6d6a-402e-8422-11133033ea76", // Marian Madrid
+    "07f7344f-e7e4-4c53-854b-47fd82ac8d40", // Andrea
+    "9b905bfd-1a09-485d-9273-a24a20dfe648"  // Alba
+  ],
+  RESOURCE_TO_DISPLAY: Object.freeze({
+    "e556070a-6d6a-402e-8422-11133033ea76": "Marian Madrid",
+    "07f7344f-e7e4-4c53-854b-47fd82ac8d40": "Andrea",
+    "9b905bfd-1a09-485d-9273-a24a20dfe648": "Alba"
+  }),
 });
 export const COLLECTIONS = Object.freeze({
 // Mision 1: Catalogo, Servicios y Recursos de Reserva
 SERVICIOS_CATALOGO: "ServiciosCatalogo",
-COMPLEMENTOS_CATALOGO: "ComplementosCatalogo",
 MAPA_STAFF: "MapaStaff",
 CITAS_F2: "CitasF2",
 // Mision 2: Motor de Disponibilidad y Cache

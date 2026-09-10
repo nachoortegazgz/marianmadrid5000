@@ -91,7 +91,7 @@ describe('bookingCore.ts', () => {
         localStartDate: '2026-09-02T10:00:00',
         localEndDate: '2026-09-02T10:30:00',
         resourceId: '33333333-3333-4333-8333-333333333333',
-        resourceName: 'Maria Garcia'
+        displayName: 'Maria Garcia' // SSOT: usar displayName en lugar de resourceName
       };
       
       const result = _projectCertifiedSlot(slot);

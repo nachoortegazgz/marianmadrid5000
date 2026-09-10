@@ -446,7 +446,7 @@ export async function executeBookingSaga(unsafePayload) {
           .query(CITAS_COLLECTION)
           .eq("pairToken", stableToken)
           .limit(1)
-          .find({ suppressAuth: true }),
+          .find({ suppressAuth: true, skipCache: true }),
         API_TIMEOUT_MS,
         "queryExistingCitaByPairToken"
       );

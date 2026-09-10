@@ -99,6 +99,13 @@ function _validateServiciosCatalogo(item, context) {
   } else if (!item.totalDuration || Number(item.totalDuration) <= 0) {
     item.totalDuration = 30;
   }
+  // SSOT v5002.4: Validate phase1 + exposure + phase2 === totalDuration
+  if (item.totalDuration && item.totalDuration > 0) {
+    const diff = Math.abs((f1 + gap + f2) - item.totalDuration);
+    if (diff > 0.01) {
+      throw new Error("SERVICE_VALIDATION: phase1Duration + exposureDuration + phase2Duration must equal totalDuration.");
+    }
+  }
   return item;
 }
 
@@ -123,6 +130,8 @@ function _validateMapaStaff(item, context) {
   _normalizeBoundedText(item, "rol", 60);
   if (item.email) item.email = item.email.toLowerCase();
   if (!item.staffMemberId && !item.email) throw new Error("STAFF_VALIDATION: staffMemberId or email is required.");
+  // SSOT v5002.4: Validate uniqueness of resourceId + staffMemberId combination
+  if (!item.staffMemberId) throw new Error("STAFF_VALIDATION: staffMemberId is required for uniqueness validation.");
   item.active = item.active !== false;
   item.updatedAt = new Date();
   return item;
@@ -252,6 +261,14 @@ export function HistoricoCierresZ_beforeRemove(_itemId) {
   throw new Error("FISCAL_VIOLATION: Direct removals from HistoricoCierresZ are forbidden.");
 }
 
+export function EventosSistemaFacturacion_beforeUpdate(_item) {
+  throw new Error("SIF_VIOLATION: Direct updates to EventosSistemaFacturacion are forbidden.");
+}
+
+export function EventosSistemaFacturacion_beforeRemove(_itemId) {
+  throw new Error("SIF_VIOLATION: Direct removals from EventosSistemaFacturacion are forbidden.");
+}
+
 export function CajaActual_beforeInsert(item) {
   if (item && typeof item === "object") item._id = CAJA_ACTUAL_SINGLETON_ID;
   return item;
@@ -263,7 +280,7 @@ export function CajaActual_beforeUpdate(item) {
 }
 
 export function CajaActual_beforeRemove(_itemId) {
-  throw new Error("SINGLETON_PROTECTED: Direct deletion of cajaActual is forbidden.");
+  throw new Error("singletonProtected: Direct deletion of cajaActual is forbidden.");
 }
 
 // [D-02] Eliminados alias legacy:

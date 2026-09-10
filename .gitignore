@@ -1,62 +1,47 @@
+```
 # Dependencies
 node_modules/
 
-# Environment
+# Environment variables
 .env
 .env.local
 .env.*
 
-# Editors
+# Logs
+*.log
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# IDE files
 .vscode/
 .idea/
-
-# Logs and temp files
-*.log
-*.tmp
 *.swp
+*.swo
+*.tmp
 
-# Python
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Build artifacts
-dist/
-build/
-*.egg-info/
-
-# System
-.DS_Store
-Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# MyPy
+# Testing
 .mypy_cache/
-
-# Pytest
 .pytest_cache/
 
-# Virtual environments
-venv/
-.venv/
-env/
-
-# Gradle
-.gradle/
-target/
-
-# Temporary files
-*.tmp
-*~
-.DS_Store
-Thumbs.db
-
-# Compressed files
+# Compression files
 *.zip
 *.gz
 *.tar
@@ -79,3 +64,4 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+```

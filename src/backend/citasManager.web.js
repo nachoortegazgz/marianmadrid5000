@@ -41,6 +41,7 @@ import {
   _handleError,
   _updateCitaSafe,
   logger,
+  _bestEffortUnlockAll,
 } from "backend/booking/bookingCore";
 import { executeBookingSaga } from "backend/booking/bookingSaga";
 import { registerBookingPayment, queueFiscalRecovery } from "backend/cajas.web";
@@ -80,13 +81,13 @@ async function _findCitaByBookingId(bookingId) {
   if (!clean) return null;
   try {
     const q = await withTimeout(
-      wixData.query(CITAS_COLLECTION).eq("bookingId", clean).limit(1).find({ suppressAuth: true, consistentRead: true }),
+      wixData.query(CITAS_COLLECTION).eq("bookingId", clean).limit(1).find({ suppressAuth: true, consistentRead: true, skipCache: true }),
       API_TIMEOUT_MS,
       "findCitaByBookingIdQuery"
     ).catch(() => null);
     if (q?.items?.length) return q.items[0];
     const byId = await withTimeout(
-      wixData.get(CITAS_COLLECTION, clean, { suppressAuth: true, consistentRead: true }),
+      wixData.get(CITAS_COLLECTION, clean, { suppressAuth: true, consistentRead: true, skipCache: true }),
       API_TIMEOUT_MS,
       "findCitaByBookingIdGet"
     ).catch(() => null);
@@ -700,5 +701,9 @@ export const rescheduleDualBookings = webMethod(Permissions.SiteMember, async (p
     return _handleError(error, { surface: "rescheduleDualBookings", traceId });
   } finally {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    // SSOT v5002.4: _bestEffortUnlockAll in finally block for guaranteed cleanup
+    if (lockKeys && lockKeys.length > 0) {
+      await _bestEffortUnlockAll(lockKeys, lockOwnerId).catch(() => {});
+    }
   }
 });

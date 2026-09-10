@@ -286,7 +286,15 @@ return v.toString(16);
 });
 }
 export function _isValidEmail(email) {
-return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim()); // [FIX-14]
+const raw = String(email || "").trim();
+if (!raw || !raw.includes("@")) return false;
+const parts = raw.split("@");
+if (parts.length !== 2) return false;
+const local = parts[0];
+const domain = parts[1];
+if (!local || !domain) return false;
+if (!domain.includes(".")) return false;
+return /^[^\s@]+$/.test(local) && /^[^\s@]+\.[^\s@]+$/.test(domain);
 }
 export function _normType(type) {
 if (!type) return "";
@@ -365,7 +373,11 @@ export function _sanitizeForLog(obj, sensitiveKeys = ["email", "phone", "nombre"
 export function _roundMoney(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100) / 100;
+  const sign = n < 0 ? -1 : 1;
+  const abs = Math.abs(n);
+  const str = abs.toFixed(3);
+  const roundedAbs = Number(Number(str).toFixed(2));
+  return roundedAbs * sign;
 }
 export function _extractRelationalId(value) {
   if (value == null) return "";

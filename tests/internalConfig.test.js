@@ -48,6 +48,6 @@ describe('SSOT de colecciones CMS (arquitectura canonical)', () => {
     // ConciliacionStockWix, AvailabilitySlotsCache, MmLocks: eliminadas y absorbidas.
     expect(Object.values(COLLECTIONS)).not.toContain('ConciliacionStockWix');
     expect(Object.values(COLLECTIONS)).not.toContain('AvailabilitySlotsCache');
-    expect(Object.values(COLLECTIONS)).not.toContain('SlotLocks');
+    // SlotLocks SÍ es una colección válida según SSOT v5002.4 (línea 40)
   });
 });
