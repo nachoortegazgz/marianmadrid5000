@@ -1,6 +1,10 @@
 /*
 =============================================================================
-MODULE: backend/bookingsServiceSync.js
+MODULE: backend/bookingServiceSync.js
+VERSION: v5005-2
+FIXES APPLIED:
+  [BS-01] item.bufferTime -> item.buffer (campo canonico)
+  [BS-02] QUEUE_COL canonico; eliminado fallback UPPER/WDE0025 (cero legacy)
 RESPONSIBILITY: Queue-driven one-way projection from SERVICIOS_RESERVA to Wix
                 Bookings Services V2.
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
@@ -43,38 +47,39 @@ function _cleanGuidList(value) {
 }
 
 function _buildDesiredProjection(item) {
-    const title = _cleanText(item.tituloServicio || item.title, 160);
-    const duration = Number(item.duracionTotal || item.duration) || 0;
-    const price = Number(item.precio || item.price) || 0;
-    const currency = _safeTrim(item.moneda || item.currency) || SERVICE_CATALOG.CURRENCY;
-    const isHidden = item.oculto === true;
-    const isActive = _safeTrim(item.estado || item.status) === "ACTIVO";
+    const title = _cleanText(item.title, 160);
+    const duration = Number(item.totalDuration) || 0;
+    const price = Number(item.price) || 0;
+    const currency = _safeTrim(item.currency) || SERVICE_CATALOG.CURRENCY;
+    const isHidden = item.hidden === true;
+    const isActive = item.active === true || _safeTrim(item.status) === "ACTIVO";
 
     const staffIds = [];
     try {
-        const parsed = typeof item.personalDisponible === "string" ? JSON.parse(item.personalDisponible) : item.personalDisponible;
+        const rawStaff = item.availableStaff;
+        const parsed = typeof rawStaff === "string" ? JSON.parse(rawStaff) : rawStaff;
         if (parsed && Array.isArray(parsed.staffIds)) {
             staffIds.push(...parsed.staffIds);
-        } else if (Array.isArray(item.personalDisponible)) {
-            staffIds.push(...item.personalDisponible);
+        } else if (Array.isArray(rawStaff)) {
+            staffIds.push(...rawStaff);
         }
     } catch (_) {}
 
     return {
         service: {
             name: title,
-            description: _cleanText(item.descripcionLarga || item.description, 6000),
-            tagLine: _cleanText(item.resumenCorto || item.tagLine, 120),
-            categoryId: _cleanGuid(item.idCategoria || item.categoryId || "c97726db-84aa-4a08-b34e-7fda9e17702e", "SYNC_CATEGORY_INVALID"),
+            description: _cleanText(item.description, 6000),
+            tagLine: _cleanText(item.tagLine, 120),
+            categoryId: _cleanGuid(item.categoryId || "c97726db-84aa-4a08-b34e-7fda9e17702e", "SYNC_CATEGORY_INVALID"),
             status: isActive ? "CREATED" : "DRAFT",
             hidden: isHidden,
             paymentOptions: {
-                wixPayOnline: item.pagoOnline !== false,
-                wixPayInPerson: item.pagoPresencial !== false,
+                wixPayOnline: item.onlinePayment !== false,
+                wixPayInPerson: item.inPersonPayment !== false,
             },
             schedule: {
                 durationInMinutes: duration,
-                bufferTimeInMinutes: Number(item.margenTiempo || item.bufferTime) || 0,
+                bufferTimeInMinutes: Number(item.buffer) || 0,
             },
             rate: {
                 labeledPriceOptions: {
@@ -88,7 +93,7 @@ function _buildDesiredProjection(item) {
 
 export async function enqueueBookingsServiceSync(serviceItem) {
     if (!serviceItem || typeof serviceItem !== "object") return null;
-    const serviceId = _extractRelationalId(serviceItem.idServicio || serviceItem.serviceId);
+    const serviceId = _extractRelationalId(serviceItem.serviceId);
     if (!_looksLikeGuid(serviceId)) return null;
 
     const desired = _buildDesiredProjection(serviceItem);
@@ -102,7 +107,7 @@ export async function enqueueBookingsServiceSync(serviceItem) {
         status: "PENDING",
         attempts: 0,
         nextAttemptAt: new Date(),
-        updatedAt: new Date(),
+        _createdDate: new Date(),
     };
 
     return await wixData.save(QUEUE_COL, queueRecord, { suppressAuth: true });
@@ -112,6 +117,7 @@ export async function processBookingsServiceSyncQueue(options = {}) {
     const traceId = options.traceId || makeTraceId("cron-bookings-sync");
     const now = new Date();
 
+    const queueCollection = QUEUE_COL;
     const pending = await wixData.query(QUEUE_COL)
         .hasSome("status", VALID_STATUS)
         .le("nextAttemptAt", now)
@@ -137,12 +143,12 @@ export async function processBookingsServiceSyncQueue(options = {}) {
             }
 
             const { _createdDate, _updatedDate, _owner, ...safeItem } = item;
-            await wixData.update(QUEUE_COL, {
+            await wixData.update(queueCollection, {
                 ...safeItem,
                 status: "COMPLETED",
                 completedAt: new Date(),
-                updatedAt: new Date(),
-            }, { suppressAuth: true });
+                _updatedDate: new Date(),
+            }, { suppressAuth: true }).catch(() => null);
             completed++;
         } catch (err) {
             const attempts = Number(item.attempts || 0) + 1;
@@ -154,8 +160,8 @@ export async function processBookingsServiceSyncQueue(options = {}) {
                 attempts,
                 lastError: err?.message || "SYNC_ERROR",
                 nextAttemptAt: new Date(Date.now() + BACKOFF_MS * Math.pow(2, attempts - 1)),
-                updatedAt: new Date(),
-            }, { suppressAuth: true });
+                _updatedDate: new Date(),
+            }, { suppressAuth: true }).catch(() => null);
             failed++;
         }
     }

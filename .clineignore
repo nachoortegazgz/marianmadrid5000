@@ -1,0 +1,63 @@
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignorar dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignorar archivos de entorno
+.env
+.env.local
+.env.production
+.env.development
+.env.e2e
+
+# Ignorar secretos
+secrets/
+*.key
+*.pem
+*.cert
+
+# Ignorar logs
+logs/
+*.log
+
+# Ignorar archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Ignorar builds
+dist/
+build/
+out/
+
+# Ignorar Wix generados
+.wix/build/
+
+# Ignorar artifacts de versionado y tests
+.git/
+coverage/
+test-results/
+playwright-report/
+
+# Documentacion SSOT voluminosa: no cargar por defecto en el contexto.
+# Fuente normativa de codigo: src/backend/internalConfig.js.
+# Consultar estos documentos bajo demanda.
+.agents/skills/wix/BIBLIA DEFINITIVA.md
+.agents/skills/wix/DOSSIER CAJA FISICA, CONTABILIDAD, INVENTARIO Y CUMPLIMIENTO NORMATIVO.md
+.wix/BIBLIA FINAL.txt
+.wix/CMS ARQUITECTURA FINAL.txt
+.wix/MATRIZ CORRESPONDENCIA REFACT CMS.txt
+.wix/actualizacion cms.txt
+.wix/debug.log
+tests/BIBLIA DEFINITIVA.txt
+
+# NOTA (personalizacion): .clinerules/ y .clineignore NO se ignoran a
+# proposito. Cline debe poder leer sus propias reglas y este filtro.
+# Los indices de .wix/ (DOSSIER_CAJA.txt, BIBLIA_DEFINITIVA.txt, etc.)
+# son ligeros y quedan legibles.

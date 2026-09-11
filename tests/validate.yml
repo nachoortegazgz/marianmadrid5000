@@ -1,0 +1,42 @@
+name: Validate Fase 1
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fase1-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validar codigo y contratos
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Comprobar formato de cambios
+        run: git diff --check HEAD^ HEAD
+
+      - name: Ejecutar analisis estatico
+        run: npm run lint
+
+      - name: Ejecutar bateria de Fase 1
+        run: npm test

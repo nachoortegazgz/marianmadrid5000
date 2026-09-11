@@ -1,75 +1,171 @@
 /*
-=============================================================================
-MODULE: backend/staff.js
-RESPONSIBILITY: Staff resolution from MAPA_STAFF collection.
-STANDARDS: G10 ASCII Strict, 100% Velo Native, No RAM Caching.
-=============================================================================
-*/
-
+ =============================================================================
+ MODULE: backend/security.js
+ VERSION: v5003-rbac-security
+ RESPONSIBILITY: RBAC authorization engine, member role validation,
+                 sliding-window rate limiter, and persistent block checks.
+ CORRECTIONS: Added persistent block verification, fixed email cache.
+ STANDARDS: G10 ASCII Strict.
+ =============================================================================
+ */
+import { getSecret } from "wix-secrets-backend";
+import { currentMember } from "wix-members-backend";
 import wixData from "wix-data";
-import { COLLECTIONS } from "backend/internalConfig";
-import { _safeTrim, _looksLikeGuid } from "public/mmUtils";
+import { SECRETS } from "backend/mmSecrets";
+import { COLLAB_ROLES, COLLECTIONS } from "backend/internalConfig";
+import { makeTraceId, _safeEmail, _safeTrim } from "public/mmUtils";
+import { logger, ERROR_CODES, createBookingError } from "backend/booking/bookingCore";
 
-const STAFF_COL = COLLECTIONS.MAPA_STAFF;
+const log = logger;
+const ROLE_CACHE_TTL_MS = 300000;
+let cachedAdminEmails = null;
+let cachedCajeroEmails = null;
+let adminCacheTime = 0;
+let cajeroCacheTime = 0;
+const rateLimitCache = new Map();
+const RATE_LIMIT_WINDOW_MS = 5000;
+const RATE_LIMIT_MAX_REQUESTS = 20;
 
-function _mapStaffItem(item) {
-    if (!item) return null;
-    return {
-        resourceId: _safeTrim(item.resourceId),
-        displayName: _safeTrim(item.nombreVisible || item.displayName || "ESTILISTA"),
-        nombreVisible: _safeTrim(item.nombreVisible || item.displayName || "ESTILISTA"),
-        email: _safeTrim(item.email).toLowerCase(),
-        memberId: _safeTrim(item.idMiembroStaff || item.memberId),
-        idMiembroStaff: _safeTrim(item.idMiembroStaff || item.memberId),
-        scheduleId: _safeTrim(item.scheduleId || item.idHorario),
-        rol: _safeTrim(item.rol || "ESTILISTA"),
-        activo: item.activo !== false,
-    };
+async function _getCachedAdminEmails() {
+  const now = Date.now();
+  if (cachedAdminEmails && now - adminCacheTime < ROLE_CACHE_TTL_MS) return cachedAdminEmails;
+  const raw = await getSecret(SECRETS.ADMIN_EMAILS).catch(() => "");
+  cachedAdminEmails = String(raw || "").split(",").map((e) => _safeEmail(e)).filter(Boolean);
+  adminCacheTime = now;
+  return cachedAdminEmails;
 }
 
-export async function findStaff(identifier) {
-    const clean = _safeTrim(identifier);
-    if (!clean) return null;
-
-    const lower = clean.toLowerCase();
-    
-    // Consulta optimizada usando .or() para buscar por ID, Email o MemberID en una sola pasada
-    const query = wixData.query(STAFF_COL)
-        .eq("resourceId", clean)
-        .or(wixData.query(STAFF_COL).eq("email", lower))
-        .or(wixData.query(STAFF_COL).eq("idMiembroStaff", clean))
-        .or(wixData.query(STAFF_COL).eq("memberId", clean));
-
-    const res = await query.limit(1).find({ suppressAuth: true, consistentRead: false });
-    return _mapStaffItem(res.items[0]);
+async function _getCachedCajeroEmails() {
+  const now = Date.now();
+  if (cachedCajeroEmails && now - cajeroCacheTime < ROLE_CACHE_TTL_MS) return cachedCajeroEmails;
+  const raw = await getSecret(SECRETS.CAJERO_EMAILS).catch(() => "");
+  cachedCajeroEmails = String(raw || "").split(",").map((e) => _safeEmail(e)).filter(Boolean);
+  cajeroCacheTime = now;
+  return cachedCajeroEmails;
 }
 
-export async function getAllStaff() {
-    const res = await wixData.query(STAFF_COL)
-        .eq("activo", true)
-        .limit(100)
-        .find({ suppressAuth: true, consistentRead: false });
-        
-    return res.items.map(_mapStaffItem);
+// FIX: Implementada verificacion de bloqueos persistentes
+export async function isKeyPersistentlyBlocked(surface, key) {
+  const cleanKey = String(key || "anon");
+  const cleanSurface = String(surface || "global");
+  try {
+    const recent = await wixData.query(COLLECTIONS.RATE_LIMIT_BLOCKS)
+      .eq("surface", cleanSurface)
+      .eq("key", cleanKey)
+      .gt("expiresAt", new Date())
+      .limit(1)
+      .find({ suppressAuth: true });
+    return Boolean(recent?.items?.length);
+  } catch (_) {
+    return false;
+  }
 }
 
-export async function resolveStaffResourceIds(personalDisponible) {
-    const items = Array.isArray(personalDisponible) ? personalDisponible : [];
-    const resourceIds = [];
-    for (const entry of items) {
-        const candidate = typeof entry === "object" && entry !== null ? (entry.resourceId || entry.id || entry._id) : entry;
-        const clean = _safeTrim(candidate);
-        if (_looksLikeGuid(clean)) {
-            resourceIds.push(clean);
-        } else {
-            const found = await findStaff(clean);
-            if (found?.resourceId) resourceIds.push(found.resourceId);
-        }
+const PERSIST_THRESHOLD = 3;
+
+export function rateLimiter({ surface, key }, maxRequests, windowMs) {
+  const cleanKey = `${surface || "global"}:${key || "anon"}`;
+  const now = Date.now();
+  const max = maxRequests || RATE_LIMIT_MAX_REQUESTS;
+  const window = windowMs || RATE_LIMIT_WINDOW_MS;
+  const entry = rateLimitCache.get(cleanKey);
+  if (!entry || now - entry.windowStart > window) {
+    rateLimitCache.set(cleanKey, { count: 1, windowStart: now, violations: 0 });
+    return { allowed: true, retryAfter: 0 };
+  }
+  entry.count++;
+  if (entry.count > max) {
+    entry.violations = (entry.violations || 0) + 1;
+    if (entry.violations >= PERSIST_THRESHOLD) {
+      const blockKey = `RL-${cleanKey}-${now}`;
+      wixData.insert(COLLECTIONS.RATE_LIMIT_BLOCKS, {
+        _id: blockKey,
+        surface: surface || "global",
+        key: key || "anon",
+        violations: entry.violations,
+        expiresAt: new Date(now + 60 * 60 * 1000),
+        _createdDate: new Date(),
+      }, { suppressAuth: true }).catch(() => {});
     }
-    return Array.from(new Set(resourceIds)).sort();
+    const retryAfter = window - (now - entry.windowStart);
+    return { allowed: false, retryAfter: Math.max(0, retryAfter) };
+  }
+  return { allowed: true, retryAfter: 0 };
 }
 
-// Mantenemos la firma de la función para no romper dependencias, pero ya no hace nada.
-export function clearStaffCache() {
-    return true; 
+export async function isAdmin(traceId) {
+  const activeTraceId = traceId || makeTraceId("rbac");
+  try {
+    const member = await currentMember.getMember({ fieldsets: ["FULL"] }).catch(() => null);
+    if (!member) return false;
+    const memberEmail = _safeEmail(member.loginEmail);
+    const adminEmails = await _getCachedAdminEmails();
+    if (adminEmails.includes(memberEmail)) return true;
+    const roles = member.roles || [];
+    return roles.some((r) => _safeTrim(r.name || r.title || r).toUpperCase() === COLLAB_ROLES.ADMIN);
+  } catch (error) {
+    log.error("isAdmin check failed", { traceId: activeTraceId, error: error?.message });
+    return false;
+  }
+}
+
+export async function isCajero(traceId) {
+  const activeTraceId = traceId || makeTraceId("rbac");
+  try {
+    const member = await currentMember.getMember({ fieldsets: ["FULL"] }).catch(() => null);
+    if (!member) return false;
+    const memberEmail = _safeEmail(member.loginEmail);
+    const cajeroEmails = await _getCachedCajeroEmails();
+    if (cajeroEmails.includes(memberEmail)) return true;
+    const adminEmails = await _getCachedAdminEmails();
+    if (adminEmails.includes(memberEmail)) return true;
+    const roles = member.roles || [];
+    return roles.some((r) => [COLLAB_ROLES.ADMIN, COLLAB_ROLES.GESTION].includes(_safeTrim(r.name || r.title || r).toUpperCase()));
+  } catch (error) {
+    log.error("isCajero check failed", { traceId: activeTraceId, error: error?.message });
+    return false;
+  }
+}
+
+export async function isStaffCollaborator(traceId) {
+  const activeTraceId = traceId || makeTraceId("rbac");
+  try {
+    const member = await currentMember.getMember({ fieldsets: ["FULL"] }).catch(() => null);
+    if (!member) return false;
+    const memberEmail = _safeEmail(member.loginEmail);
+    const adminEmails = await _getCachedAdminEmails();
+    if (adminEmails.includes(memberEmail)) return true;
+    const cajeroEmails = await _getCachedCajeroEmails();
+    if (cajeroEmails.includes(memberEmail)) return true;
+    const roles = member.roles || [];
+    const allowedRoles = [COLLAB_ROLES.ADMIN, COLLAB_ROLES.GESTION, COLLAB_ROLES.ESTILISTA];
+    return roles.some((r) => allowedRoles.includes(_safeTrim(r.name || r.title || r).toUpperCase()));
+  } catch (error) {
+    log.error("isStaffCollaborator check failed", { traceId: activeTraceId, error: error?.message });
+    return false;
+  }
+}
+
+export async function requireAdmin(traceId) {
+  const activeTraceId = traceId || makeTraceId("rbac");
+  if (!(await isAdmin(activeTraceId))) {
+    throw createBookingError(ERROR_CODES.ACCESS_DENIED, "Admin access required", { traceId: activeTraceId });
+  }
+  return true;
+}
+
+export async function requireCajero(traceId) {
+  const activeTraceId = traceId || makeTraceId("rbac");
+  if (!(await isCajero(activeTraceId))) {
+    throw createBookingError(ERROR_CODES.ACCESS_DENIED, "Cajero access required", { traceId: activeTraceId });
+  }
+  return true;
+}
+
+export async function requireMarianManager(traceId) {
+  const activeTraceId = traceId || makeTraceId("rbac");
+  if (!(await isCajero(activeTraceId))) {
+    throw createBookingError(ERROR_CODES.ACCESS_DENIED, "Marian manager access required", { traceId: activeTraceId });
+  }
+  return true;
 }

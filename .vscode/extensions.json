@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "wix.vscode-wix-cli",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    "eamodio.gitlens",
+    "usernamehw.errorlens",
+    "gruntfuggly.todo-tree",
+    "christian-kohler.path-intellisense",
+    "humao.rest-client",
+    "eriklynd.json-tools"
+  ]
+}

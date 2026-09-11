@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "lib": ["ES2022", "DOM"],
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "backend/*": ["./src/backend/*"],
+      "@wix/bookings": ["./tests/mocks/wix-bookings-mock.ts"],
+      "@wix/payments": ["./tests/mocks/wix-payments-mock.ts"],
+      "@wix/data": ["./tests/mocks/wix-data-mock.ts"],
+      "@wix/auth": ["./tests/mocks/wix-auth-mock.ts"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "wix": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@wix/mcp@latest"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/workspaces/marianmadrid5000/src"
+      ]
+    },
+    "wix-docs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ],
+      "env": {
+        "ALLOWED_DOMAINS": "dev.wix.com"
+      }
+    }
+  }
+}
