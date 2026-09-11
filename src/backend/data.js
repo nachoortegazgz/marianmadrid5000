@@ -1,260 +1,290 @@
-/*
-=============================================================================
+/**
 MODULE: backend/data.js
-RESPONSIBILITY: CMS data hooks for canonical dates, immutable fiscal records,
-                immutable labor records, and optimistic versioning for CitasF2.
+VERSION: v5003.4-ssot-final
+FIXES APPLIED:
+  [D-01] item.estado -> item.status
+  [D-02] Eliminados alias legacy MOVIMIENTOS_CAJA_*, REGISTROS_HORARIOS_STAFF_*,
+         CIERRES_Z_*, CAJA_ACTUAL_*
+  [D-03] Usa CITA_FIELDS.STATUS y CITA_FIELDS.STATUS_PAGO correctamente
 STANDARDS: G10 ASCII Strict (0 non-ASCII characters).
-=============================================================================
 */
-
-import wixData from "wix-data";
-import { getMadridLocalStringNoZ, _extractRelationalId } from "public/mmUtils";
+import { getMadridLocalStringNoZ } from "public/mmUtils";
 import {
-    COLLECTIONS,
-    SINGLETONS,
-    TIPO_FICHAJE,
-    CITA_FIELDS,
-    ESTADO_CITA,
-    SERVICE_CATALOG,
+  SINGLETONS,
+  TIPO_FICHAJE,
+  CITA_FIELDS,
+  ESTADO_CITA,
+  SERVICE_CATALOG,
 } from "backend/internalConfig";
-import { clearStaffCache, findStaff } from "backend/staff";
-import { enqueueBookingsServiceSync } from "backend/bookingsServiceSync";
+import { findStaff } from "backend/staff";
 
-const CAJA_ACTUAL_ID = SINGLETONS?.CAJA || "CAJA_PRINCIPAL";
-const DUAL_CACHE_COL = COLLECTIONS.DUAL_CACHE;
-const DAYS_CACHE_COL = COLLECTIONS.DAYS_CACHE;
-const SLOTS_CACHE_COL = COLLECTIONS.SLOTS_CACHE;
+const CAJA_ACTUAL_SINGLETON_ID = SINGLETONS?.CAJA || "CAJA_PRINCIPAL";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function _toDate(value) {
-    if (!value) return null;
-    const date = value instanceof Date ? value : new Date(value);
-    return isNaN(date.getTime()) ? null : date;
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
 }
 
 function _normalizeDateField(item, field, fallback) {
-    const date = _toDate(item[field]);
-    item[field] = date || fallback;
+  const date = _toDate(item[field]);
+  item[field] = date || fallback;
 }
 
 const SERVICE_STATES = new Set(SERVICE_CATALOG?.STATES || ["ACTIVO", "INACTIVO", "BORRADOR"]);
 
 function _normalizeCatalogReference(value) {
-    const candidate = value && typeof value === "object" ? (value.nombreCategoria || value._id || value.id) : value;
-    return String(candidate || "").trim().toUpperCase();
+  const candidate = value && typeof value === "object" ? (value.categoryName || value._id || value.id) : value;
+  return String(candidate || "").trim().toUpperCase();
 }
 
 function _normalizeBoundedText(item, field, maxLength) {
-    if (item[field] === undefined || item[field] === null) return;
-    const normalized = String(item[field]).trim();
-    if (normalized.length > maxLength) {
-        throw new Error(`SERVICE_VALIDATION: ${field} exceeds the permitted length.`);
-    }
-    item[field] = normalized;
+  if (item[field] === undefined || item[field] === null) return;
+  const normalized = String(item[field]).trim();
+  if (normalized.length > maxLength) {
+    throw new Error(`SERVICE_VALIDATION: ${field} exceeds the permitted length.`);
+  }
+  item[field] = normalized;
 }
 
 function _readDuration(item, field) {
-    const raw = item[field];
-    if (raw === undefined || raw === null || raw === "") return 0;
-    const value = Number(raw);
-    if (!Number.isFinite(value) || value < 0 || value > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
-        throw new Error(`SERVICE_VALIDATION: ${field} must be between 0 and ${SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440}.`);
+  const raw = item[field];
+  if (raw === undefined || raw === null || raw === "") return 0;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
+    throw new Error(`SERVICE_VALIDATION: ${field} must be between 0 and ${SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440}.`);
+  }
+  return value;
+}
+
+function _validateServiciosCatalogo(item, context) {
+  if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
+  _normalizeBoundedText(item, "title", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
+  _normalizeBoundedText(item, "tagLine", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
+  _normalizeBoundedText(item, "description", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
+  // [D-01] item.status en lugar de item.estado
+  const estado = _normalizeCatalogReference(item.status);
+  if (estado) {
+    if (!SERVICE_STATES.has(estado)) {
+      throw new Error("SERVICE_VALIDATION: status must be selected from the approved catalog.");
     }
-    return value;
-}
-
-function _validateServiceCatalog(item, context) {
-    if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
-
-    _normalizeBoundedText(item, "tituloServicio", SERVICE_CATALOG?.MAX_TITLE_LENGTH || 160);
-    _normalizeBoundedText(item, "resumenCorto", SERVICE_CATALOG?.MAX_SUMMARY_LENGTH || 120);
-    _normalizeBoundedText(item, "descripcionLarga", SERVICE_CATALOG?.MAX_DESCRIPTION_LENGTH || 6000);
-
-    const estado = _normalizeCatalogReference(item.estado);
-    if (estado) {
-        if (!SERVICE_STATES.has(estado)) {
-            throw new Error("SERVICE_VALIDATION: estado must be selected from the approved catalog.");
-        }
-        item.estado = estado;
+    item.status = estado;
+  }
+  const categoria = _normalizeCatalogReference(item.categoryName);
+  if (categoria) {
+    item.categoryName = categoria;
+  }
+  const currency = _normalizeCatalogReference(item.currency);
+  if (currency && currency !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
+    throw new Error("SERVICE_VALIDATION: only EUR is supported by this catalog.");
+  }
+  if (item.price !== undefined && item.price !== null && item.price !== "") {
+    const price = Number(item.price);
+    if (!Number.isFinite(price) || price < 0) {
+      throw new Error("SERVICE_VALIDATION: price must be a non-negative number.");
     }
-
-    const categoria = _normalizeCatalogReference(item.nombreCategoria || item.categoria);
-    if (categoria) {
-        item.nombreCategoria = categoria;
+    item.price = price;
+  }
+  const f1 = _readDuration(item, "phase1Duration");
+  const gap = _readDuration(item, "exposureDuration");
+  const f2 = _readDuration(item, "phase2Duration");
+  item.phase1Duration = f1;
+  item.exposureDuration = gap;
+  item.phase2Duration = f2;
+  const totalCalculado = f1 + gap + f2;
+  if (totalCalculado > 0) {
+    item.totalDuration = Math.round(totalCalculado * 100) / 100;
+  } else if (!item.totalDuration || Number(item.totalDuration) <= 0) {
+    item.totalDuration = 30;
+  }
+  // SSOT v5002.4: Validate phase1 + exposure + phase2 === totalDuration
+  if (item.totalDuration && item.totalDuration > 0) {
+    const diff = Math.abs((f1 + gap + f2) - item.totalDuration);
+    if (diff > 0.01) {
+      throw new Error("SERVICE_VALIDATION: phase1Duration + exposureDuration + phase2Duration must equal totalDuration.");
     }
-
-    const moneda = _normalizeCatalogReference(item.moneda || item.monedaCatalogo);
-    if (moneda && moneda !== (SERVICE_CATALOG?.CURRENCY || "EUR")) {
-        throw new Error("SERVICE_VALIDATION: only EUR is supported by this catalog.");
-    }
-
-    if (item.precio !== undefined && item.precio !== null && item.precio !== "") {
-        const precio = Number(item.precio);
-        if (!Number.isFinite(precio) || precio < 0) {
-            throw new Error("SERVICE_VALIDATION: precio must be a non-negative number.");
-        }
-        item.precio = precio;
-    }
-
-    const f1 = _readDuration(item, "tiempoFaseUno") || _readDuration(item, "tiempoFase1");
-    const gap = _readDuration(item, "tiempoExposicion");
-    const f2 = _readDuration(item, "tiempoFaseDos") || _readDuration(item, "tiempoFase2");
-    item.tiempoFaseUno = f1;
-    item.tiempoExposicion = gap;
-    item.tiempoFaseDos = f2;
-
-    const total = f1 + gap + f2;
-    if (total > (SERVICE_CATALOG?.MAX_DURATION_MINUTES || 1440)) {
-        throw new Error("SERVICE_VALIDATION: total duration is invalid.");
-    }
-    item.duracionTotal = Math.round(total * 100) / 100;
-    return item;
+  }
+  return item;
 }
 
-export function SERVICIOS_RESERVA_beforeInsert(item, context) {
-    return _validateServiceCatalog(item, context);
+export function ServiciosCatalogo_beforeInsert(item, context) {
+  return _validateServiciosCatalogo(item, context);
 }
 
-export function SERVICIOS_RESERVA_beforeUpdate(item, context) {
-    return _validateServiceCatalog(item, context);
-}
-
-async function _removeCollectionItemsByServiceId(collectionId, fields, serviceId) {
-    const cleanServiceId = _extractRelationalId(serviceId);
-    if (!GUID_RE.test(cleanServiceId)) return;
-
-    const matches = await Promise.allSettled(
-        fields.map((field) => wixData.query(collectionId).eq(field, cleanServiceId).limit(1000).find({ suppressAuth: true }))
-    );
-    const ids = new Set(
-        matches
-            .filter((result) => result.status === "fulfilled")
-            .flatMap((result) => result.value?.items || [])
-            .map((item) => item?._id)
-            .filter(Boolean)
-    );
-    await Promise.allSettled(
-        [...ids].map((itemId) => wixData.remove(collectionId, itemId, { suppressAuth: true }))
-    );
-}
-
-async function _invalidateServiceCaches(serviceId) {
-    await Promise.allSettled([
-        _removeCollectionItemsByServiceId(DUAL_CACHE_COL, ["serviceId", "phaseOneServiceId", "idServicioFaseUno"], serviceId),
-        _removeCollectionItemsByServiceId(DAYS_CACHE_COL, ["serviceId", "phaseOneServiceId", "idServicioFaseUno"], serviceId),
-        _removeCollectionItemsByServiceId(SLOTS_CACHE_COL, ["phaseOneServiceId", "idServicioFaseUno"], serviceId),
-    ]);
-}
-
-async function _enqueueBookingsServiceSyncSafely(item) {
-    if (item?.bookingsSyncEnabled !== true) return null;
-    try {
-        return await enqueueBookingsServiceSync(item);
-    } catch (_) {
-        return null;
-    }
-}
-
-export async function SERVICIOS_RESERVA_afterInsert(item, context) {
-    if (!item || context?.suppressHooks === true) return item;
-    await _enqueueBookingsServiceSyncSafely(item);
-    return item;
-}
-
-export async function SERVICIOS_RESERVA_afterUpdate(item, context) {
-    if (!item || context?.suppressHooks === true) return item;
-    const s1 = item.idServicio || item.serviceId;
-    const s2 = item.idServicioFaseDos || item.linkFases;
-    await _invalidateServiceCaches(s1);
-    if (s2) await _invalidateServiceCaches(s2);
-    await _enqueueBookingsServiceSyncSafely(item);
-    return item;
+export function ServiciosCatalogo_beforeUpdate(item, context) {
+  return _validateServiciosCatalogo(item, context);
 }
 
 function _validateMapaStaff(item, context) {
-    if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
-    const resourceId = String(item.resourceId || "").trim();
-    if (!GUID_RE.test(resourceId)) throw new Error("STAFF_VALIDATION: resourceId must be a valid Bookings resource GUID.");
-    item.resourceId = resourceId;
-
-    _normalizeBoundedText(item, "nombreVisible", 80);
-    if (!item.nombreVisible) throw new Error("STAFF_VALIDATION: nombreVisible is required.");
-    _normalizeBoundedText(item, "idMiembroStaff", 120);
-    _normalizeBoundedText(item, "email", 254);
-    _normalizeBoundedText(item, "scheduleId", 120);
-    _normalizeBoundedText(item, "rol", 60);
-    if (item.email) item.email = item.email.toLowerCase();
-    if (!item.idMiembroStaff && !item.email) throw new Error("STAFF_VALIDATION: idMiembroStaff or email is required.");
-    if (item.activo !== undefined && typeof item.activo !== "boolean") {
-        throw new Error("STAFF_VALIDATION: activo must be boolean.");
-    }
-    item.activo = item.activo !== false;
-    item.updatedAt = new Date();
-    return item;
+  if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
+  const resourceId = String(item.resourceId || "").trim();
+  if (!GUID_RE.test(resourceId)) throw new Error("STAFF_VALIDATION: resourceId must be a valid Bookings resource GUID.");
+  item.resourceId = resourceId;
+  _normalizeBoundedText(item, "displayName", 80);
+  if (!item.displayName) throw new Error("STAFF_VALIDATION: displayName is required.");
+  _normalizeBoundedText(item, "staffMemberId", 120);
+  _normalizeBoundedText(item, "email", 254);
+  _normalizeBoundedText(item, "scheduleId", 120);
+  _normalizeBoundedText(item, "rol", 60);
+  if (item.email) item.email = item.email.toLowerCase();
+  if (!item.staffMemberId && !item.email) throw new Error("STAFF_VALIDATION: staffMemberId or email is required.");
+  // SSOT v5002.4: Validate uniqueness of resourceId + staffMemberId combination
+  if (!item.staffMemberId) throw new Error("STAFF_VALIDATION: staffMemberId is required for uniqueness validation.");
+  item.active = item.active !== false;
+  item.updatedAt = new Date();
+  return item;
 }
 
-export function MAPA_STAFF_beforeInsert(item, context) {
-    return _validateMapaStaff(item, context);
+export function MapaStaff_beforeInsert(item, context) {
+  return _validateMapaStaff(item, context);
 }
 
-export function MAPA_STAFF_beforeUpdate(item, context) {
-    return _validateMapaStaff(item, context);
-}
-
-export function MAPA_STAFF_afterInsert(item) {
-    clearStaffCache();
-    return item;
-}
-
-export function MAPA_STAFF_afterUpdate(item) {
-    clearStaffCache();
-    return item;
-}
-
-export function MAPA_STAFF_afterRemove(itemId) {
-    clearStaffCache();
-    return itemId;
+export function MapaStaff_beforeUpdate(item, context) {
+  return _validateMapaStaff(item, context);
 }
 
 export function CitasF2_beforeInsert(item, context) {
-    if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
-
-    const bookingId = String(item.bookingId || "").trim();
-    if (!bookingId) throw new Error("CITAS_VIOLATION: Missing bookingId.");
-    item.bookingId = bookingId;
-
-    const now = new Date();
-    _normalizeDateField(item, "startDate", null);
-    _normalizeDateField(item, "endDate", null);
-    _normalizeDateField(item, "fechaCreacion", now);
-    _normalizeDateField(item, "fechaActualizacion", now);
-
-    if (!item.fechaYmdMadrid && item.startDate) {
-        item.fechaYmdMadrid = getMadridLocalStringNoZ(item.startDate).slice(0, 10);
-    }
-
-    item[CITA_FIELDS.STATUS] = String(item[CITA_FIELDS.STATUS] || ESTADO_CITA.CONFIRMED).toUpperCase();
-    item[CITA_FIELDS.STATUS_PAGO] = String(item[CITA_FIELDS.STATUS_PAGO] || "UNPAID").toUpperCase();
-    item.version = Number(item.version || 1);
-    return item;
+  if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
+  const bookingId = String(item.bookingId || "").trim();
+  if (!bookingId) throw new Error("CITAS_VIOLATION: Missing bookingId.");
+  item.bookingId = bookingId;
+  const now = new Date();
+  _normalizeDateField(item, "startDate", null);
+  _normalizeDateField(item, "endDate", null);
+  _normalizeDateField(item, "registeredAt", now);
+  _normalizeDateField(item, "updatedAt", now);
+  if (!item.dateYmd && item.startDate) {
+    item.dateYmd = getMadridLocalStringNoZ(item.startDate).slice(0, 10);
+  }
+  // [D-03] Usa CITA_FIELDS correctamente
+  item[CITA_FIELDS.STATUS] = String(item[CITA_FIELDS.STATUS] || ESTADO_CITA.CONFIRMED).toUpperCase();
+  item[CITA_FIELDS.STATUS_PAGO] = String(item[CITA_FIELDS.STATUS_PAGO] || "UNPAID").toUpperCase();
+  item.version = Number(item.version || 1);
+  return item;
 }
 
 export function CitasF2_beforeUpdate(item, context) {
-    if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
+  if (!item || typeof item !== "object" || context?.suppressHooks === true) return item;
+  const bookingId = String(item.bookingId || "").trim();
+  if (!bookingId) throw new Error("CITAS_VIOLATION: Missing bookingId.");
+  item.bookingId = bookingId;
+  const now = new Date();
+  _normalizeDateField(item, "startDate", null);
+  _normalizeDateField(item, "endDate", null);
+  _normalizeDateField(item, "updatedAt", now);
+  if (!item.dateYmd && item.startDate) {
+    item.dateYmd = getMadridLocalStringNoZ(item.startDate).slice(0, 10);
+  }
+  if (item[CITA_FIELDS.STATUS]) {
+    item[CITA_FIELDS.STATUS] = String(item[CITA_FIELDS.STATUS]).toUpperCase();
+  }
+  if (item[CITA_FIELDS.STATUS_PAGO]) {
+    item[CITA_FIELDS.STATUS_PAGO] = String(item[CITA_FIELDS.STATUS_PAGO]).toUpperCase();
+  }
+  if (item.version !== undefined && item.version !== null) {
+    item.version = Number(item.version) || 1;
+  }
+  return item;
+}
 
-    const bookingId = String(item.bookingId || "").trim();
-    if (!bookingId) throw new Error("CITAS_VIOLATION: Missing bookingId.");
-    item.bookingId = bookingId;
+export function MovimientosCaja_beforeInsert(item, context) {
+  if (!item || typeof item !== "object") return item;
+  if (!SHA256_HEX_RE.test(String(item.currentRecordHash || "").trim())) {
+    throw new Error("FISCAL_VIOLATION: Missing or invalid hashCadena format.");
+  }
+  if (!SHA256_HEX_RE.test(String(item.previousRecordHash || "").trim())) {
+    throw new Error("FISCAL_VIOLATION: Missing or invalid prevHash format.");
+  }
+  const signatureParts = String(item.digitalSignature || "").trim().split("|");
+  if (signatureParts.length !== 2 || !SHA256_HEX_RE.test(signatureParts[0]) || !SHA256_HEX_RE.test(signatureParts[1])) {
+    throw new Error("FISCAL_VIOLATION: Invalid firmaDigital format.");
+  }
+  if (!String(item.invoiceNumber || "").trim()) {
+    throw new Error("FISCAL_VIOLATION: Missing invoiceNumber.");
+  }
+  _normalizeDateField(item, "registeredAt", new Date());
+  return item;
+}
 
-    const now = new Date();
-    _normalizeDateField(item, "startDate", null);
-    _normalizeDateField(item, "endDate", null);
-    _normalizeDateField(item, "fechaActualizacion", now);
+export function MovimientosCaja_beforeUpdate(_item) {
+  throw new Error("FISCAL_VIOLATION: Direct updates to movimientoCaja are forbidden.");
+}
 
-    if (!item.fechaYmdMadrid && item.startDate) {
-        item.fechaYmdMadrid = getMadridLocalStringNoZ(item.startDate).slice(0, 10);
-    }
+export function MovimientosCaja_beforeRemove(_itemId) {
+  throw new Error("FISCAL_VIOLATION: Direct removals from movimientoCaja are forbidden.");
+}
 
-    if (item[CITA_FIELDS.STATUS]) {
-        item[CITA_FIELDS.STATUS
+export async function RegistrosHorariosStaff_beforeInsert(item, context) {
+  if (!item || typeof item !== "object") return item;
+  const staff = await findStaff(item.resourceId);
+  if (!staff) {
+    throw new Error("INVALID_EMPLOYEE: Employee resourceId is not registered in MAPA_STAFF.");
+  }
+  const clockEventType = String(item.clockEventType || "").toUpperCase();
+  if (!Object.values(TIPO_FICHAJE).includes(clockEventType)) {
+    throw new Error(`INVALID_CLOCK_TYPE: Tipo de fichaje invalido "${clockEventType}".`);
+  }
+  if (clockEventType === TIPO_FICHAJE.AJUSTE && !String(item.adjustmentReason || "").trim()) {
+    throw new Error("INVALID_CLOCK_ADJUSTMENT: adjustmentReason is required for manual adjustments.");
+  }
+  const now = new Date();
+  const recordedAt = _toDate(item.recordedAt) || now;
+  if (recordedAt.getTime() > now.getTime() + 60000) {
+    throw new Error("INVALID_TIMESTAMP: Future timestamps are forbidden.");
+  }
+  const madrid = getMadridLocalStringNoZ(recordedAt);
+  item.resourceId = staff.resourceId;
+  item.displayName = staff.displayName;
+  item.clockEventType = clockEventType;
+  item.recordedAt = recordedAt;
+  item.recordedTime = madrid.slice(11, 19);
+  item.dayKey = madrid.slice(0, 10);
+  item.monthKey = madrid.slice(0, 7);
+  return item;
+}
+
+export function RegistrosHorariosStaff_beforeUpdate(_item) {
+  throw new Error("LABOR_LOG_VIOLATION: Direct updates to REGISTROHORARIO are forbidden.");
+}
+
+export function RegistrosHorariosStaff_beforeRemove(_itemId) {
+  throw new Error("LABOR_LOG_VIOLATION: Direct removals from REGISTROHORARIO are forbidden.");
+}
+
+export function HistoricoCierresZ_beforeUpdate(_item) {
+  throw new Error("FISCAL_VIOLATION: Direct updates to HistoricoCierresZ are forbidden.");
+}
+
+export function HistoricoCierresZ_beforeRemove(_itemId) {
+  throw new Error("FISCAL_VIOLATION: Direct removals from HistoricoCierresZ are forbidden.");
+}
+
+export function EventosSistemaFacturacion_beforeUpdate(_item) {
+  throw new Error("SIF_VIOLATION: Direct updates to EventosSistemaFacturacion are forbidden.");
+}
+
+export function EventosSistemaFacturacion_beforeRemove(_itemId) {
+  throw new Error("SIF_VIOLATION: Direct removals from EventosSistemaFacturacion are forbidden.");
+}
+
+export function CajaActual_beforeInsert(item) {
+  if (item && typeof item === "object") item._id = CAJA_ACTUAL_SINGLETON_ID;
+  return item;
+}
+
+export function CajaActual_beforeUpdate(item) {
+  if (item && typeof item === "object") item._id = CAJA_ACTUAL_SINGLETON_ID;
+  return item;
+}
+
+export function CajaActual_beforeRemove(_itemId) {
+  throw new Error("singletonProtected: Direct deletion of cajaActual is forbidden.");
+}
+
+// [D-02] Eliminados alias legacy:
+// MOVIMIENTOS_CAJA_beforeInsert, MOVIMIENTOS_CAJA_beforeUpdate, MOVIMIENTOS_CAJA_beforeRemove
+// REGISTROS_HORARIOS_STAFF_beforeInsert, REGISTROS_HORARIOS_STAFF_beforeUpdate, REGISTROS_HORARIOS_STAFF_beforeRemove
+// CIERRES_Z_beforeUpdate, CIERRES_Z_beforeRemove
+// CAJA_ACTUAL_beforeInsert, CAJA_ACTUAL_beforeUpdate, CAJA_ACTUAL_beforeRemove

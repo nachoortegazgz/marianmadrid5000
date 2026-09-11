@@ -16,7 +16,6 @@ import { SECRETS } from "backend/mmSecrets";
 
 const log = logger;
 const QUEUE_COL = COLLECTIONS.M365_GRAPH_SYNC_QUEUE;
-const SYNC_LOG_COL = COLLECTIONS.SYNC_LOG;
 const BATCH_SIZE = SDK_CONFIG?.JOBS?.M365_GRAPH_SYNC_BATCH_SIZE || 20;
 const MAX_ATTEMPTS = SDK_CONFIG?.JOBS?.M365_GRAPH_SYNC_MAX_ATTEMPTS || 3;
 const BACKOFF_MS = SDK_CONFIG?.JOBS?.M365_GRAPH_SYNC_BACKOFF_MS || 300000;
@@ -101,9 +100,9 @@ export async function enqueueM365LedgerRecord(movement, traceId) {
         correlationId: traceId || movement?.traceId,
         transactionId: movement?.transactionId,
         bookingReference: movement?.reservaIdVinculada || movement?._id,
-        amount: movement?.importeContable,
+        amount: movement?.accountingAmount,
         currency: "EUR",
-        occurredAt: movement?.fechaCreacion || new Date(),
+        occurredAt: movement?.registeredAt || new Date(),
     };
     payload.title = `LEDGER_MOVEMENT ${payload.transactionId || payload.bookingReference}`;
     payload.integrityHash = hashSHA256(_stableSerialize(payload));
@@ -112,7 +111,7 @@ export async function enqueueM365LedgerRecord(movement, traceId) {
     const queue = {
         _id: queueId, payload, payloadHash: payload.integrityHash,
         status: "PENDING", attempts: 0, nextAttemptAt: new Date(),
-        traceId: payload.correlationId, createdAt: new Date(), updatedAt: new Date(),
+        traceId: payload.correlationId, _createdDate: new Date(),
     };
 
     try {
@@ -143,7 +142,7 @@ export async function processM365GraphSyncQueue(options = {}) {
     for (const queue of pending.items) {
         try {
             const postResult = await _postListItem(config, token, queue.payload);
-            await wixData.update(QUEUE_COL, { ...queue, status: "COMPLETED", externalRecordId: postResult.externalRecordId, updatedAt: new Date() }, { suppressAuth: true });
+            await wixData.update(QUEUE_COL, { ...queue, status: "COMPLETED", externalRecordId: postResult.externalRecordId }, { suppressAuth: true });
             processed++;
         } catch (error) {
             const attempts = queue.attempts + 1;
@@ -153,7 +152,7 @@ export async function processM365GraphSyncQueue(options = {}) {
                 status: terminal ? "FAILED" : "RETRY",
                 attempts,
                 nextAttemptAt: new Date(Date.now() + BACKOFF_MS * Math.pow(2, attempts - 1)),
-                updatedAt: new Date()
+                _updatedDate: new Date()
             }, { suppressAuth: true });
         }
     }

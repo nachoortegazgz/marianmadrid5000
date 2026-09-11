@@ -1,0 +1,25 @@
+DOSSIER CAJA - INDICE
+====================
+
+Contenido canonico en:
+`.agents/skills/wix/DOSSIER CAJA FISICA, CONTABILIDAD, INVENTARIO Y
+CUMPLIMIENTO NORMATIVO.md`
+
+Alcance: TPV, arqueos parciales y cierre Z, secuencia fiscal de tickets,
+libros de IVA, contabilidad PGC, inventario, registro horario laboral y
+cumplimiento normativo (SIF/Verifactu, RGPD/LOPDGDD).
+
+Modulos de codigo relacionados:
+- src/backend/cajas.web.js        (TPV, arqueos, secuencia fiscal)
+- src/backend/inventario.web.js   (stock y movimientos)
+- src/backend/contabilidad.js     (plan de cuentas, asientos, mayor)
+- src/backend/fiscalAggregator.web.js
+- src/backend/data.js             (hooks de inmutabilidad)
+
+Colecciones inmutables protegidas (NO modificar ni eliminar):
+MOVIMIENTOS_CAJA, HISTORICO_CIERRES_Z, EVENTOS_SISTEMA_FACTURACION,
+REGISTROS_HORARIOS_STAFF, CAJA_ACTUAL (singleton), ASIENTOS_CONTABLES,
+LINEAS_ASIENTO_CONTABLE, INVENTARIO_STOCK_VENTA_CIERRE.
+
+Ver matriz completa en .clinerules/collections-schema.md y reglas de
+seguridad en .clinerules/security-rules.md.

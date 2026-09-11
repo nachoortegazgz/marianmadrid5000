@@ -1,0 +1,22 @@
+$fixContent = @'
+Write-Host "`nEscaneando caracteres no-ASCII y marcas BOM..." -ForegroundColor Cyan
+$dir = if (Test-Path ".\src") { ".\src" } else { "." }
+$files = Get-ChildItem -Path $dir -Filter *.js -Recurse | Where-Object { $_.FullName -notmatch "node_modules|\.git" }
+$count = 0
+foreach ($f in $files) {
+    $txt = [System.IO.File]::ReadAllText($f.FullName, [System.Text.Encoding]::UTF8)
+    $orig = $txt
+    if ($txt.StartsWith([char]0xfeff)) { $txt = $txt.Substring(1) }
+    $txt = $txt -replace 'á','a' -replace 'é','e' -replace 'í','i' -replace 'ó','o' -replace 'ú','u'
+    $txt = $txt -replace 'Á','A' -replace 'É','E' -replace 'Í','I' -replace 'Ó','O' -replace 'Ú','U'
+    $txt = $txt -replace 'ñ','n' -replace 'Ñ','N' -replace '€','EUR'
+    if ($txt -ne $orig) {
+        [System.IO.File]::WriteAllText($f.FullName, $txt, [System.Text.Encoding]::ASCII)
+        Write-Host " [CORREGIDO] $($f.Name)" -ForegroundColor Yellow
+        $count++
+    }
+}
+Write-Host "`n[COMPLETADO]: $count archivos limpiados a G10 ASCII estricto.`n" -ForegroundColor Green
+'@
+[System.IO.File]::WriteAllText("$PWD\fix-ascii-and-boms.ps1", $fixContent, [System.Text.Encoding]::UTF8)
+Write-Host "-> fix-ascii-and-boms.ps1 guardado en disco." -ForegroundColor Green

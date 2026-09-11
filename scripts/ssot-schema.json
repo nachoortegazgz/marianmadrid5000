@@ -1,0 +1,238 @@
+{
+  "version": "v5002.4",
+  "collections": {
+    "SERVICIOS_CATALOGO": {
+      "collectionId": "ServiciosCatalogo",
+      "fields": ["serviceId", "titulo", "descripcion", "duracionMinutos", "precio", "categoria", "activo", "phase1Duration", "exposureDuration", "phase2Duration", "totalDuration", "allowCombine", "currency", "mainMedia", "imageUrl"],
+      "forbiddenLegacyIds": ["primaryServiceGuid", "secondaryServiceGuid", "tiempoFase1", "tiempoExposicion", "tiempoFase2", "nombreCategoria", "moneda"],
+      "intraducibles": ["slot", "lock", "staff", "serviceId", "phase1Duration", "exposureDuration", "phase2Duration"],
+      "immutabilityHooks": []
+    },
+    "COMPLEMENTOS_CATALOGO": {
+      "collectionId": "ComplementosCatalogo",
+      "fields": ["addonId", "nombreComplemento", "descripcionComplemento", "precioComplemento", "categoriaName", "currency", "activo"],
+      "forbiddenLegacyIds": ["nombreCategoria", "moneda"],
+      "intraducibles": ["addonId", "currency"],
+      "immutabilityHooks": []
+    },
+    "MAPA_STAFF": {
+      "collectionId": "MapaStaff",
+      "fields": ["resourceId", "staffMemberId", "displayName", "nombreStaff", "roles", "activo", "email", "telefono"],
+      "forbiddenLegacyIds": ["staffId", "empleada", "resourceName", "nombreVisible", "idMiembroStaff"],
+      "intraducibles": ["staff", "resourceId", "staffMemberId", "displayName"],
+      "immutabilityHooks": ["beforeInsert", "beforeUpdate"]
+    },
+    "CITAS_F2": {
+      "collectionId": "CitasF2",
+      "fields": ["bookingId", "serviceId", "scheduleId", "resourceId", "pairToken", "uiPairToken", "startDate", "endDate", "startDateLocal", "endDateLocal", "dateYmd", "status", "paymentStatus", "bookingType", "contactDetails", "meta", "traceId", "_createdDate"],
+      "forbiddenLegacyIds": ["primaryServiceGuid", "secondaryServiceGuid", "staffId", "empleada", "estadoPago", "metodoPago"],
+      "intraducibles": ["slot", "lock", "staff", "bookingId", "serviceId", "scheduleId", "resourceId", "pairToken", "paymentStatus"],
+      "immutabilityHooks": []
+    },
+    "AVAILABILITY_DAYS_CACHE": {
+      "collectionId": "AvailabilityDaysCache",
+      "fields": ["dayKey", "serviceId", "resourceId", "slotsAvailable", "lastUpdated"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["slot", "dayKey", "serviceId", "resourceId"],
+      "immutabilityHooks": []
+    },
+    "DUAL_SLOT_CACHE": {
+      "collectionId": "DualSlotCache",
+      "fields": ["slotKey", "serviceId", "resourceId", "slotF1", "slotF2", "expiresAt", "certified"],
+      "forbiddenLegacyIds": ["lockKey", "ranura"],
+      "intraducibles": ["slot", "lock", "slotKey", "slotF1", "slotF2"],
+      "immutabilityHooks": []
+    },
+    "BOOKING_TRANSACTIONS": {
+      "collectionId": "BookingTransactions",
+      "fields": ["_id", "pairToken", "traceId", "payloadHash", "status", "result", "_createdDate"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["pairToken", "traceId"],
+      "immutabilityHooks": []
+    },
+    "BOOKINGS_SERVICE_SYNC_QUEUE": {
+      "collectionId": "BookingsServiceSyncQueue",
+      "fields": ["bookingId", "syncAttempt", "status", "lastError", "nextRetryAt"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["bookingId"],
+      "immutabilityHooks": []
+    },
+    "COMPENSACIONES_PENDIENTES": {
+      "collectionId": "CompensacionesPendientes",
+      "fields": ["_id", "kind", "status", "attempts", "payload", "createdAt", "updatedAt"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": [],
+      "immutabilityHooks": []
+    },
+    "M365_GRAPH_SYNC_QUEUE": {
+      "collectionId": "M365GraphSyncQueue",
+      "fields": ["movementId", "desiredPayload", "status", "attempts", "lastError"],
+      "forbiddenLegacyIds": ["importeContable", "fechaCreacion"],
+      "intraducibles": [],
+      "immutabilityHooks": []
+    },
+    "INVENTARIO_STOCK_VENTA": {
+      "collectionId": "InventarioStockVenta",
+      "fields": ["wixProductId", "wixVariantId", "stockActual", "lowStockAlert", "requiresWixReconciliation"],
+      "forbiddenLegacyIds": ["needsWixReconciliation", "minStock"],
+      "intraducibles": ["wixProductId", "wixVariantId"],
+      "immutabilityHooks": []
+    },
+    "MOVIMIENTOS_INVENTARIO": {
+      "collectionId": "MovimientosInventario",
+      "fields": ["productId", "variantId", "quantityDelta", "reason", "recordedAt"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["productId", "variantId"],
+      "immutabilityHooks": []
+    },
+    "INVENTARIO_STOCK_VENTA_CIERRE": {
+      "collectionId": "InventarioStockVentaCierre",
+      "fields": ["diaKey", "productId", "stockInicial", "stockFinal", "discrepancia"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["diaKey", "productId"],
+      "immutabilityHooks": []
+    },
+    "PROVEEDORES_LISTA": {
+      "collectionId": "ProveedoresLista",
+      "fields": ["proveedorId", "nombre", "nif", "contacto", "activo"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["proveedorId", "nif"],
+      "immutabilityHooks": []
+    },
+    "CAJA_ACTUAL": {
+      "collectionId": "CajaActual",
+      "fields": ["_id", "diaKey", "ejercicioFiscal", "periodoFiscal", "estado", "metalicoEsperado", "metalicoReal", "incidencias", "sequenceCounters"],
+      "forbiddenLegacyIds": ["numeroTicket"],
+      "intraducibles": ["diaKey", "ejercicioFiscal", "periodoFiscal"],
+      "immutabilityHooks": ["beforeRemove"]
+    },
+    "MOVIMIENTOS_CAJA": {
+      "collectionId": "MovimientosCaja",
+      "fields": ["_id", "diaKey", "mesKey", "ejercicioFiscal", "periodoFiscal", "tipoMovimiento", "movementType", "concepto", "description", "importeContable", "accountingAmount", "medioPago", "paymentMethod", "formaPago", "hashCadena", "currentRecordHash", "transactionId", "orderId", "reservaIdVinculada", "numTicketFactura", "invoiceNumber", "traceId", "resourceId", "registeredAt"],
+      "forbiddenLegacyIds": ["tipoFichaje", "motivoAjuste", "fechaOperacion", "tratamientoIva", "descripcionOperacion", "hashRegistroActual", "importeTotal", "fechaCreacion"],
+      "intraducibles": ["movementType", "paymentMethod", "currentRecordHash", "invoiceNumber", "accountingAmount", "taxableAmount", "taxAmount", "taxRate", "operationDate", "fiscalPeriod", "recordSource", "description", "totalAmount"],
+      "immutabilityHooks": ["beforeUpdate", "beforeRemove"]
+    },
+    "CONTROL_PARCIAL_X": {
+      "collectionId": "ControlParcialX",
+      "fields": ["_id", "diaKey", "ejercicioFiscal", "periodoFiscal", "metalicoCaja", "registradoPor", "timestamp"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["diaKey", "ejercicioFiscal", "periodoFiscal"],
+      "immutabilityHooks": []
+    },
+    "HISTORICO_CIERRES_Z": {
+      "collectionId": "HistoricoCierresZ",
+      "fields": ["_id", "diaKey", "ejercicioFiscal", "periodoFiscal", "ventasTotales", "ivaRepercutido", "firmaDigital", "hashCadena", "currentRecordHash"],
+      "forbiddenLegacyIds": ["fechaOperacion", "hashRegistroActual"],
+      "intraducibles": ["diaKey", "ejercicioFiscal", "periodoFiscal", "currentRecordHash", "operationDate"],
+      "immutabilityHooks": ["beforeUpdate", "beforeRemove"]
+    },
+    "SECUENCIA_TICKETS": {
+      "collectionId": "SecuenciaTickets",
+      "fields": ["_id", "ejercicioFiscal", "ultimoNumero", "ultimaActualizacion"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["ejercicioFiscal"],
+      "immutabilityHooks": []
+    },
+    "CONFIGURACION_FISCAL": {
+      "collectionId": "ConfiguracionFiscal",
+      "fields": ["_id", "nifEmpresa", "nombreEmpresa", "direccionFiscal", "activa", "ejercicioFiscalActual"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["nifEmpresa"],
+      "immutabilityHooks": []
+    },
+    "LIBRO_IVA_FACTURAS_EXPEDIDAS": {
+      "collectionId": "LibroIVAFacturasExpedidas",
+      "fields": ["_id", "invoiceNumber", "issueDate", "operationDate", "taxableAmount", "taxAmount", "totalAmount", "taxRate", "recipientNif", "recipientName", "currentRecordHash", "digitalSignature"],
+      "forbiddenLegacyIds": ["numTicketFactura", "fechaExpedicion", "fechaOperacion", "baseImponible", "cuotaIva", "importeTotal", "tasaIva", "hashCadena"],
+      "intraducibles": ["invoiceNumber", "issueDate", "operationDate", "taxableAmount", "taxAmount", "totalAmount", "taxRate", "currentRecordHash"],
+      "immutabilityHooks": []
+    },
+    "LIBRO_IVA_FACTURAS_RECIBIDAS": {
+      "collectionId": "LibroIVAFacturasRecibidas",
+      "fields": ["_id", "invoiceNumber", "issueDate", "operationDate", "taxableAmount", "taxAmount", "totalAmount", "taxRate", "supplierNif", "supplierName", "currentRecordHash", "digitalSignature"],
+      "forbiddenLegacyIds": ["numTicketFactura", "fechaExpedicion", "fechaOperacion", "baseImponible", "cuotaIva", "importeTotal", "tasaIva", "hashCadena"],
+      "intraducibles": ["invoiceNumber", "issueDate", "operationDate", "taxableAmount", "taxAmount", "totalAmount", "taxRate", "currentRecordHash"],
+      "immutabilityHooks": []
+    },
+    "PLAN_CUENTAS_CONTABLES": {
+      "collectionId": "PlanCuentasContables",
+      "fields": ["_id", "categoriaOperacion", "codigoCuentaDebePredeterminada", "nombreCuentaDebePredeterminada", "codigoCuentaHaberPredeterminada", "nombreCuentaHaberPredeterminada", "codigoCuentaIvaRepercutido", "nombreCuentaIvaRepercutido", "activa", "validadaPorGestoria"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": [],
+      "immutabilityHooks": []
+    },
+    "ASIENTOS_CONTABLES": {
+      "collectionId": "AsientosContables",
+      "fields": ["_id", "idAsiento", "numeroAsiento", "ejercicioFiscal", "periodoFiscal", "operationDate", "fechaHoraRegistro", "zonaHorariaOperacion", "tipoAsiento", "categoriaOperacion", "conceptoAsiento", "origenRegistro", "idOrigen", "idTransaccion", "referenciaExterna", "numeroFactura", "importeTotalDocumento", "medioPago", "estadoAsiento", "totalDebe", "totalHaber", "hashAsiento", "firmaAsiento"],
+      "forbiddenLegacyIds": ["seqGlobal", "fechaCreacion", "tipoMovimiento", "concepto", "origen", "numTicketFactura", "importeContable", "formaPago", "hashCadena"],
+      "intraducibles": ["operationDate", "totalDebit", "totalCredit"],
+      "immutabilityHooks": []
+    },
+    "LINEAS_ASIENTO_CONTABLE": {
+      "collectionId": "LineasAsientoContable",
+      "fields": ["_id", "idLineaAsiento", "idAsiento", "numeroLinea", "operationDate", "codigoCuentaContable", "nombreCuentaContable", "importeDebe", "importeHaber", "importeNeto", "categoriaOperacion", "descripcionLinea", "baseImponible", "tipoIva", "cuotaIva", "idTraza", "hashLinea"],
+      "forbiddenLegacyIds": ["entryNumber", "entryLineId", "fechaCreacion"],
+      "intraducibles": ["operationDate", "lineNumber", "lineHash", "taxRate", "taxableAmount", "taxAmount"],
+      "immutabilityHooks": []
+    },
+    "LIBRO_MAYOR_CONTABLE_SALDOS": {
+      "collectionId": "LibroMayorContableSaldos",
+      "fields": ["_id", "codigoCuenta", "nombreCuenta", "ejercicioFiscal", "periodoFiscal", "saldoDeudor", "saldoAcreedor", "ultimaActualizacion"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["ejercicioFiscal", "periodoFiscal"],
+      "immutabilityHooks": []
+    },
+    "EVENTOS_SISTEMA_FACTURACION": {
+      "collectionId": "EventosSistemaFacturacion",
+      "fields": ["_id", "eventType", "timestamp", "payload", "processed", "error"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": ["eventType"],
+      "immutabilityHooks": ["beforeUpdate", "beforeRemove"]
+    },
+    "MM_AUDIT_LOG": {
+      "collectionId": "MmAuditLog",
+      "fields": ["_id", "loggedAt", "level", "message", "context", "traceId"],
+      "forbiddenLegacyIds": ["fechaLog"],
+      "intraducibles": ["loggedAt"],
+      "immutabilityHooks": []
+    },
+    "REGISTROS_HORARIOS_STAFF": {
+      "collectionId": "RegistrosHorariosStaff",
+      "fields": ["_id", "resourceId", "staffMemberId", "displayName", "recordedAt", "clockEventType", "adjustmentReason", "dayKey", "monthKey", "recordedTime"],
+      "forbiddenLegacyIds": ["empleada", "resourceName", "tipoFichaje", "motivoAjuste", "fechaHora", "hora"],
+      "intraducibles": ["staff", "resourceId", "staffMemberId", "displayName", "clockEventType", "recordedAt", "dayKey", "monthKey"],
+      "immutabilityHooks": ["beforeUpdate", "beforeRemove"]
+    },
+    "SLOT_LOCKS": {
+      "collectionId": "SlotLocks",
+      "fields": ["_id", "slotKey", "ownerId", "status", "createdAt", "expiresAt", "releasedAt", "ttlMs"],
+      "forbiddenLegacyIds": ["lockKey", "MmLocks"],
+      "intraducibles": ["slot", "lock", "slotKey"],
+      "immutabilityHooks": []
+    },
+    "RATE_LIMIT_BLOCKS": {
+      "collectionId": "RateLimitBlocks",
+      "fields": ["_id", "key", "count", "windowStart", "blockedUntil"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": [],
+      "immutabilityHooks": []
+    },
+    "ALERTAS_OPERATIVAS": {
+      "collectionId": "AlertasOperativas",
+      "fields": ["_id", "tipo", "severidad", "mensaje", "timestamp", "resuelta"],
+      "forbiddenLegacyIds": [],
+      "intraducibles": [],
+      "immutabilityHooks": []
+    }
+  },
+  "globalForbiddenLegacyIds": ["primaryServiceGuid", "secondaryServiceGuid", "staffId", "empleada", "lockKey", "resourceName", "MmLocks", "CONCILIACION_STOCK_WIX", "SYNC_M365", "AVAILABILITY_SLOTS_CACHE", "tiempoFase1", "tiempoExposicion", "tiempoFase2", "nombreCategoria", "moneda", "numeroTicket", "estadoPago", "metodoPago", "tipoFichaje", "motivoAjuste", "fechaOperacion", "tratamientoIva", "descripcionOperacion", "hashRegistroActual", "importeTotal", "fechaCreacion", "nombreVisible", "idMiembroStaff", "fechaLog", "needsWixReconciliation", "minStock", "entryNumber", "entryLineId"],
+  "globalIntraducibles": ["slot", "lock", "staff", "serviceId", "resourceId", "staffMemberId", "bookingId", "scheduleId", "pairToken", "slotKey", "traceId", "transactionId", "orderId", "refundId", "wixProductId", "wixVariantId", "invoiceNumber", "currentRecordHash", "digitalSignature", "paymentStatus", "movementType", "paymentMethod", "accountingAmount", "taxableAmount", "taxAmount", "taxRate", "operationDate", "fiscalPeriod", "recordSource", "description", "totalAmount", "totalDebit", "totalCredit", "lineNumber", "lineHash", "loggedAt", "clockEventType", "recordedAt", "dayKey", "monthKey", "displayName"],
+  "immutabilityRules": {
+    "MovimientosCaja": ["beforeUpdate", "beforeRemove"],
+    "HistoricoCierresZ": ["beforeUpdate", "beforeRemove"],
+    "EventosSistemaFacturacion": ["beforeUpdate", "beforeRemove"],
+    "RegistrosHorariosStaff": ["beforeUpdate", "beforeRemove"],
+    "CajaActual": ["beforeRemove"]
+  }
+}
