@@ -280,7 +280,7 @@ export function CajaActual_beforeUpdate(item) {
 }
 
 export function CajaActual_beforeRemove(_itemId) {
-  throw new Error("singletonProtected: Direct deletion of cajaActual is forbidden.");
+  throw new Error("SINGLETON_PROTECTED: Direct deletion of cajaActual is forbidden.");
 }
 
 // [D-02] Eliminados alias legacy:

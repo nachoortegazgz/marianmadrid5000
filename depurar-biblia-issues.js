@@ -93,7 +93,7 @@ for (let i = 70; i < 110; i++) {
   if (inTable && line.includes('| ---')) {
     continue;
   }
-  if (inTable && line.match(/^\|)\s+\d+\s+\|/)) {
+  if (inTable && line.match(/^\|\s+\d+\s+\|/)) {
     const match = line.match(/^\|\s*(\d+)\s+\|/);
     if (match) {
       tableRows.push({ id: parseInt(match[1]), line: i + 1, content: line.trim() });
