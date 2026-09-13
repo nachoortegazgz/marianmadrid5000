@@ -21,7 +21,7 @@
    CAJA_STATUS,
  } from "backend/internalConfig";
  import { SECRETS } from "backend/mmSecrets";
- import { requireCajero } from "backend/security";
+ import { requireCajero, requireAdmin, rateLimiter } from "backend/security";
  import {
    hashSHA256,
    hashChain,
@@ -34,6 +34,7 @@
    _safeTrim,
    _cleanText,
    _stableSerialize,
+   _normalizeIdPart,
    _readDate,
    _readPositiveAmount,
    _readNonNegativeAmount,
@@ -120,17 +121,6 @@
    const payloadHash = hashSHA256(payloadStr);
    return `${hmac}|${payloadHash}`;
  }
- function _verifyMovement(movement, previousHash) {
-   if ((movement.previousRecordHash || GENESIS_HASH) !== previousHash) {
-     return false;
-   }
-   const payloadStr = _buildLedgerPayload(movement);
-   const expectedHash = hashChain(previousHash, payloadStr);
-   if (typeof timingSafeEqual === "function") {
-     return timingSafeEqual(expectedHash, movement.currentRecordHash || "");
-   }
-   return expectedHash === movement.currentRecordHash;
- }
  // ============================================================================
  // SEQUENCE COUNTER (ATOMIC)
  // ============================================================================
@@ -200,13 +190,8 @@
        // 2. Get previous hash
        const lastMov = await _getLastMovement(traceId);
        const previousRecordHash = lastMov?.currentRecordHash || GENESIS_HASH;
-       // 3. Calculate tax (normalize rate: accept 21 or 0.21)
-       let taxRate = Number(payload?.taxRate);
-       if (!taxRate || taxRate <= 0) {
-         taxRate = IVA_RATES.GENERAL;
-       } else if (taxRate > 1) {
-         taxRate = taxRate / 100;
-       }
+       // 3. Calculate tax
+       const taxRate = Number(payload?.taxRate) || IVA_RATES.GENERAL;
        const taxableAmount = _roundMoney(amount / (1 + taxRate));
        const taxAmount = _roundMoney(amount - taxableAmount);
        // 4. Build canonical payload
@@ -634,12 +619,6 @@
      payload.title = `LEDGER_MOVEMENT ${movimiento.transactionId || movimiento.invoiceNumber}`;
      payload.integrityHash = hashSHA256(_stableSerialize(payload));
      const queueId = `m365-graph-${hashSHA256(_stableSerialize(payload)).slice(0, 56)}`;
-     // Check for existing pending record to prevent duplicates
-     const existing = await wixData.get(queueCol, queueId, { suppressAuth: true }).catch(() => null);
-     if (existing && existing.status === "PENDING") {
-       log.info("M365 sync already queued", { traceId, queueId });
-       return;
-     }
      const queueRecord = {
        _id: queueId,
        payload,
@@ -651,7 +630,7 @@
        _createdDate: new Date(),
        _updatedDate: new Date(),
      };
-     await wixData.save(queueCol, queueRecord, { suppressAuth: true });
+     await wixData.insert(queueCol, queueRecord, { suppressAuth: true });
    } catch (err) {
      log.error("_enqueueM365Sync failed", { traceId, error: err?.message });
    }
@@ -751,10 +730,7 @@
      const expectedCash = _roundMoney(caja?.cashBalance || 0);
      const discrepancyAmount = _roundMoney(countedCash - expectedCash);
      const reconciliationStatus = Math.abs(discrepancyAmount) < 0.01 ? "CUADRADO" : "DESCUADRE";
-     // Use deterministic ID for idempotency
-     const xCountId = `X_${cleanDiaKey}_${hashSHA256(String(countedCash)).slice(0, 16)}`;
-     const res = await wixData.save(COLLECTIONS.CONTROL_PARCIAL_X, {
-       _id: xCountId,
+     const res = await wixData.insert(COLLECTIONS.CONTROL_PARCIAL_X, {
        operationDate: cleanDiaKey,
        countedCash,
        expectedCash,
@@ -764,7 +740,6 @@
        reconciledAt: new Date(),
        traceId,
        _createdDate: new Date(),
-       _updatedDate: new Date(),
      }, { suppressAuth: true });
      return { status: "SUCCESS", data: res, error: null };
    } catch (err) {
@@ -920,49 +895,38 @@
  export async function verifyFiscalHashChainIntegrity(options = {}) {
    const traceId = options.traceId || makeTraceId("hash-audit");
    const batchSize = Number(options.limit) || LEDGER_PAGE_SIZE;
-   const maxPages = Number(options.maxPages) || MAX_LEDGER_BATCH_PAGES;
    const breaks = [];
-   let checkedCount = 0;
-   let pagesProcessed = 0;
    try {
-     let result = await wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
-       .ascending("sequenceNumber")
+     const movements = await wixData.query(COLLECTIONS.MOVIMIENTOS_CAJA)
+       .ascending("registeredAt")
        .limit(batchSize)
        .find({ suppressAuth: true });
      let expectedPrev = GENESIS_HASH;
-     while (result && pagesProcessed < maxPages) {
-       for (const mov of result.items || []) {
-         checkedCount++;
-         if (!_verifyMovement(mov, expectedPrev)) {
-           breaks.push({
-             movementId: mov._id,
-             invoiceNumber: mov.invoiceNumber,
-             sequenceNumber: mov.sequenceNumber,
-             expectedPreviousHash: expectedPrev,
-             actualPreviousHash: mov.previousRecordHash,
-             currentRecordHash: mov.currentRecordHash,
-           });
-         }
-         expectedPrev = mov.currentRecordHash || expectedPrev;
+     for (const mov of movements.items || []) {
+       if (mov.previousRecordHash && mov.previousRecordHash !== expectedPrev) {
+         breaks.push({
+           movementId: mov._id,
+           invoiceNumber: mov.invoiceNumber,
+           expected: expectedPrev,
+           actual: mov.previousRecordHash,
+         });
        }
-       if (!result.hasNext()) break;
-       result = await result.next();
-       pagesProcessed++;
+       expectedPrev = mov.currentRecordHash;
      }
      if (breaks.length > 0) {
        await wixData.insert(COLLECTIONS.MM_AUDIT_LOG, {
-         _id: `AUDIT_HASH_${traceId}_${Date.now()}`,
+         _id: `AUDIT_HASH_${Date.now()}`,
          eventType: "FISCAL_CHAIN_CORRUPTED",
          level: "CRITICAL",
-         message: `Detectadas ${breaks.length} rupturas en la cadena hash fiscal`,
-         data: { breaksCount: breaks.length, totalChecked: checkedCount, details: breaks.slice(0, 10) },
+         message: `Detectadas ${breaks.length} rupturas en la cadena de facturas`,
+         data: { breaksCount: breaks.length, details: breaks.slice(0, 5) },
          loggedAt: new Date(),
          traceId,
        }, { suppressAuth: true });
      }
      return {
        status: breaks.length === 0 ? "SUCCESS" : "INTEGRITY_COMPROMISED",
-       data: { checked: checkedCount, breaksCount: breaks.length, breaks, pagesProcessed },
+       data: { checked: movements.items.length, breaksCount: breaks.length, breaks },
        error: null,
      };
    } catch (err) {
