@@ -26,7 +26,6 @@ import {
   getMadridLocalStringNoZ,
   _executeWithRetry,
   _hashKey,
-  _generateUUID,
   withTimeout,
   BOOKINGS_ADDON_CONFIG,
   STAFF_DEFAULT_NAME,
@@ -356,13 +355,59 @@ export async function _resolveServiceIdInternal(serviceIdReq) {
 }
 
 export async function _resolveStaffForSlotInternal(serviceId, start1, end1, start2, end2, resourceId) {
-  return resolveStaffForSlot(
-    serviceId,
-    start1,
-    resourceId,
-    [],
-    start2 ? { start2, end2 } : null
+  const traceId = makeTraceId("staff-internal");
+  const resolved = await resolveServiceId(serviceId);
+  const canonicalServiceId = resolved?.data;
+  if (!canonicalServiceId) return null;
+  const svcRes = await _getServiceBySlugOrIdInternal(canonicalServiceId, traceId);
+  const serviceCfg = svcRes?.data;
+  if (!serviceCfg) return null;
+  const dateYMD = String(start1).slice(0, 10);
+  const isAnyStaff = !resourceId || ["all", "any"].includes(String(resourceId).trim().toLowerCase());
+  const slotsF1 = await _listTimeSlotsV2({
+    serviceId: canonicalServiceId,
+    fromLocalDate: `${dateYMD}T00:00:00`,
+    toLocalDate: `${dateYMD}T23:59:59`,
+    resourceIds: isAnyStaff ? [] : _normalizeResourceIds(resourceId, traceId),
+  }, { skipCache: true });
+  const slotF1 = (slotsF1 || []).find(
+    (s) => _normalizeLocalIsoStr(s.localStartDate) === _normalizeLocalIsoStr(start1)
   );
+  if (!slotF1) return null;
+  let candidateResourceIds = _extractResourceIdsFromSlot(slotF1);
+  let slotF2 = null;
+  if (start2 && serviceCfg.linkedPhases) {
+    const resolvedSecondary = await resolveServiceId(serviceCfg.linkedPhases);
+    const secondaryId = resolvedSecondary?.data;
+    if (secondaryId) {
+      const nextF2 = await _findNextSlotForServiceInternal(
+        secondaryId,
+        start2,
+        isAnyStaff ? null : _safeTrim(resourceId),
+        traceId
+      );
+      if (nextF2?.status === "SUCCESS" && nextF2?.data?.slot) {
+        slotF2 = nextF2.data.slot;
+        const candidatesF2 = _extractResourceIdsFromSlot(slotF2);
+        candidateResourceIds = candidateResourceIds.filter((id) => candidatesF2.includes(id));
+      }
+    }
+  }
+  if (!candidateResourceIds.length) return null;
+  const requestedResourceId = isAnyStaff ? "" : _safeTrim(resourceId);
+  if (requestedResourceId && !candidateResourceIds.includes(requestedResourceId)) return null;
+  const finalResourceId = isAnyStaff ?
+    await _pickLeastLoadedResource(candidateResourceIds, dateYMD, traceId) :
+    requestedResourceId;
+  if (!finalResourceId) return null;
+  const finalResourceName = (await _getStaffDisplayName(finalResourceId)) || STAFF_DEFAULT_NAME;
+  return {
+    slotF1: { ...slotF1, serviceId: canonicalServiceId },
+    slotF2: slotF2 ? { ...slotF2, serviceId: serviceCfg.linkedPhases } : null,
+    resourceId: finalResourceId,
+    displayName: finalResourceName,
+    dayYMD: dateYMD,
+  };
 }
 
 function _extractResourceIdsFromSlot(slot) {
